@@ -27,9 +27,9 @@ def response_node(state: AgentState) -> AgentState:
     grounded in the deterministic risk assessment. LLM explains, rules decide.
     """
     risk = state.get("risk_level", "LOW")
-    wind = state.get("wind_kmh", 0.0)
-    wave = state.get("wave_m", 0.0)
-    rain = state.get("rainfall_mm", 0.0)
+    wind = state.get("wind_speed_10m", 0.0)
+    wave = state.get("wave_height", 0.0)
+    rain = state.get("precipitation", 0.0)
     lightning = state.get("lightning", False)
     cyclone = state.get("cyclone", False)
     confidence = state.get("confidence", 50)

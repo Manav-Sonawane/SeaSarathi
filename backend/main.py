@@ -62,9 +62,11 @@ class ChatRequest(BaseModel):
 
 class ChatResponse(BaseModel):
     risk_level: str             # "LOW" | "MODERATE" | "HIGH"
-    wind_kmh: float
-    wave_m: float
-    rainfall_mm: float
+    wind_speed_10m: float
+    wave_height: float
+    precipitation: float
+    visibility: float
+    wind_gusts_10m: float
     lightning: bool
     cyclone: bool
     recommendation: str
@@ -104,9 +106,11 @@ async def chat(request: ChatRequest):
                 "longitude": request.longitude,
                 "intent": "",
                 "risk_level": "LOW",
-                "wind_kmh": 0.0,
-                "wave_m": 0.0,
-                "rainfall_mm": 0.0,
+                "wind_speed_10m": 0.0,
+                "wave_height": 0.0,
+                "precipitation": 0.0,
+                "visibility": 0.0,
+                "wind_gusts_10m": 0.0,
                 "lightning": False,
                 "cyclone": False,
                 "recommendation": "",
@@ -121,9 +125,11 @@ async def chat(request: ChatRequest):
         # Stub response while agents are being built
         return ChatResponse(
             risk_level="LOW",
-            wind_kmh=12.0,
-            wave_m=1.2,
-            rainfall_mm=0.0,
+            wind_speed_10m=12.0,
+            wave_height=1.2,
+            precipitation=0.0,
+            visibility=10000.0,
+            wind_gusts_10m=15.0,
             lightning=False,
             cyclone=False,
             recommendation=(

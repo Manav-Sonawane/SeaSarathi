@@ -31,7 +31,7 @@ def risk_agent(state: AgentState) -> AgentState:
         }
 
     # ── RULE 2: Wind Speed (km/h) ────────────────────────────────────────────
-    wind = state.get("wind_kmh", 0.0)
+    wind = state.get("wind_speed_10m", 0.0)
     if wind > 46:          # > 25 knots
         score -= 40
         reasons.append(f"High wind: {wind:.0f} km/h")
@@ -42,7 +42,7 @@ def risk_agent(state: AgentState) -> AgentState:
         reasons.append(f"Wind OK: {wind:.0f} km/h")
 
     # ── RULE 3: Wave Height (m) ──────────────────────────────────────────────
-    wave = state.get("wave_m", 0.0)
+    wave = state.get("wave_height", 0.0)
     if wave > 3.5:
         score -= 35
         reasons.append(f"Dangerous waves: {wave:.1f} m")
@@ -56,7 +56,7 @@ def risk_agent(state: AgentState) -> AgentState:
         reasons.append(f"Waves OK: {wave:.1f} m")
 
     # ── RULE 4: Heavy Rainfall ────────────────────────────────────────────────
-    rain = state.get("rainfall_mm", 0.0)
+    rain = state.get("precipitation", 0.0)
     if rain > 50:
         score -= 20
         reasons.append(f"Heavy rainfall: {rain:.0f} mm")
