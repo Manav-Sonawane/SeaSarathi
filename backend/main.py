@@ -117,7 +117,7 @@ async def chat(request: ChatRequest):
                 "confidence": 0,
                 "sources": [],
             }
-            result = agent.invoke(initial_state)
+            result = await agent.ainvoke(initial_state)
             return ChatResponse(**result)
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")

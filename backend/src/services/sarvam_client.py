@@ -26,6 +26,11 @@ def sarvam_generate(prompt: str, max_tokens: int = 1024, temperature: float = 0.
     Calls Sarvam-105B chat completion and returns the assistant message text.
     Raises an exception if the API call fails (caller handles fallback).
 
+    Reasoning is disabled (reasoning_effort=None): sarvam-105b is a reasoning model
+    that defaults to reasoning_effort="medium" server-side, which burns most of the
+    token budget on a visible chain-of-thought dumped into `content` and adds several
+    seconds of latency. We need a short, direct final answer, not the scratchpad.
+
     Args:
         prompt: The full prompt string to send as a user message.
         max_tokens: Maximum tokens in the response.
@@ -60,6 +65,7 @@ def sarvam_generate(prompt: str, max_tokens: int = 1024, temperature: float = 0.
         ],
         "max_tokens": max_tokens,
         "temperature": temperature,
+        "reasoning_effort": None,
     }
 
     with httpx.Client(timeout=60.0) as client:
