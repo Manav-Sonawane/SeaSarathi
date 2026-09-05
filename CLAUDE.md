@@ -2,8 +2,9 @@
 
 ## Core System Context
 You must always read, respect, and apply the principles defined in the following workspace documentation before executing any code modifications, refactors, or feature designs:
-- **Product Context:** Refer to the requirements, goals, and logic outlined in `prd.md`.
-- **Engineering Standards:** Adhere strictly to the architecture, constraints, and instructions inside `execution.md`.
+- **Product Context:** Refer to the requirements, goals, and logic outlined in `PRD.md`.
+- **Engineering Standards:** Adhere strictly to the architecture, constraints, and instructions inside `EXECUTION.md`.
+- **Design Decisions:** Adhere strictly to the SCREENS, STYLES, and COLOR_PALETTE inside `DESIGN.md`.
 
 ## Development Commands
 - **Install dependencies:** `npm install`
