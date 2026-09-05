@@ -167,56 +167,189 @@ async def get_boundaries_geojson():
         return json.load(f)
 
 
-# ─── PFZ Endpoint ──────────────────────────────────────────────────────────────
+# ─── PFZ Endpoint ──────────────────────────────────────────────────────────────────
 
 @app.get("/pfz/nearest", summary="Nearest PFZ Zones")
 async def get_nearest_pfz(latitude: float = 8.5, longitude: float = 76.2, limit: int = 5):
     """
-    Returns the {limit} nearest PFZ zones to the given coordinates,
-    sorted by Haversine distance (km). Adds mock SST + Chlorophyll.
+    Returns the {limit} nearest Potential Fishing Zones sorted by Haversine distance (km).
+    Each zone includes name, distance, compass direction, confidence score,
+    and SST/Chlorophyll placeholders (Copernicus integration pending).
     """
     from src.utils.geo import find_nearest_zones
-    pfz_path = os.path.join(DATA_DIR, "pfz_zones.geojson")
+    import math
+
+    pfz_path = os.path.join(DATA_DIR, "PFZ.geojson")
     if not os.path.exists(pfz_path):
-        raise HTTPException(status_code=404, detail="pfz_zones.geojson not found")
+        raise HTTPException(status_code=404, detail="PFZ.geojson not found in /data/static/")
     with open(pfz_path) as f:
         pfz_geojson = json.load(f)
+
     nearest = find_nearest_zones(latitude, longitude, pfz_geojson, n=limit)
-    # Augment with mock ocean data (real data added in Day 2 data agent)
+
+    def bearing(lat1, lon1, lat2, lon2) -> str:
+        d_lon = math.radians(lon2 - lon1)
+        lat1_r, lat2_r = math.radians(lat1), math.radians(lat2)
+        x = math.sin(d_lon) * math.cos(lat2_r)
+        y = math.cos(lat1_r) * math.sin(lat2_r) - math.sin(lat1_r) * math.cos(lat2_r) * math.cos(d_lon)
+        angle = (math.degrees(math.atan2(x, y)) + 360) % 360
+        dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
+        return dirs[int((angle + 22.5) / 45) % 8]
+
     for zone in nearest:
-        zone["sst"] = 27.2
-        zone["chlorophyll"] = 0.85
-        zone["confidence"] = max(30, 100 - int(zone["distance_km"] / 2))
-    return {"zones": nearest, "query_lat": latitude, "query_lon": longitude}
+        d = zone["distance_km"]
+        zone["confidence"] = max(20, min(100, int(100 - d * 1.5)))
+        zone["direction"] = bearing(latitude, longitude, zone["centroid_lat"], zone["centroid_lon"])
+        zone["sst"] = None
+        zone["chlorophyll"] = None
+        zone["data_note"] = "SST and Chlorophyll pending Copernicus integration"
+
+    return {"zones": nearest, "count": len(nearest), "query_lat": latitude, "query_lon": longitude}
 
 
-# ─── Alerts Endpoint (Stub) ───────────────────────────────────────────────────
+# ─── Landing Locations Endpoint ─────────────────────────────────────────────────────────────
+
+@app.get("/landing/nearest", summary="Nearest Landing Locations")
+async def get_nearest_landing(latitude: float = 8.5, longitude: float = 76.2, limit: int = 5):
+    """
+    Returns the {limit} nearest fish landing centers to the given coordinates.
+    Data from LANDING-LOCATIONS.geojson (1223 locations across India).
+    Each result includes name, district, sector, and distance in km.
+    """
+    from src.utils.geo import find_nearest_landing_sites
+    landing_path = os.path.join(DATA_DIR, "LANDING-LOCATIONS.geojson")
+    if not os.path.exists(landing_path):
+        raise HTTPException(status_code=404, detail="LANDING-LOCATIONS.geojson not found")
+    with open(landing_path) as f:
+        landing_geojson = json.load(f)
+    sites = find_nearest_landing_sites(latitude, longitude, landing_geojson, n=limit)
+    return {"sites": sites, "count": len(sites), "query_lat": latitude, "query_lon": longitude}
+
+
+@app.get("/geofence/check", summary="Maritime Boundary Geofence Check")
+async def geofence_check(latitude: float = 8.5, longitude: float = 76.2):
+    """
+    Checks if the given coordinates are near or crossing international maritime
+    boundaries or outside the India EEZ. Returns severity-sorted alerts.
+    Alert types: GEOFENCE_DANGER | GEOFENCE_WARNING | INTERNATIONAL_WATERS
+    """
+    from src.utils.geofence import check_geofence, is_in_indian_waters
+    alerts = check_geofence(latitude, longitude)
+    return {
+        "latitude": latitude,
+        "longitude": longitude,
+        "in_indian_waters": is_in_indian_waters(latitude, longitude),
+        "alert_count": len(alerts),
+        "alerts": alerts,
+    }
+
+
+# ─── Alerts Endpoint ───────────────────────────────────────────────────────────────────
 
 @app.get("/alerts", summary="Marine Safety Alerts")
 async def get_alerts(latitude: float = 8.5, longitude: float = 76.2):
     """
-    Returns active marine safety alerts for the given location.
-    Stub implementation - real geofencing + weather logic added Day 4.
+    Unified marine safety alerts combining geofence + weather checks.
+    Returns alerts sorted by severity (HIGH first).
     """
+    from src.utils.geofence import check_geofence
+    from src.services.weather_service import fetch_combined_forecasts_for_grid, generate_grid_point_id
+    import numpy as np
+    import pandas as pd
+
+    alerts = []
+
+    # 1. Geofence alerts
+    try:
+        for a in check_geofence(latitude, longitude):
+            alerts.append({
+                "type": a["type"], "severity": a["severity"],
+                "message": a["message"], "source": "geofence",
+                "metadata": {"boundary": a.get("boundary"), "distance_km": a.get("distance_km")}
+            })
+    except Exception as e:
+        print(f"[Alerts] Geofence error: {e}")
+
+    # 2. Weather alerts
+    try:
+        combined = fetch_combined_forecasts_for_grid(np.array([latitude]), np.array([longitude]))
+        point_id = generate_grid_point_id(latitude, longitude)
+        data = combined.get(point_id, {})
+        now_utc = pd.Timestamp.now(tz="UTC")
+
+        weather_df = data.get("general_weather_forecast")
+        if weather_df is not None and not weather_df.empty:
+            w = weather_df[weather_df["date"] <= now_utc + pd.Timedelta(hours=12)]
+            if w.empty: w = weather_df.head(12)
+            max_wind = float(w["wind_speed_10m"].max())
+            max_gust = float(w["wind_gusts_10m"].max())
+            total_rain = float(w["precipitation"].sum())
+            min_vis = float(w["visibility"].min())
+            max_code = int(w["weather_code"].dropna().max()) if not w["weather_code"].dropna().empty else 0
+
+            if max_wind > 46:
+                alerts.append({"type": "HIGH_WIND", "severity": "HIGH",
+                    "message": f"Dangerous winds: {max_wind:.0f} km/h (gusts {max_gust:.0f} km/h). Do not venture out.",
+                    "source": "open-meteo", "metadata": {"wind_speed_10m": max_wind, "wind_gusts_10m": max_gust}})
+            elif max_wind > 28:
+                alerts.append({"type": "MODERATE_WIND", "severity": "MODERATE",
+                    "message": f"Elevated winds: {max_wind:.0f} km/h. Exercise caution at sea.",
+                    "source": "open-meteo", "metadata": {"wind_speed_10m": max_wind}})
+            if total_rain > 50:
+                alerts.append({"type": "HEAVY_RAIN", "severity": "HIGH",
+                    "message": f"Heavy rainfall: {total_rain:.0f} mm in 12 hrs. Conditions will deteriorate.",
+                    "source": "open-meteo", "metadata": {"precipitation_mm": total_rain}})
+            if min_vis < 1000:
+                alerts.append({"type": "LOW_VISIBILITY", "severity": "MODERATE",
+                    "message": f"Low visibility: {min_vis/1000:.1f} km. Navigation risk increased.",
+                    "source": "open-meteo", "metadata": {"visibility_m": min_vis}})
+            if max_code >= 95:
+                alerts.append({"type": "THUNDERSTORM", "severity": "HIGH",
+                    "message": "Thunderstorm with lightning forecast. Do NOT go out to sea.",
+                    "source": "open-meteo", "metadata": {"weather_code": max_code}})
+
+        marine_df = data.get("marine_forecast")
+        if marine_df is not None and not marine_df.empty:
+            m = marine_df[marine_df["date"] <= now_utc + pd.Timedelta(hours=12)]
+            if m.empty: m = marine_df.head(12)
+            max_wave = float(m["wave_height"].max())
+            if max_wave > 3.5:
+                alerts.append({"type": "DANGEROUS_WAVES", "severity": "HIGH",
+                    "message": f"Dangerous waves: {max_wave:.1f} m. Small vessels must stay ashore.",
+                    "source": "open-meteo-marine", "metadata": {"wave_height_m": max_wave}})
+            elif max_wave > 2.0:
+                alerts.append({"type": "HIGH_WAVES", "severity": "MODERATE",
+                    "message": f"High waves: {max_wave:.1f} m. Avoid smaller vessels.",
+                    "source": "open-meteo-marine", "metadata": {"wave_height_m": max_wave}})
+    except Exception as e:
+        print(f"[Alerts] Weather error: {e}")
+        alerts.append({"type": "SYSTEM", "severity": "INFO",
+            "message": "Weather data unavailable. Check IMD for latest advisories.",
+            "source": "system", "metadata": {}})
+
+    sev_rank = {"HIGH": 0, "MODERATE": 1, "INFO": 2}
+    alerts.sort(key=lambda a: sev_rank.get(a["severity"], 99))
+
     return {
-        "alerts": [
-            {
-                "type": "INFO",
-                "message": "Alerts endpoint active. Weather + geofence integration coming Day 4.",
-                "source": "system",
-            }
-        ],
-        "query_lat": latitude,
-        "query_lon": longitude,
+        "alert_count": len(alerts),
+        "has_high_severity": any(a["severity"] == "HIGH" for a in alerts),
+        "alerts": alerts,
+        "latitude": latitude,
+        "longitude": longitude,
     }
 
 
-# ─── Data Status Endpoint ──────────────────────────────────────────────────────
+# ─── Data Status Endpoint ────────────────────────────────────────────────────────────
 
 @app.get("/data/status", summary="Data Freshness Status")
 async def data_status():
-    """Check which static data files are present."""
-    files = ["pfz_zones.geojson", "boundaries.geojson", "chlorophyll_historical.json", "sst_historical.json"]
+    """Check which static data files are present and their sizes."""
+    files = [
+        "PFZ.geojson",
+        "INDIA-EEZ.geojson",
+        "INDIAN-WATER-BOUNDARIES.geojson",
+        "LANDING-LOCATIONS.geojson",
+    ]
     status = {}
     for f in files:
         path = os.path.join(DATA_DIR, f)
