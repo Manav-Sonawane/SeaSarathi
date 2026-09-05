@@ -1,408 +1,472 @@
-# Marine Intelligence Platform - PRD & Architecture
+# Marine Intelligence Platform - PRD
 
 ## Executive Summary
-A 5-day hackathon build of an India-specific agentic marine intelligence system for fishermen and coastal stakeholders. Real-time safety assessment, PFZ discovery, and decision support using multilingual chat/voice, satellite ocean data (Copernicus), weather (Open-Meteo + IMD), and geospatial reasoning.
 
-**Team:** MNV (Backend/Agents) + ARP (Backend/Frontend)
-**Scope:** Core agentic system with deterministic marine tools. ML/Vision optional (Phase 5).
+A React Native mobile app for Indian coastal fishermen providing **real-time safety assessment, marine intelligence, and fishing zone recommendations** through an AI-powered chat interface backed by deterministic marine data analysis.
 
----
+**Not an LLM chatbot.** Every response is evidence-based with actual oceanographic data, weather conditions, and safety rules applied deterministically.
 
-## 1. PRODUCT REQUIREMENTS
-
-### 1.1 Core Features (MVP - Must Have)
-
-#### A. Multilingual Chat Interface
-- **Input:** Text query in EN/HI/TA (auto-detect)
-- **Processing:** Sarvam-105B agentic planning
-- **Output:** Structured response + explanations
-- **Languages:** English, Hindi, Tamil (Sarvam Translate)
-
-#### B. Safety Assessment (Real-Time)
-- **Rules-Based Engine:** IMD/INCOIS warnings override all
-- **Inputs:** 
-  - Wind (knots) from Open-Meteo
-  - Cyclone alerts from IMD
-  - Waves/Swell from Open-Meteo
-  - Visibility, lightning from IMD
-- **Output:** SAFE / CAUTION / DO NOT VENTURE + score (0-100) + reasons
-- **Data Freshness:** Updated 6-hourly from APIs
-
-#### C. PFZ (Potential Fishing Zone) Recommendation
-- **Data:** 52 zones (static GeoJSON) + historical chlorophyll/SST
-- **Query:** "Best zone near [lat/lon] today?"
-- **Logic:**
-  - Find nearest 5 zones
-  - Compare today's chlorophyll vs historical avg
-  - Flag if chlorophyll > 0.8 mg/m³ (high productivity)
-  - Filter by safety status
-  - Rank by accessibility + productivity
-- **Output:** Top 3 zones with distance, ETA, reasons
-
-#### D. Marine Weather Dashboard
-- **Metrics:**
-  - SST (Copernicus)
-  - Chlorophyll (Copernicus)
-  - Wind speed/direction (Open-Meteo)
-  - Wave height/swell (Open-Meteo)
-  - Cyclone track (IMD)
-  - Lightning risk (IMD)
-- **Format:** Interactive map with layer toggles
-- **Update Frequency:** 6-hourly
-
-#### E. Geofencing Alerts
-- **Boundaries:**
-  - India EEZ (200 nm)
-  - Pakistan-India boundary (alert if < 50 km)
-  - Sri Lanka-India boundary
-  - Marine Protected Areas (MPAs)
-  - Port restricted zones
-- **Alert:** "You are near [boundary name]"
-
-#### F. Route Optimization
-- **Input:** Current position + target PFZ
-- **Algorithm:** A* over marine cost grid
-- **Constraints:** Avoid high wave zones, cyclone cones, restricted areas
-- **Output:** Waypoints + distance + ETA
-
-#### G. Explainable Results
-- **Every response shows:**
-  - Data sources (Copernicus, IMD, Open-Meteo, INCOIS)
-  - Timestamp of data
-  - Confidence level
-  - Reasoning chain (why this zone / why not safe)
-
-### 1.2 Optional/Phase 2 Features
-
-- Voice I/O (Sarvam STT + Bulbul TTS)
-- Analytics mode (CMFRI correlation)
-- LightGBM PFZ prediction
-- Vision-based image analysis (Qwen2.5-VL)
+**Team:** MNV (Backend/Agents) + ARP (Mobile/Frontend)
+**Platform:** React Native + Expo (iOS/Android)
+**Duration:** 5-day hackathon
 
 ---
 
-## 2. ARCHITECTURE
+## 1. UNIQUE VALUE PROPOSITION (USP)
 
-### 2.1 System Diagram
+### For Fishermen:
+- ✅ **Deterministic Safety** - Not opinions, but real IMD/INCOIS/Copernicus data
+- ✅ **Before You Leave** - Ask "Can I fish tomorrow morning?" and get immediate risk assessment
+- ✅ **Visual Risk Map** - See exactly where it's safe (green), risky (yellow), dangerous (red)
+- ✅ **Geofencing Alerts** - Know when you're approaching restricted zones (international borders, MPAs)
+- ✅ **Actionable Recommendations** - "Fishing is possible but avoid zones beyond X km"
+
+### For Disaster Management:
+- ✅ **Early Warning System** - Cyclone/high wave detection feeds directly into alerts
+- ✅ **Marine Situational Awareness** - Real-time wind, waves, SST on interactive map
+- ✅ **Geospatial Intelligence** - EEZ boundaries, maritime zones, protected areas
+- ✅ **Decision Support** - Authorities can see risk distribution across fishing zones
+
+### Technical Edge:
+- ✅ **Hybrid Data Strategy** - Static 1-year baseline + daily API updates = anomaly detection
+- ✅ **Offline-First** - Works with cached data even if APIs are down
+- ✅ **Mobile-Native** - React Native for iOS + Android from single codebase
+- ✅ **Safety-First Architecture** - Rules override LLM; implication explicit evidence chains
+
+---
+
+## 2. PRODUCT REQUIREMENTS
+
+### 2.1 MVP Features (4 Screens)
+
+#### Screen 1: Home / AI Chat
+**Purpose:** Quick safety & fishing zone questions via conversational interface
+
+**Capabilities:**
+- Text input: "Can I go fishing tomorrow morning near Kochi?"
+- System responds with:
+  - **Risk Level** (LOW / MODERATE / HIGH)
+  - **Raw Data Display:**
+    - Wind speed (km/h)
+    - Wave height (m)
+    - Rainfall (mm)
+    - Lightning status
+    - Cyclone status
+  - **Recommendation Text** (generated by Sarvam-105B, but grounded in real data)
+  - **Evidence Trail:**
+    - "Based on: Open-Meteo (6h ago), Copernicus (today), IMD (live)"
+    - Confidence score (0-100%)
+  - **Quick Action Button:** [View Risk Map]
+
+**Technical Notes:**
+- NOT real-time translation (keep MVP simple; use English)
+- Input: Query text + user location (GPS or manual)
+- Output: JSON with risk_level, conditions, recommendation, sources, map_data
+- Response time: < 3 seconds (use cached data + fast inference)
+
+---
+
+#### Screen 2: Marine Map
+**Purpose:** Visualize real-time marine conditions with layered intelligence
+
+**Visual Layout:**
+```
+┌─────────────────────────────────────┐
+│   MARINE INTELLIGENCE MAP           │
+│   [Location: Kochi, IN]             │
+│   ┌─────────────────────────────┐   │
+│   │                             │   │
+│   │   🟢  🟡         🔴         │   │
+│   │                             │   │
+│   │    ⚠ Cyclone Track          │   │
+│   │                             │   │
+│   │  🚫 Restricted Zone (EEZ)   │   │
+│   │                             │   │
+│   └─────────────────────────────┘   │
+│                                     │
+│  Layer Toggles:                     │
+│  [SST] [Chlorophyll] [Wind]         │
+│  [Waves] [PFZ] [Risk] [Geofence]    │
+│                                     │
+│  Legend:                            │
+│  🟢 Low Risk  🟡 Moderate  🔴 High  │
+└─────────────────────────────────────┘
+```
+
+**Layers:**
+1. **Risk Heatmap** (0-100 score, color-coded)
+2. **SST** (Sea Surface Temperature, 24-30°C)
+3. **Chlorophyll** (Productivity 0-2 mg/m³)
+4. **Wind** (Speed + direction arrows)
+5. **Waves** (Wave height heatmap)
+6. **PFZ Zones** (52 zones as polygon overlays)
+7. **Geofence** (EEZ, maritime boundaries, MPAs in red)
+
+**Interaction:**
+- Tap a zone to see details (PFZ name, distance, conditions)
+- Toggle layers on/off (disable for performance)
+- Center on current location (GPS)
+- Pan/zoom standard map controls
+
+**Performance:**
+- Tile-based rendering (don't render all 52 zones at once)
+- Cache GeoJSON layers locally
+- Lazy-load data layers
+
+---
+
+#### Screen 3: PFZ / Fishing Intelligence
+**Purpose:** Show nearest high-confidence fishing zones with evidence
+
+**Layout:**
+```
+┌────────────────────────────────────┐
+│  FISHING ZONE INTELLIGENCE         │
+│                                    │
+│  Nearest Zone (18.4 km away)       │
+│  ┌──────────────────────────────┐  │
+│  │  📍 Zone Name: Kochi Bank-A  │  │
+│  │  🌊 SST: 27.2°C              │  │
+│  │  🟢 Chlorophyll: 1.82 mg/m³  │  │
+│  │  ⭐ Confidence: 87%           │  │
+│  │                              │  │
+│  │  Why this zone?              │  │
+│  │  ✓ High chlorophyll          │  │
+│  │  ✓ Suitable SST (25-30°C)    │  │
+│  │  ✓ Historical data: 8500 ton/yr│
+│  │  ✓ Low wind today            │  │
+│  │                              │  │
+│  │  [View on Map] [Get Route]   │  │
+│  └──────────────────────────────┘  │
+│                                    │
+│  Other Zones (Top 5)               │
+│  ├─ Zone B: 24.1 km (81% conf)    │
+│  ├─ Zone C: 31.2 km (76% conf)    │
+│  └─ ...                           │
+└────────────────────────────────────┘
+```
+
+**Data Shown:**
+- Zone name + distance
+- SST (from Copernicus)
+- Chlorophyll (from Copernicus)
+- Confidence score (how certain about productivity)
+- Why this zone is good (evidence bullets)
+- Historical productivity (from CMFRI data)
+- Top 5 ranked zones (scrollable)
+
+**Actions:**
+- Tap zone → show on map + center
+- [Get Route] → opens routing to zone
+- [View Details] → historical trends, monthly patterns
+
+---
+
+#### Screen 4: Safety / Alerts
+**Purpose:** Display real-time marine safety warnings and geofencing alerts
+
+**Alert Types:**
+
+**A. Weather/Ocean Alerts**
+```
+┌────────────────────────────────────┐
+│  ⚠ MARINE ALERT                    │
+│                                    │
+│  High Wave Conditions Detected     │
+│  near your selected zone           │
+│                                    │
+│  Wave Height: 3.4 m               │
+│  Wind Speed: 42 km/h              │
+│  Recommended Action: AVOID         │
+│                                    │
+│  Status: Updated 30 mins ago       │
+│  Source: Open-Meteo, IMD           │
+│                                    │
+│  [Acknowledge] [View Map]          │
+└────────────────────────────────────┘
+```
+
+**B. Geofencing Alerts**
+```
+┌────────────────────────────────────┐
+│  ⚠ GEOFENCING ALERT                │
+│                                    │
+│  You are approaching a             │
+│  Restricted Marine Zone            │
+│                                    │
+│  Zone Type: India-Pakistan Border  │
+│  Distance: 2.1 km                  │
+│  Action: TURN BACK                 │
+│                                    │
+│  [View Boundary] [Get Safe Route]  │
+└────────────────────────────────────┘
+```
+
+**C. Cyclone/Safety Warnings**
+```
+┌────────────────────────────────────┐
+│  🔴 CYCLONE ALERT                   │
+│                                    │
+│  DO NOT VENTURE OUT                │
+│                                    │
+│  Cyclone: Low Pressure System      │
+│  Movement: NW @ 15 km/h            │
+│  ETA: 24 hours                     │
+│  Status: IMD Alert Level 3         │
+│                                    │
+│  [More Info] [Contact Authority]   │
+└────────────────────────────────────┘
+```
+
+**Alert Feed:**
+- Stack of alerts by urgency (red > yellow > blue)
+- Each card dismissible with [Acknowledge]
+- Persistent banner for critical alerts (cyclone)
+- Alert history (scroll to see older alerts)
+
+**Types of Alerts to Show:**
+1. Cyclone/severe weather (IMD)
+2. High waves (Open-Meteo)
+3. High wind (Open-Meteo)
+4. Lightning warnings (IMD)
+5. Geofencing (boundaries crossed)
+6. Chlorophyll anomalies (sudden drop = fishing unlikely)
+
+---
+
+### 2.2 Out of Scope (Phase 2+)
+
+- Voice input/output (Sarvam STT/TTS)
+- Multilingual UI (only English MVP)
+- User accounts / login
+- Trip logging / history
+- Social features
+- ML-based PFZ prediction (use rules-based for now)
+- Advanced routing (A* pathfinding - nice to have)
+
+---
+
+## 3. ARCHITECTURE
+
+### 3.1 System Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    FRONTEND (React + Vite)                  │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │   Chat   │  │   Map    │  │  Voice   │  │Settings  │    │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
-└─────────────────────────────────────────────────────────────┘
-                            ↓
-┌─────────────────────────────────────────────────────────────┐
-│            FastAPI Server (Python) - Port 8000               │
-│                                                              │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │              LangGraph Agent Orchestration            │  │
-│  │                                                       │  │
-│  │  ┌────────────┐      ┌────────────┐                 │  │
-│  │  │  Planner   │─────→│ Router →   │                 │  │
-│  │  │(Sarvam-105B)      │Intent→Agent│                 │  │
-│  │  └────────────┘      └────────────┘                 │  │
-│  │        ↓        ↓        ↓        ↓                  │  │
-│  │  ┌────────┐ ┌────┐ ┌────────┐ ┌────────┐           │  │
-│  │  │ Data   │ │Geo │ │ Risk   │ │Response│           │  │
-│  │  │ Agent  │ │Agent│ │ Agent  │ │ Agent  │           │  │
-│  │  └────────┘ └────┘ └────────┘ └────────┘           │  │
-│  │     ↓        ↓        ↓           ↓                  │  │
-│  │  Tools:   Tools:   Rules:     Format:               │  │
-│  │  - APIs   - Geo    - Safety   - Response            │  │
-│  │  - Cache  - Routing- ML       - Explain             │  │
-│  │           - Buffer           - Translate           │  │
-│  └──────────────────────────────────────────────────────┘  │
-│                            ↓                               │
-│  ┌──────────────────────────────────────────────────────┐  │
-│  │              External Data Services                   │  │
-│  │  ┌────────────┐  ┌────────────┐  ┌────────────┐    │  │
-│  │  │ Copernicus │  │Open-Meteo  │  │ IMD API    │    │  │
-│  │  │(SST/Chl)   │  │(Wind/Wave) │  │(Cyclone)   │    │  │
-│  │  └────────────┘  └────────────┘  └────────────┘    │  │
-│  │                                                      │  │
-│  │  ┌────────────┐  ┌────────────┐                    │  │
-│  │  │PostgreSQL+ │  │   Redis    │                    │  │
-│  │  │  PostGIS   │  │   Cache    │                    │  │
-│  │  └────────────┘  └────────────┘                    │  │
-│  └──────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────┘
+┌───────────────────────────────┐
+│   React Native App (Expo)     │
+│   ┌──────────────┐            │
+│   │  Chat Screen │ ────┐      │
+│   ├──────────────┤     │      │
+│   │  Map Screen  │     │      │
+│   ├──────────────┤     │      │
+│   │  PFZ Screen  │     │      │
+│   ├──────────────┤     │      │
+│   │ Alert Screen │     │      │
+│   └──────────────┘     │      │
+│        Local Cache     │      │
+│   (GeoJSON, 1yr data)  │      │
+└───────────────────────────────┘
+         ↓ HTTPS ↓
+┌───────────────────────────────┐
+│    FastAPI Backend            │
+│    (:8000)                    │
+│                               │
+│  ┌─────────────────────────┐  │
+│  │  LangGraph Agents       │  │
+│  │  ┌──────────────────┐   │  │
+│  │  │ 1. Planner       │   │  │
+│  │  │ 2. Data          │   │  │
+│  │  │ 3. Geo/Risk      │   │  │
+│  │  │ 4. Response      │   │  │
+│  │  └──────────────────┘   │  │
+│  └─────────────────────────┘  │
+│                               │
+│  API Endpoints:               │
+│  POST /chat                   │
+│  GET  /geojson/*              │
+│  GET  /alerts                 │
+│  GET  /pfz/nearest            │
+│  GET  /risk/assess            │
+└───────────────────────────────┘
+         ↓ HTTPS ↓
+┌───────────────────────────────┐
+│   External Data APIs          │
+│  ┌──────────────────────────┐ │
+│  │ Copernicus (SST/Chl)     │ │
+│  │ Open-Meteo (Wind/Waves)  │ │
+│  │ IMD (Cyclone/Weather)    │ │
+│  └──────────────────────────┘ │
+└───────────────────────────────┘
 ```
 
-### 2.2 Backend Tech Stack
+### 3.2 Tech Stack
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| **API** | FastAPI | REST endpoints, async handlers |
-| **Agents** | LangGraph | Multi-agent orchestration, state |
-| **LLM** | Sarvam-105B | Planning, explanation, translation |
-| **Geospatial** | GeoPandas, Shapely | PFZ lookup, geofencing, routing |
-| **Routing** | Custom A* | Marine cost grid pathfinding |
-| **Database** | PostgreSQL + PostGIS | Spatial queries, PFZ/boundaries |
-| **Cache** | Redis | Session data, API responses |
-| **Marine APIs** | Copernicus, Open-Meteo, IMD | Real-time ocean/weather data |
+| **Mobile** | React Native + Expo | iOS/Android app |
+| **Navigation** | React Navigation | Screen stack + tabs |
+| **Maps** | react-native-maps + GeoJSON | Interactive marine map |
+| **Charts/Data** | react-native-svg | Risk visualization |
+| **State** | Redux or Zustand | Chat, alerts, map state |
+| **HTTP** | axios | API calls to backend |
+| **Local Storage** | AsyncStorage | Cached GeoJSON, user prefs |
+| **Backend** | FastAPI + Python | Agent orchestration |
+| **Agents** | LangGraph | Multi-node reasoning |
+| **LLM** | Sarvam-105B | Chat responses |
+| **Geospatial** | GeoPandas, Shapely | Boundary checks, distance |
+| **Database** | SQLite (local) | PFZ zones, historical data |
+| **APIs** | Copernicus, Open-Meteo, IMD | Live data |
 
-### 2.3 Frontend Tech Stack
+---
 
-| Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Framework** | React 18 + TypeScript | UI components, state |
-| **Build** | Vite | Fast bundling |
-| **Maps** | MapLibre GL JS or Leaflet | Interactive map |
-| **Styling** | Tailwind CSS | Responsive design |
-| **API Client** | Axios or Fetch | FastAPI communication |
-| **Voice** | Web Speech API | STT (fallback) |
+## 4. DESIGN DECISIONS
 
-### 2.4 Data Architecture
+### 4.1 Why React Native?
 
-#### Static (Save Locally - 88.6 MB)
+- ✅ Single codebase iOS + Android
+- ✅ Fast to prototype (Expo)
+- ✅ Large community for maps + native modules
+- ✅ Suitable for offline-first (AsyncStorage)
+
+### 4.2 Why Deterministic Rules > ML?
+
+- ✅ Safety-critical: fishermen's lives matter
+- ✅ Transparent: explain why (evidence-based)
+- ✅ Faster: no model inference latency
+- ✅ Reliable: rules don't hallucinate
+
+### 4.3 Why 4 Screens?
+
+- ✅ **Chat** - Quick QA (not chatbot, but evidence-based)
+- ✅ **Map** - Visual intelligence (core value)
+- ✅ **PFZ** - Fishing recommendations (domain-specific)
+- ✅ **Alerts** - Safety warnings (critical for disaster mgmt)
+
+Simple enough for 5-day hackathon. Powerful enough for real use.
+
+### 4.4 Why Static + Dynamic Data?
+
+**Static (88.6 MB local):**
+- 1 year of SST/Chlorophyll (baseline)
+- 52 PFZ zones
+- Boundaries, landing centers
+- 10 years of fish catch history
+
+**Dynamic (6-hourly API):**
+- Today's SST (Copernicus)
+- Today's Chlorophyll (Copernicus)
+- Today's wind/waves (Open-Meteo)
+- Live cyclone/weather (IMD)
+
+**Why:** Anomaly detection. "Today's Chl is 2x normal = high alert."
+
+### 4.5 Offline-First Design
+
+- App loads with cached data immediately
+- API calls update data in background
+- If APIs down, app still functional (stale but safe)
+- Local GeoJSON stored in AsyncStorage
+
+---
+
+## 5. DATA FLOW
+
+### Chat Flow
 ```
-/data/static/
-├── pfz_zones.geojson            (0.5 MB) - 52 zones
-├── chlorophyll_historical.json   (50 MB) - 1 year daily
-├── sst_historical.json           (30 MB) - 1 year daily
-├── fish_catch_history.csv        (5 MB) - 10 years
-├── boundaries.geojson            (3 MB) - EEZ, limits
-└── landing_centres.geojson       (0.1 MB)
-```
-
-#### Dynamic (Fetch & Auto-Delete - 130 MB)
-```
-/data/dynamic/
-├── chlorophyll_YYYY-MM-DD.json   (2 MB) - Keep 30 days
-├── sst_YYYY-MM-DD.json           (2 MB) - Keep 30 days
-└── weather_YYYY-MM-DD_HH00.json  (100 KB) - Keep 24 hours
-```
-
-### 2.5 Agent Workflow
-
-```
-User Query (Text/Voice)
+User: "Can I fish tomorrow morning?"
     ↓
-[1. PLANNER AGENT]
-├─ Parse intent (PFZ? Safety? Weather? Route?)
-├─ Detect location (lat/lon from query or user context)
-└─ Route to specialized agent(s)
+[Mobile] Extract: Location (Kochi), Time (tomorrow, morning)
+    ↓ POST /chat
+[Backend Planner Agent]
+    - Detect intent: SAFETY_CHECK
+    - Extract: lat=8.5, lon=77.5, time=tomorrow_0600
     ↓
-[2. DATA AGENT]
-├─ Load static PFZ zones from PostGIS
-├─ Fetch today's chlorophyll (Copernicus API)
-├─ Fetch today's SST (Copernicus API)
-├─ Fetch weather (Open-Meteo, IMD)
-└─ Compare with historical baseline
+[Backend Data Agent]
+    - Fetch Open-Meteo: wind, waves for tomorrow
+    - Fetch Copernicus: SST today, Chl today
+    - Fetch IMD: cyclone forecast
+    - Load static: 1-year baseline for comparison
     ↓
-[3. GEO AGENT]
-├─ Calculate distances (Haversine)
-├─ Check geofence boundaries
-├─ Identify nearest zones
-└─ Plan routes (A* if needed)
+[Backend Risk Agent]
+    - Apply rules: wind<25kt? wave<3m? cyclone=no?
+    - Score: 0-100
+    - If score >= 70: SAFE; 40-69: MODERATE; <40: HIGH
     ↓
-[4. RISK AGENT]
-├─ Load safety rules (deterministic)
-├─ Check IMD/INCOIS warnings (OVERRIDE)
-├─ Evaluate wind, waves, cyclone
-├─ Calculate safety score (0-100)
-└─ Flag anomalies
-    ↓
-[5. RESPONSE AGENT]
-├─ Format structured response
-├─ Add explanations + data sources
-├─ Translate to user language
-├─ Prepare map data (GeoJSON)
-└─ Send to frontend
-    ↓
-User Response + Map
+[Backend Response Agent]
+    - Sarvam: "Fishing is possible but avoid zones beyond X km"
+    - Evidence: "Wind 18km/h (safe), Wave 1.8m (ok), Chl 0.85 (good)"
+    - Confidence: 87%
+    ↓ JSON Response
+[Mobile] Display:
+    - Risk Level card (RED/YELLOW/GREEN)
+    - Conditions list (wind, waves, rain, etc.)
+    - Recommendation text
+    - Evidence trail (sources)
+    - [View Risk Map] button
 ```
 
-### 2.6 Safety-First Design
-
-**Principle:** IMD/INCOIS warnings are law. LLM explains, rules decide.
-
-```python
-# Pseudocode
-def assess_safety(weather_data, rules, warnings):
-    # Step 1: Check official warnings (non-negotiable)
-    if warnings.cyclone_active:
-        return "DO NOT VENTURE"  # Override everything
-    
-    if warnings.lightning_high:
-        return "DO NOT VENTURE"  # Override everything
-    
-    # Step 2: Apply deterministic rules
-    if weather_data.wind_knots > 25:
-        return "CAUTION"
-    
-    if weather_data.wave_height_m > 3:
-        return "CAUTION"
-    
-    # Step 3: If all clear
-    return "SAFE"
-
-# LLM never overrides safety decisions
-# LLM only explains *why* (show reasons + sources)
+### Map Flow
 ```
-
-### 2.7 API Endpoints
-
-#### Core Endpoints
-```
-POST   /chat                      Chat + voice input
-GET    /health                    Server status
-GET    /pfz/nearest              5 nearest zones
-GET    /safety/assess            Current safety level
-GET    /ocean/current            SST + Chlorophyll
-GET    /geojson/pfz             All zones (map)
-GET    /geojson/boundaries      EEZ + limits (map)
-```
-
-#### Admin/Debug
-```
-GET    /data/status             Data freshness
-POST   /data/refresh            Manual refresh
-GET    /agents/trace            Agent execution trace
+User: Tap Map Tab
+    ↓
+[Mobile] Load cached layers:
+    - PFZ zones (GeoJSON, 52 zones)
+    - Boundaries (GeoJSON)
+    ↓ GET /geojson/risk
+[Mobile] Fetch today's risk heatmap
+    ↓
+[Mobile] Render:
+    - Basemap (OSM)
+    - Risk heatmap overlay (colors by risk score)
+    - Layer toggles (checkboxes)
+    ↓
+User: Toggle "SST" layer
+    ↓
+[Mobile] GET /geojson/sst
+    ↓
+[Mobile] Overlay: SST raster (blue=cold, red=hot)
 ```
 
 ---
 
-## 3. DESIGN DECISIONS
+## 6. DATA SOURCES & FRESHNESS
 
-### 3.1 Why Sarvam-105B?
-- **Pros:** Fast, multilingual, open deployment
-- **Cons:** May need fallback for very long contexts
-- **Risk Mitigation:** Test with actual PFZ/weather data early
-
-### 3.2 Why Copernicus + Open-Meteo + IMD?
-- **Copernicus:** Free, daily SST/chlorophyll for Indian waters
-- **Open-Meteo:** Free, no API key needed, 6-hour forecast
-- **IMD:** Official Indian weather/cyclone source (trust > accuracy tradeoff)
-- **Alternative:** NASA earthaccess if Copernicus fails
-
-### 3.3 Why PostgreSQL + PostGIS?
-- **PFZ geofencing:** Native spatial queries
-- **Boundaries:** Fast polygon-in-point checks
-- **Scaling:** Ready for future analytics
-- **Alternative:** SQLite for local dev (faster to start)
-
-### 3.4 Why A* for Routing?
-- **Cost Grid:** Incorporate wave height, cyclone zones, restricted areas
-- **Deterministic:** No ML uncertainty for safety
-- **Performance:** ~100ms for Indian EEZ
-- **Alternative:** Dijkstra if A* is overkill
-
-### 3.5 Why Not ML in MVP?
-- **Phase 1 Goal:** Prove agentic system works with rules
-- **Phase 2 Goal:** Add LightGBM PFZ prediction
-- **Reason:** Safety-critical decisions should be transparent first
+| Data | Source | Static? | Dynamic? | Frequency | Latency |
+|------|--------|---------|----------|-----------|---------|
+| PFZ Zones | INCOIS | ✅ 52 zones (0.5MB) | ❌ | - | - |
+| Boundaries | Govt data | ✅ (3MB) | ❌ | - | - |
+| Chlorophyll | Copernicus | ✅ 1yr (50MB) | ✅ Daily | Daily | +1 day |
+| SST | Copernicus | ✅ 1yr (30MB) | ✅ Daily | Daily | +1 day |
+| Wind/Waves | Open-Meteo | ❌ | ✅ | 6-hourly | Real-time |
+| Cyclone/Weather | IMD | ❌ | ✅ | 6-hourly | Real-time |
+| Fish Catch | CMFRI | ✅ 10yr (5MB) | ❌ | Quarterly | - |
 
 ---
 
-## 4. DATA SOURCES & INTEGRATION
+## 7. SUCCESS METRICS (End of Day 5)
 
-### 4.1 Static Data Sources
-
-| Data | Source | Format | Size | Update |
-|------|--------|--------|------|--------|
-| PFZ Zones | INCOIS (you have) | GeoJSON | 0.5 MB | Yearly |
-| Boundaries | UNCLOS/Govt data | GeoJSON | 3 MB | Rarely |
-| Landing Centers | CMFRI/Manual | GeoJSON | 0.1 MB | Yearly |
-| Chlorophyll (1yr) | Copernicus API | JSON grid | 50 MB | Once |
-| SST (1yr) | Copernicus API | JSON grid | 30 MB | Once |
-| Fish Catch (10yr) | CMFRI/Manual | CSV | 5 MB | Quarterly |
-
-### 4.2 Live Data APIs
-
-| Data | API | Frequency | Latency | Auth |
-|------|-----|-----------|---------|------|
-| SST/Chlorophyll | Copernicus | Daily | +1 day | Free |
-| Wind/Wave/Swell | Open-Meteo | 6-hourly | Real-time | No |
-| Cyclone/Weather | IMD | 6-hourly | Real-time | Check |
-| Lightning | IMD | Real-time | Real-time | Check |
+- ✅ Chat responds with risk level + raw data in < 3 sec
+- ✅ Map displays PFZ zones + risk heatmap
+- ✅ PFZ screen shows nearest 5 zones with confidence
+- ✅ Alerts display for geofencing + weather
+- ✅ App works offline with cached data
+- ✅ Deployable APK/IPA
+- ✅ 5-min demo ready
 
 ---
 
-## 5. DEPLOYMENT MODEL
-
-### 5.1 Local Dev (Week 1)
-- FastAPI on localhost:8000
-- SQLite for quick dev (migrate to PostgreSQL later)
-- Mock API responses if slow
-- Frontend on localhost:5173 (Vite dev server)
-
-### 5.2 Demo/Hackathon (End of Week 1)
-- Single server (AWS EC2 or local)
-- PostgreSQL + PostGIS
-- Real API calls to Copernicus/Open-Meteo/IMD
-- HTTPS (self-signed cert OK for demo)
-
-### 5.3 Production (Post-Hackathon)
-- Docker containers (FastAPI + PostgreSQL)
-- Kubernetes or simple Docker Compose
-- Environment variables for all secrets
-- Error tracking (Sentry optional)
-
----
-
-## 6. SUCCESS CRITERIA
-
-### By End of Day 2
-- ✅ Planner + Data + Response agents working
-- ✅ Real data flowing (Copernicus/Open-Meteo/IMD)
-- ✅ Chat endpoint responds with PFZ recommendations
-
-### By End of Day 4
-- ✅ Safety assessment (rules-based)
-- ✅ Geofencing checks
-- ✅ Interactive map with layers
-- ✅ Voice input (optional STT)
-
-### By End of Day 5
-- ✅ End-to-end demo: Query → Agent → Response + Map
-- ✅ Multilingual (EN/HI/TA working)
-- ✅ Deployable to single server
-- ✅ 5-min demo video ready
-
----
-
-## 7. RISKS & MITIGATIONS
+## 8. RISKS & MITIGATIONS
 
 | Risk | Mitigation |
 |------|-----------|
-| Copernicus API slow/down | Use cached data, fallback to static |
-| Sarvam-105B latency | Cache responses, batch requests |
-| PostGIS setup complex | Start with SQLite, migrate later |
-| Geofencing accuracy | Pre-test with known points |
-| IMD API unreliable | Mock responses for dev, fallback logic |
-| Routing algorithm slow | Pre-compute routes, A* with heuristics |
+| Map rendering slow with 52 zones | Tile-based, cluster polygons, lazy-load |
+| Copernicus/IMD APIs down | Use cached data, add fallback mocks |
+| React Native maps library issues | Use react-native-maps (proven in prod) |
+| Battery drain from GPS polling | Only fetch on app foreground |
+| APK size too large | Tree-shake, remove unused deps |
 
 ---
 
-## 8. TEAM ALLOCATION (MNV + ARP)
-
-### MNV (Backend/Agents)
-- **Days 1-2:** FastAPI scaffold + Sarvam-105B setup + LangGraph core
-- **Days 2-3:** Data agent + safety rules + risk agent
-- **Days 4-5:** Integration + API polish + deployment
-
-### ARP (Frontend/Integration)
-- **Days 1-2:** React scaffold + map integration + API client
-- **Days 2-3:** Chat interface + layer toggles + voice (optional)
-- **Days 4-5:** Styling + demo flow + production build
-
----
-
-## 9. BUILD PHILOSOPHY
-
-1. **Deterministic First:** Rules over ML for safety
-2. **Data-Driven:** Real APIs over mocks ASAP
-3. **Agent-Centric:** LangGraph orchestration, not monolithic code
-4. **Explainability:** Every decision shows source + timestamp
-5. **India-Specific:** IMD/INCOIS trust, boundaries matter
-6. **Lean MVP:** Core features work, nice-to-haves in Phase 2
-
----
-
-**Document Version:** 2.0
-**Last Updated:** Planning Phase (Roles Swapped)
-**Next Review:** End of Day 2 (Progress Check)
+**Document Version:** 1.0
+**Platform:** React Native (Expo)
+**Status:** Ready for Development
 

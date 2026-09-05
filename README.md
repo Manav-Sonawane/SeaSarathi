@@ -24,9 +24,9 @@ Powered by **Sarvam-105B** for multilingual intelligence (English, Hindi, Tamil)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    FRONTEND (React 18 + Vite + TS)          │
+│                MOBILE APP (React Native + Expo)              │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐     │
-│  │ Chat UI  │  │ Map View │  │ Voice UI │  │ Dashboard│     │
+│  │Chat Screen│ │Map Screen│  │PFZ Screen│  │Alerts    │     │
 │  └──────────┘  └──────────┘  └──────────┘  └──────────┘     │
 └─────────────────────────────────────────────────────────────┘
                             ↓ (REST API / JSON)
@@ -60,7 +60,7 @@ Powered by **Sarvam-105B** for multilingual intelligence (English, Hindi, Tamil)
 ## 🛠️ Tech Stack
 
 - **Backend**: Python 3.10+, FastAPI, LangGraph, LangChain, Pydantic, GeoPandas, Shapely, NumPy, SciPy
-- **Frontend**: React 18, Vite, TypeScript, Tailwind CSS, Axios, Leaflet / Mapbox GL JS
+- **Mobile**: React Native, Expo, TypeScript, React Navigation (bottom tabs), react-native-maps, Axios, Zustand, AsyncStorage
 - **AI & Translation**: Sarvam AI (Sarvam-105B, Sarvam Translate, STT, Bulbul TTS)
 - **Database & Cache**: PostgreSQL with PostGIS extension, Redis
 - **Data Providers**: Copernicus Marine Service, Open-Meteo, IMD (India Meteorological Department), INCOIS
@@ -79,13 +79,15 @@ SeaSarathi/
 │   │   └── main.py           # FastAPI entrypoint & endpoints (/health, /chat)
 │   ├── requirements.txt      # Python dependencies
 │   └── .env                  # Backend environment variables (uncommitted)
-├── frontend/                 # React + Vite TypeScript frontend
+├── mobile/                   # React Native (Expo) mobile app
 │   ├── src/
-│   │   ├── components/       # Chat, Map, Dashboard, Navigation components
-│   │   ├── services/         # Axios API client setup
-│   │   └── App.tsx           # Main application routing & layout
-│   ├── package.json          # Frontend dependencies & scripts
-│   └── .env                  # Frontend environment variables (uncommitted)
+│   │   ├── screens/          # ChatScreen, MapScreen, PFZScreen, AlertsScreen
+│   │   ├── navigation/        # Bottom tab navigator
+│   │   ├── services/          # Axios API client setup
+│   │   └── theme/              # Design system colors
+│   ├── App.tsx                # App entrypoint
+│   ├── package.json           # Mobile app dependencies & scripts
+│   └── .env                   # Mobile environment variables (uncommitted)
 ├── data/                     # Marine datasets & spatial boundaries
 │   ├── static/               # 52 PFZ zones GeoJSON, maritime boundaries, MPAs
 │   └── dynamic/              # Daily SST/Chlorophyll cache & weather forecasts
@@ -104,6 +106,7 @@ SeaSarathi/
 ### 1. Prerequisites
 - **Node.js**: v18.0+ & `npm`
 - **Python**: v3.10+
+- **Expo Go app** (iOS/Android) or an emulator, for running the mobile app
 - **Database (Optional)**: PostgreSQL 14+ with PostGIS (SQLite supported for local development fallback)
 
 ---
@@ -121,10 +124,10 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/seasarathi
 REDIS_URL=redis://localhost:6379
 ```
 
-#### Frontend Setup (`frontend/.env`)
-Create a `.env` file inside the `/frontend` directory:
+#### Mobile Setup (`mobile/.env`)
+Create a `.env` file inside the `/mobile` directory (see `mobile/.env.example`):
 ```env
-VITE_API_URL=http://localhost:8000
+EXPO_PUBLIC_API_URL=http://localhost:8000
 ```
 
 ---
@@ -155,19 +158,19 @@ python -m uvicorn main:app --reload --port 8000
 
 ---
 
-### 4. Running the Frontend Application
+### 4. Running the Mobile Application
 
 ```bash
-# Navigate to frontend directory
-cd frontend
+# Navigate to mobile directory
+cd mobile
 
 # Install node dependencies
 npm install
 
-# Start Vite development server
-npm run dev
+# Start the Expo dev server
+npm start
 ```
-- Web Application: Visit `http://localhost:5173`
+- Scan the QR code with the **Expo Go** app (iOS/Android), or press `a`/`i` in the terminal to launch an Android/iOS emulator.
 
 ---
 
@@ -183,9 +186,9 @@ Ensure static GeoJSON data files are placed in `/data/static/`:
 
 | Command | Workspace Directory | Description |
 |---------|---------------------|-------------|
-| `npm install` | `/frontend` | Install frontend Node packages |
-| `npm run dev` | `/frontend` | Launch Vite frontend dev server (:5173) |
-| `npm test` | `/frontend` | Run frontend test suite |
+| `npm install` | `/mobile` | Install mobile app Node packages |
+| `npm start` | `/mobile` | Launch Expo dev server |
+| `npm run android` / `npm run ios` | `/mobile` | Launch on Android/iOS |
 | `python -m uvicorn main:app --reload` | `/backend` | Launch FastAPI backend server (:8000) |
 | `pytest` | `/backend` | Run backend unit & integration tests |
 
@@ -193,18 +196,18 @@ Ensure static GeoJSON data files are placed in `/data/static/`:
 
 ## 📅 5-Day Execution Roadmap
 
-- **Day 1: Foundation & Scaffold** — Repo structure, environment setup, FastAPI scaffold, React+Vite scaffold, Sarvam client validation.
-- **Day 2: Core Agents & Data Integration** — LangGraph state graph setup, Planner agent, Copernicus/Open-Meteo/IMD tool integration, PFZ search algorithms.
-- **Day 3: Map UI & Safety Engine** — Real-time deterministic safety engine, Leaflet/Mapbox dynamic layers, frontend-backend API integration.
-- **Day 4: Route Optimization & Geofencing** — Marine A* pathfinder, maritime boundary warning system, multilingual Sarvam translation & voice synthesis.
-- **Day 5: Polishing & End-to-End Demo** — Error resilience, caching, system tuning, user scenario validation, final demo readiness.
+- **Day 1: Foundation & Scaffold** — Repo structure, environment setup, FastAPI scaffold, React Native (Expo) scaffold with 4-tab navigation, Sarvam client validation.
+- **Day 2: Core Agents & Chat Screen** — LangGraph state graph setup, Planner/Data/Risk/Response agents, `/chat` endpoint, mobile Chat screen wired to backend.
+- **Day 3: Map & PFZ Screens** — `react-native-maps` integration with PFZ zone overlays, `/pfz/nearest` and `/geojson/*` endpoints, PFZ screen with nearest-zone cards.
+- **Day 4: Alerts Screen & Risk Heatmap** — `/alerts` endpoint, geofencing/weather/cyclone alert cards, risk heatmap layer on the map.
+- **Day 5: Polishing & End-to-End Demo** — Error resilience, caching, system tuning, user scenario validation, APK/IPA build, final demo readiness.
 
 ---
 
 ## 🤝 Team Roles
 
 - **MNV**: Backend Architecture, LangGraph Multi-Agent Orchestration, Sarvam LLM Integration, Data Ingestion & Spatial Pathfinder.
-- **ARP**: Frontend UI/UX (React + Vite + TypeScript), Interactive Map & Layer Controls, API Integration & Component Engineering.
+- **ARP**: Mobile UI/UX (React Native + Expo + TypeScript), Interactive Map & Layer Controls, API Integration & Component Engineering.
 
 ---
 

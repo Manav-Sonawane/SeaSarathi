@@ -1,101 +1,84 @@
-# 5-Day Execution Plan - Marine Intelligence Platform
+# 5-Day Execution Plan - Marine Intelligence Platform (React Native)
 
-**Team:** MNV (Backend/Agents) + ARP (Frontend/Integration)
-**Duration:** 5 Days (40 hours total per person)
-**Goal:** End-to-end demo: User Query → Agent Processing → Response + Interactive Map
+**Team:** MNV (Backend/Agents) + ARP (Mobile/Frontend)
+**Platform:** React Native (Expo) + FastAPI Backend
+**Duration:** 5 Days (40 hours per person)
 
 ---
 
-## DAY 1: FOUNDATION & SCAFFOLD
+## DAY 1: FOUNDATION & SETUP
 
 ### Morning (4 hours) - TEAM SYNC
 
 **MNV + ARP Together:**
+
 1. **Repository Setup** (30 min)
-   - Create GitHub repo (or local git)
-   - Folder structure: `/backend`, `/frontend`, `/data`
-   - README with setup instructions
+   - Create GitHub repo
+   - Folder: `/backend`, `/mobile`, `/data`
+   - README with setup & deployment instructions
 
 2. **Environment Setup** (1 hour)
-   - Create `.env` files (DO NOT commit keys)
    ```env
-   # Backend
+   # Backend .env
    SARVAM_API_KEY=your_key
-   SARVAM_LLM_MODEL=sarvam-105b
-   COPERNICUS_KEY=your_key (or test without)
-   DATABASE_URL=postgresql://user:pass@localhost/marine
-   REDIS_URL=redis://localhost:6379
-   IMD_API_KEY=check_with_team
+   COPERNICUS_KEY=optional
+   IMD_API_KEY=check
    
-   # Frontend
-   VITE_API_URL=http://localhost:8000
+   # Mobile .env
+   REACT_APP_API_URL=http://localhost:8000
    ```
 
-3. **Data Files Setup** (1 hour 30 min)
-   - Create `/data/static/` folder
-   - Download/copy your 52 PFZ zones → `/data/static/pfz_zones.geojson`
-   - Create placeholder for chlorophyll/SST historical (get from Copernicus or mock for now)
-   - Create `/data/dynamic/` for daily updates
+3. **Data Files Setup** (1.5 hours)
+   - Download 52 PFZ zones → `/data/static/pfz_zones.geojson`
+   - Download 1-year chlorophyll + SST historical data
+   - Precompile into JSON grids for fast mobile loading
 
 4. **Quick Test** (1 hour)
-   - Both run: `python -c "import sarvam; print('Sarvam SDK ready')"` (or mock)
-   - Both run: `npm install` (frontend) to check Node version
-   - Both verify database connections (or skip if using SQLite locally)
+   - MNV: Test Sarvam SDK (`python -c "import sarvam"`)
+   - ARP: Test React Native (`npx react-native --version`)
+   - Both: Verify data files present
 
 ---
 
 ### Afternoon (4 hours)
 
-**MNV (Backend/Agents Scaffold):**
+**MNV (Backend Scaffold):**
+
 1. **FastAPI Server Scaffold** (2 hours)
    ```bash
-   mkdir backend && cd backend
    python -m venv venv
-   source venv/bin/activate
-   pip install fastapi uvicorn httpx python-dotenv
-   
-   # Create main.py
+   pip install fastapi uvicorn httpx pydantic python-dotenv
+   # Create src/main.py with /health, /chat (stub), CORS enabled
    ```
-   - Basic FastAPI server on `:8000`
-   - `/health` endpoint (returns "OK")
-   - `/chat` endpoint (stub - returns "Processing...")
-   - CORS enabled for localhost:5173
+   - Test: `curl http://localhost:8000/health` → OK
 
-2. **Test It** (30 min)
+2. **Sarvam + LangGraph Setup** (1.5 hours)
    ```bash
-   python -m uvicorn main:app --reload
-   curl http://localhost:8000/health
-   # Should return {"status": "ok"}
+   pip install langgraph langchain sarvam-sdk
+   # Create src/agents/planner.py (stub - just echo input)
+   # Create src/agents/response.py (stub - format JSON)
    ```
 
-3. **LangGraph + Sarvam Setup** (1.5 hours)
-   ```bash
-   pip install langgraph langchain pydantic
-   
-   # Create src/agents/planner.py (stub)
-   # Create src/agents/response.py (stub)
-   # Test: Can we call Sarvam API?
-   ```
-   - Initialize Sarvam client
-   - Test simple prompt: "Hello" → Sarvam response
-   - Document any API issues
+3. **Test Sarvam API** (30 min)
+   - Initialize client, test simple prompt
+   - Document any auth issues
 
 ---
 
-**ARP (Frontend Scaffold):**
-1. **React + Vite Setup** (1 hour)
+**ARP (Mobile Scaffold):**
+
+1. **React Native + Expo Setup** (1.5 hours)
    ```bash
-   npm create vite@latest frontend -- --template react-ts
-   cd frontend
+   npx create-expo-app marine-app
    npm install
-   npm install axios tailwindcss
+   npm install @react-navigation/native @react-navigation/bottom-tabs
+   npm install axios zustand
    ```
 
-2. **Basic Layout** (1.5 hours)
-   - Create `src/components/Chat.tsx` (text input + send button)
-   - Create `src/components/Map.tsx` (placeholder map container)
-   - Create `src/App.tsx` with routing (Chat | Map tabs)
-   - Test: `npm run dev` on localhost:5173
+2. **Basic Navigation** (1.5 hours)
+   - Create 4 screen stubs: ChatScreen, MapScreen, PFZScreen, AlertsScreen
+   - Bottom tab navigation (Chat, Map, PFZ, Alerts)
+   - Test: `npm start` → Expo QR code works
 
 3. **API Client Setup** (1 hour)
    ```typescript
@@ -103,11 +86,11 @@
    import axios from 'axios';
    
    const api = axios.create({
-     baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000'
+     baseURL: 'http://localhost:8000'
    });
    
    export const chatAPI = {
-     sendMessage: (query: string, lat?: number, lon?: number) =>
+     sendMessage: (query: string, lat: number, lon: number) =>
        api.post('/chat', { query, latitude: lat, longitude: lon })
    };
    ```
@@ -115,592 +98,422 @@
 ---
 
 ### EOD Checkpoint
-- ✅ Repo structure ready
-- ✅ Backend FastAPI running on :8000
-- ✅ Frontend React running on :5173
-- ✅ Both can call Sarvam API (test with simple prompt)
-- ✅ Communicate first API errors/blockers
+- ✅ Backend FastAPI running :8000
+- ✅ Mobile app (Expo) launching with 4 tabs
+- ✅ Both can communicate via HTTP
+- ✅ Data files staged locally
 
 ---
 
-## DAY 2: CORE AGENTS & DATA INTEGRATION
+## DAY 2: CORE AGENTS & CHAT SCREEN
 
-### Morning (4 hours) - AGENTS CORE
+### Morning (4 hours)
 
-**MNV:**
-1. **LangGraph State Definition** (1 hour)
+**MNV (Agents):**
+
+1. **Agent State Definition** (30 min)
    ```python
-   # src/agents/state.py
    from typing import TypedDict
-   from datetime import datetime
-   
    class AgentState(TypedDict):
        query: str
        latitude: float
        longitude: float
-       intent: str  # "pfz", "safety", "weather"
-       
-       # Data
-       nearest_zones: list
-       sst_today: float
-       chlorophyll_today: float
-       wind_knots: float
-       cyclone_alert: bool
-       
-       # Results
-       safety_level: str  # "SAFE", "CAUTION", "DO_NOT_VENTURE"
-       response: str
+       risk_level: str  # "LOW", "MODERATE", "HIGH"
+       wind_kmh: float
+       wave_m: float
+       rainfall_mm: float
+       lightning: bool
+       cyclone: bool
+       recommendation: str
+       confidence: int  # 0-100
        sources: list
    ```
 
-2. **Planner Agent** (1.5 hours)
+2. **Planner Agent** (1 hour)
    ```python
-   # src/agents/planner.py
-   def planner_node(state: AgentState, config):
-       """Use Sarvam to detect intent + extract location"""
-       prompt = f"""
-       User query: {state['query']}
-       
-       Return JSON:
-       {{
-         "intent": "pfz" | "safety" | "weather" | "route",
-         "latitude": 8.5,
-         "longitude": 77.5,
-         "reasoning": "..."
-       }}
-       """
-       
-       response = sarvam_client.generate(prompt)
-       # Parse JSON response
-       state['intent'] = parsed['intent']
-       state['latitude'] = parsed['latitude']
-       state['longitude'] = parsed['longitude']
-       return state
-   ```
-   - Test with: "Best fishing zone near Kochi?"
-
-3. **Response Agent Stub** (1 hour)
-   ```python
-   # src/agents/response.py
-   def response_node(state: AgentState, config):
-       """Format response + explanations"""
-       prompt = f"""
-       Intent: {state['intent']}
-       Zones: {state['nearest_zones']}
-       Safety: {state['safety_level']}
-       
-       Write a clear response for fishermen in English.
-       """
-       response = sarvam_client.generate(prompt)
-       state['response'] = response
-       return state
+   def planner_node(state: AgentState):
+       prompt = f"""User: {state['query']}
+       Return JSON: {{"intent": "SAFETY|PFZ|ALERT", "latitude": X, "longitude": Y}}"""
+       response = sarvam_generate(prompt)
+       return {...state, "intent": parsed_json["intent"]}
    ```
 
-4. **LangGraph Workflow** (30 min)
+3. **Data Agent** (1 hour)
    ```python
-   # src/agents/graph.py
-   from langgraph.graph import StateGraph, START, END
-   
+   async def data_agent(state: AgentState):
+       # Load static data: 1-year chlorophyll/SST baseline
+       # Fetch dynamic: Today's weather from Open-Meteo, IMD
+       # Mock if APIs down
+       return {...state, "wind_kmh": 18, "wave_m": 1.8, "rainfall_mm": 0}
+   ```
+
+4. **Risk Agent** (1 hour 30 min)
+   ```python
+   def risk_agent(state: AgentState):
+       score = 100
+       if state['cyclone']: return {...state, "risk_level": "HIGH", "score": 0}
+       if state['wind_kmh'] > 25: score -= 30
+       if state['wave_m'] > 3: score -= 20
+       risk_level = "LOW" if score >= 70 else "MODERATE" if score >= 40 else "HIGH"
+       return {...state, "risk_level": risk_level, "score": score}
+   ```
+
+---
+
+### Afternoon (4 hours)
+
+**MNV (Response Agent + API Endpoint):**
+
+1. **Response Agent** (1.5 hours)
+   ```python
+   def response_node(state: AgentState):
+       prompt = f"""Risk: {state['risk_level']}, Wind: {state['wind_kmh']} km/h
+       Generate natural language recommendation for fisherman."""
+       recommendation = sarvam_generate(prompt)
+       return {...state, "recommendation": recommendation}
+   ```
+
+2. **LangGraph Workflow** (1 hour)
+   ```python
    graph = StateGraph(AgentState)
    graph.add_node("planner", planner_node)
-   graph.add_node("response", response_node)
-   
-   graph.add_edge(START, "planner")
-   graph.add_edge("planner", "response")
-   graph.add_edge("response", END)
-   
-   agent = graph.compile()
-   ```
-
----
-
-### Afternoon (4 hours) - DATA INTEGRATION
-
-**MNV:**
-1. **Data Agent Skeleton** (2 hours)
-   ```python
-   # src/agents/data_agent.py
-   async def data_agent(state: AgentState, config):
-       """Fetch PFZ zones + ocean data"""
-       
-       # 1. Load static PFZ zones
-       with open('data/static/pfz_zones.geojson') as f:
-           pfz_geojson = json.load(f)
-       
-       # 2. Find nearest 5 zones (Haversine distance)
-       nearest = find_nearest_zones(
-           state['latitude'], 
-           state['longitude'],
-           pfz_geojson,
-           n=5
-       )
-       state['nearest_zones'] = nearest
-       
-       # 3. Try to fetch live data (or use mock)
-       try:
-           state['chlorophyll_today'] = await fetch_copernicus(...)
-           state['sst_today'] = await fetch_copernicus(...)
-       except Exception as e:
-           print(f"API error: {e}, using cached data")
-           state['chlorophyll_today'] = 0.5  # Mock
-           state['sst_today'] = 27.2  # Mock
-       
-       # 4. Fetch weather
-       try:
-           state['wind_knots'] = await fetch_open_meteo(...)
-           state['cyclone_alert'] = await fetch_imd(...)
-       except:
-           state['wind_knots'] = 12  # Mock
-           state['cyclone_alert'] = False
-       
-       return state
-   ```
-
-2. **Helper: Nearest Zones** (1 hour)
-   ```python
-   # src/utils/geo.py
-   from math import radians, cos, sin, asin, sqrt
-   
-   def haversine(lat1, lon1, lat2, lon2):
-       """Distance in km"""
-       ...
-       return distance_km
-   
-   def find_nearest_zones(lat, lon, geojson, n=5):
-       zones = []
-       for feature in geojson['features']:
-           geom = feature['geometry']
-           if geom['type'] == 'Point':
-               zone_lat = geom['coordinates'][1]
-               zone_lon = geom['coordinates'][0]
-               dist = haversine(lat, lon, zone_lat, zone_lon)
-               zones.append({
-                   'name': feature['properties']['name'],
-                   'distance_km': dist,
-                   'properties': feature['properties']
-               })
-       return sorted(zones, key=lambda x: x['distance_km'])[:n]
-   ```
-
-3. **Add to Graph** (30 min)
-   ```python
    graph.add_node("data", data_agent)
+   graph.add_node("risk", risk_agent)
+   graph.add_node("response", response_node)
+   graph.add_edge(START, "planner")
    graph.add_edge("planner", "data")
-   graph.add_edge("data", "response")
+   graph.add_edge("data", "risk")
+   graph.add_edge("risk", "response")
+   graph.add_edge("response", END)
    ```
 
-4. **Test It** (30 min)
-   - Query: "Near Kochi"
-   - Check: Does it find 5 nearest zones?
-   - Check: Can it fetch from Copernicus? (If not, move to mock)
-
----
-
-### Afternoon (4 hours) - FRONTEND INTEGRATION
-
-**ARP:**
-1. **Chat Component** (2 hours)
-   ```typescript
-   // src/components/Chat.tsx
-   import { useState } from 'react';
-   import { chatAPI } from '../services/api';
-   
-   export function Chat() {
-     const [query, setQuery] = useState('');
-     const [response, setResponse] = useState('');
-     const [loading, setLoading] = useState(false);
-   
-     const handleSend = async () => {
-       setLoading(true);
-       try {
-         const result = await chatAPI.sendMessage(query, 8.5, 77.5);
-         setResponse(result.data.response);
-       } catch (err) {
-         setResponse('Error: ' + err.message);
-       }
-       setLoading(false);
-     };
-   
-     return (
-       <div className="p-4">
-         <input
-           value={query}
-           onChange={(e) => setQuery(e.target.value)}
-           placeholder="Ask about fishing zones..."
-         />
-         <button onClick={handleSend} disabled={loading}>
-           {loading ? 'Thinking...' : 'Send'}
-         </button>
-         <div className="mt-4">{response}</div>
-       </div>
-     );
-   }
-   ```
-
-2. **Connect to Backend** (1 hour)
-   - Update FastAPI `/chat` endpoint to call agent graph
+3. **POST /chat Endpoint** (1.5 hours)
    ```python
    @app.post("/chat")
-   async def chat(request: ChatRequest):
-       initial_state = AgentState(
-           query=request.query,
-           latitude=request.latitude,
-           longitude=request.longitude,
-           ...
-       )
-       result = agent.invoke(initial_state)
+   async def chat(query: str, latitude: float, longitude: float):
+       state = AgentState(query=query, latitude=latitude, longitude=longitude, ...)
+       result = agent.invoke(state)
        return {
-           "response": result['response'],
-           "nearest_zones": result['nearest_zones'],
-           "sources": result.get('sources', [])
+           "risk_level": result["risk_level"],
+           "wind_kmh": result["wind_kmh"],
+           "wave_m": result["wave_m"],
+           "recommendation": result["recommendation"],
+           "confidence": result["confidence"],
+           "sources": result["sources"]
        }
+   ```
+
+---
+
+**ARP (Chat Screen):**
+
+1. **Chat UI Layout** (1.5 hours)
+   - Text input + Send button
+   - Message list (bubbles: user vs system)
+   - Risk level badge (color-coded: 🟢🟡🔴)
+   - Conditions display (Wind, Waves, Rain, etc.)
+   - [View Risk Map] button
+
+2. **Connect to Backend** (1.5 hours)
+   ```typescript
+   // src/screens/ChatScreen.tsx
+   const handleSend = async (query: string) => {
+     setLoading(true);
+     try {
+       const response = await chatAPI.sendMessage(query, 8.5, 77.5);
+       setMessages([...messages, {
+         type: 'response',
+         risk_level: response.risk_level,
+         wind: response.wind_kmh,
+         recommendation: response.recommendation
+       }]);
+     } catch (err) { ... }
+     setLoading(false);
+   };
    ```
 
 3. **Test E2E** (1 hour)
-   - Type query in React chat
-   - See response from Sarvam agent
-   - Debug any CORS/async issues
+   - Type query in app
+   - See response from backend
+   - Debug latency/CORS issues
 
 ---
 
 ### EOD Checkpoint
-- ✅ Planner agent extracts intent + location
-- ✅ Data agent loads PFZ zones + fetches (or mocks) ocean data
-- ✅ Response agent formats answer
-- ✅ Frontend chat sends query → backend processes → response displayed
-- ✅ At least 1 end-to-end query works
+- ✅ Chat screen displays user input + system response
+- ✅ Backend /chat endpoint returns risk level + conditions
+- ✅ Response < 3 seconds (use mock data if APIs slow)
+- ✅ Risk badge colors working (RED/YELLOW/GREEN)
 
-**Test Query:** "What are the best fishing zones near Kochi?"
-**Expected:** Shows 3-5 nearest PFZ zones with distances
-
----
-
-## DAY 3: SAFETY RULES & GEO OPERATIONS
-
-### Morning (4 hours) - SAFETY ASSESSMENT
-
-**MNV:**
-1. **Safety Rules Engine** (2 hours)
-   ```python
-   # src/agents/risk_agent.py
-   def risk_agent(state: AgentState, config):
-       """Deterministic safety assessment"""
-       
-       score = 100
-       reasons = []
-       
-       # Rule 1: Cyclone = instant FAIL
-       if state['cyclone_alert']:
-           return {
-               **state,
-               'safety_level': 'DO_NOT_VENTURE',
-               'score': 0,
-               'reasons': ['🔴 Cyclone alert active - DO NOT GO OUT']
-           }
-       
-       # Rule 2: Wind check
-       if state['wind_knots'] > 25:
-           score -= 30
-           reasons.append(f'⚠️ High wind: {state["wind_knots"]} knots')
-       elif state['wind_knots'] > 15:
-           score -= 10
-           reasons.append(f'⚠️ Moderate wind: {state["wind_knots"]} knots')
-       else:
-           reasons.append(f'✅ Wind OK: {state["wind_knots"]} knots')
-       
-       # Rule 3: Chlorophyll (productivity)
-       if state['chlorophyll_today'] > 0.8:
-           score += 10
-           reasons.append(f'✅ High productivity: {state["chlorophyll_today"]:.2f}')
-       elif state['chlorophyll_today'] < 0.3:
-           reasons.append(f'⚠️ Low productivity: {state["chlorophyll_today"]:.2f}')
-       
-       # Determine level
-       if score >= 70:
-           safety_level = 'SAFE'
-       elif score >= 40:
-           safety_level = 'CAUTION'
-       else:
-           safety_level = 'DO_NOT_VENTURE'
-       
-       return {
-           **state,
-           'safety_level': safety_level,
-           'score': score,
-           'reasons': reasons
-       }
-   ```
-
-2. **Add to Graph** (1 hour)
-   ```python
-   graph.add_node("risk", risk_agent)
-   graph.add_edge("data", "risk")
-   graph.add_edge("risk", "response")
-   ```
-
-3. **Update Response Agent** (1 hour)
-   ```python
-   def response_node(state: AgentState, config):
-       # Include safety info + reasons
-       prompt = f"""
-       Safety: {state['safety_level']} ({state['score']}/100)
-       Reasons: {', '.join(state['reasons'])}
-       Zones: {state['nearest_zones']}
-       
-       Write encouraging but safe response for fishermen.
-       """
-       ...
-   ```
+**Test Query:** "Can I fish near Kochi tomorrow?"
+**Expected Response:** MODERATE RISK, Wind 18 km/h, Waves 1.8m, etc.
 
 ---
 
-### Afternoon (4 hours) - GEO OPERATIONS & GEOFENCING
+## DAY 3: MAP SCREEN & PFZ SCREEN
 
-**MNV:**
-1. **Geo Agent with Geofencing** (2 hours)
-   ```python
-   # src/agents/geo_agent.py
-   def geo_agent(state: AgentState, config):
-       """Distance, routing, geofencing"""
-       
-       # 1. Load boundaries
-       with open('data/static/boundaries.geojson') as f:
-           boundaries = json.load(f)
-       
-       # 2. Check if near Pakistan/Sri Lanka boundary
-       alerts = []
-       user_point = Point(state['longitude'], state['latitude'])
-       
-       for boundary in boundaries['features']:
-           if boundary['properties']['type'] == 'Maritime_Boundary':
-               boundary_geom = shape(boundary['geometry'])
-               if user_point.distance(boundary_geom) < 0.5:  # 50km approx
-                   alerts.append(f"⚠️ Near {boundary['properties']['name']}")
-       
-       # 3. Calculate ETA to nearest zone (assume 15 knots)
-       nearest = state['nearest_zones'][0] if state['nearest_zones'] else None
-       eta_hours = None
-       if nearest:
-           nautical_miles = nearest['distance_km'] / 1.852
-           eta_hours = nautical_miles / 15
-       
-       state['geofence_alerts'] = alerts
-       state['eta_hours'] = eta_hours
-       
-       return state
-   ```
+### Morning (4 hours)
 
-2. **Add to Graph** (30 min)
-   ```python
-   graph.add_node("geo", geo_agent)
-   graph.add_edge("planner", "geo")
-   graph.add_edge("geo", "risk")
-   ```
+**ARP (Map Screen):**
 
-3. **Test Geofencing** (1 hour)
-   - Query: "Can I fish at [lat/lon near Pakistan border]?"
-   - Expect: Alert about being near boundary
-
-4. **Optional: Basic A* Routing** (30 min - if time)
-   ```python
-   # src/utils/routing.py
-   # Stub for A* (implement if time permits)
-   # For now: Just show straight-line distance
-   ```
-
----
-
-### EOD Checkpoint
-- ✅ Safety assessment working (SAFE/CAUTION/DO_NOT_VENTURE)
-- ✅ Safety score calculated with reasons
-- ✅ Geofencing alerts (boundaries detected)
-- ✅ ETA calculation
-
-**Test Query:** "Is it safe to fish near Kochi today?"
-**Expected:** "SAFE (78/100) - Wind 12kt OK, Chlorophyll 0.65 good"
-
----
-
-## DAY 4: MAP & FRONTEND POLISH
-
-### Morning (4 hours) - INTERACTIVE MAP
-
-**ARP:**
 1. **Map Integration** (2 hours)
    ```bash
-   npm install leaflet react-leaflet
+   npm install react-native-maps
    ```
-   
    ```typescript
-   // src/components/Map.tsx
-   import { MapContainer, TileLayer, GeoJSON, Popup } from 'react-leaflet';
-   import { useEffect, useState } from 'react';
+   // src/screens/MapScreen.tsx
+   import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
    
-   export function Map() {
-     const [pfzData, setPfzData] = useState(null);
-     const [boundaryData, setBoundaryData] = useState(null);
-   
-     useEffect(() => {
-       fetch('http://localhost:8000/geojson/pfz')
-         .then(r => r.json())
-         .then(setPfzData);
-       
-       fetch('http://localhost:8000/geojson/boundaries')
-         .then(r => r.json())
-         .then(setBoundaryData);
-     }, []);
-   
+   export function MapScreen() {
      return (
-       <MapContainer center={[20, 80]} zoom={5} style={{ height: '100%' }}>
-         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" />
-         {pfzData && <GeoJSON data={pfzData} />}
-         {boundaryData && <GeoJSON data={boundaryData} style={{ color: 'red' }} />}
-       </MapContainer>
+       <MapView
+         provider={PROVIDER_GOOGLE}
+         style={{ flex: 1 }}
+         initialRegion={{ latitude: 20, longitude: 80, latitudeDelta: 8, longitudeDelta: 8 }}
+       >
+         {/* Render PFZ zones as Polygon */}
+         {pfzZones.map(zone => (
+           <Polygon key={zone.id} coordinates={zone.coordinates} fillColor="rgba(0,200,0,0.3)" />
+         ))}
+       </MapView>
      );
    }
    ```
 
-2. **Backend GeoJSON Endpoints** (1 hour)
-   **MNV:** Add endpoints
+2. **Layer Toggles** (1 hour)
+   ```typescript
+   const [layers, setLayers] = useState({
+     pfz: true,
+     risk: false,
+     sst: false,
+     wind: false
+   });
+   
+   // Render checkboxes to toggle each layer
+   ```
+
+3. **Load Static GeoJSON** (1 hour)
+   - Load PFZ zones from AsyncStorage on app start
+   - Display as map overlays
+
+---
+
+### Afternoon (4 hours)
+
+**MNV (PFZ API Endpoint):**
+
+1. **GET /pfz/nearest Endpoint** (1.5 hours)
+   ```python
+   @app.get("/pfz/nearest")
+   async def get_nearest_pfz(latitude: float, longitude: float, limit: int = 5):
+       # Load 52 PFZ zones from static data
+       # Calculate Haversine distance
+       nearest = sorted(zones, key=lambda z: haversine(latitude, longitude, z['lat'], z['lon']))[:limit]
+       # Add SST, Chlorophyll, confidence score
+       return [{"name": z['name'], "distance": d, "sst": 27.2, "chl": 0.85, "confidence": 87} ...]
+   ```
+
+2. **GET /geojson/pfz Endpoint** (1 hour)
    ```python
    @app.get("/geojson/pfz")
    async def get_pfz_geojson():
        with open('data/static/pfz_zones.geojson') as f:
            return json.load(f)
-   
-   @app.get("/geojson/boundaries")
-   async def get_boundaries_geojson():
-       with open('data/static/boundaries.geojson') as f:
-           return json.load(f)
    ```
 
-3. **Layer Toggles** (1 hour)
-   ```typescript
-   // Add checkboxes in Map component
-   <label>
-     <input type="checkbox" checked={showPFZ} onChange={(e) => setShowPFZ(e.target.checked)} />
-     PFZ Zones
-   </label>
-   <label>
-     <input type="checkbox" checked={showBoundaries} onChange={(e) => setShowBoundaries(e.target.checked)} />
-     Boundaries
-   </label>
+3. **Geofence Check** (1 hour)
+   ```python
+   def check_geofence(lat, lon):
+       # Load boundaries from static data
+       # Check if user point is inside restricted zones
+       return alerts if inside else []
    ```
 
 ---
 
-### Afternoon (4 hours) - FRONTEND POLISH & VOICE (Optional)
+**ARP (PFZ Screen):**
 
-**ARP:**
-1. **Chat + Map Layout** (1 hour)
+1. **Nearest Zones Display** (2 hours)
    ```typescript
-   // src/App.tsx
-   export function App() {
-     const [activeTab, setActiveTab] = useState('chat'); // chat | map
-     return (
-       <div className="flex h-screen">
-         <div className="w-1/3">
-           {activeTab === 'chat' && <Chat />}
-         </div>
-         <div className="w-2/3">
-           {activeTab === 'map' && <Map />}
-         </div>
-       </div>
-     );
-   }
+   // src/screens/PFZScreen.tsx
+   useEffect(() => {
+     fetchNearestPFZ(8.5, 77.5).then(zones => {
+       setZones(zones);
+     });
+   }, []);
+   
+   return (
+     <ScrollView>
+       {zones.map(zone => (
+         <Card key={zone.id}>
+           <Text>{zone.name}</Text>
+           <Text>Distance: {zone.distance} km</Text>
+           <Text>SST: {zone.sst}°C</Text>
+           <Text>Chlorophyll: {zone.chl} mg/m³</Text>
+           <Text>Confidence: {zone.confidence}%</Text>
+           <Button title="View on Map" onPress={() => centerMapOnZone(zone)} />
+         </Card>
+       ))}
+     </ScrollView>
+   );
    ```
 
-2. **Style & Responsiveness** (1.5 hours)
-   - Tailwind CSS for clean design
-   - Highlight safety level (RED for danger, YELLOW for caution, GREEN for safe)
-   - Show zone recommendations in chat with map markers
+2. **Evidence Bullets** (1.5 hours)
+   - Display why each zone is recommended
+   - Show historical productivity (from CMFRI data cached locally)
 
-3. **Voice Input (Optional)** (1.5 hours)
-   ```typescript
-   // src/components/VoiceInput.tsx
-   import { useState } from 'react';
-   
-   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-   
-   export function VoiceInput({ onQuery }) {
-     const [listening, setListening] = useState(false);
-     const recognition = new SpeechRecognition();
-     
-     const startListening = () => {
-       recognition.start();
-       setListening(true);
-       recognition.onresult = (event) => {
-         const query = event.results[0][0].transcript;
-         onQuery(query);
-         setListening(false);
-       };
-     };
-     
-     return (
-       <button onClick={startListening} disabled={listening}>
-         {listening ? '🎤 Listening...' : '🎤 Speak'}
-       </button>
-     );
-   }
-   ```
+3. **Test** (30 min)
+   - Fetch nearest zones via API
+   - Render on screen with proper formatting
 
 ---
 
 ### EOD Checkpoint
-- ✅ Interactive map shows PFZ zones + boundaries
-- ✅ Layer toggles work
-- ✅ Chat + map side-by-side layout
-- ✅ Safety level highlighted with colors
-- ✅ Voice input (if done)
-
-**Demo:** Ask "Best zone near Mumbai?" → Shows 5 zones on map, safety assessment in chat
+- ✅ Map displays 52 PFZ zones (as polygons)
+- ✅ Layer toggles work (performance issue? use lazy-loading)
+- ✅ PFZ screen shows top 5 nearest zones with confidence
+- ✅ Both screens load data from backend APIs
 
 ---
 
-## DAY 5: INTEGRATION, TESTING & DEPLOYMENT
+## DAY 4: ALERTS SCREEN & MAP HEATMAP
 
-### Morning (4 hours) - INTEGRATION & TESTING
+### Morning (4 hours)
 
-**MNV + ARP Together:**
+**MNV (Alerts API + Risk Heatmap):**
 
-1. **Full Agent Flow Testing** (2 hours)
-   Test each query type:
+1. **GET /alerts Endpoint** (2 hours)
+   ```python
+   @app.get("/alerts")
+   async def get_alerts(latitude: float, longitude: float):
+       alerts = []
+       
+       # Check geofencing
+       if near_boundary(lat, lon):
+           alerts.append({"type": "GEOFENCE", "message": "Near Pakistan border", "distance": 2.1})
+       
+       # Check weather
+       weather = fetch_weather()
+       if weather['wind'] > 25:
+           alerts.append({"type": "WIND", "message": "High wind", "speed": weather['wind']})
+       
+       # Check cyclone
+       if weather['cyclone']:
+           alerts.append({"type": "CYCLONE", "message": "DO NOT VENTURE", "level": 3})
+       
+       return {"alerts": sorted(alerts, key=lambda a: URGENCY[a['type']], reverse=True)}
    ```
-   Query 1: "Best fishing zone near Kochi?"
-   Expected: 3-5 zones, distances, productivity info
-   
-   Query 2: "Is it safe today near Kochi?"
-   Expected: SAFE/CAUTION + score + wind/wave/cyclone reasons
-   
-   Query 3: "Show me zones near [lat/lon near Pakistan border]"
-   Expected: Geofencing alert + zone data
-   
-   Query 4: "Weather at Mangalore?"
-   Expected: Wind, waves, SST, chlorophyll
+
+2. **Risk Heatmap Generation** (2 hours)
+   ```python
+   @app.get("/geojson/risk")
+   async def get_risk_heatmap():
+       # For each point in Indian waters grid:
+       # Calculate risk score (0-100)
+       # Return as GeoJSON with features colored by score
+       # Tile-based for performance
+       return geojson_heatmap
    ```
+
+---
+
+**ARP (Alerts Screen):**
+
+1. **Alert Cards** (2 hours)
+   ```typescript
+   // src/screens/AlertsScreen.tsx
+   useEffect(() => {
+     fetchAlerts(lat, lon).then(data => setAlerts(data.alerts));
+   }, []);
+   
+   return (
+     <FlatList
+       data={alerts}
+       renderItem={({ item }) => (
+         <AlertCard
+           type={item.type}
+           message={item.message}
+           color={COLORS[item.type]}
+           onDismiss={() => dismissAlert(item.id)}
+         />
+       )}
+     />
+   );
+   ```
+
+2. **Alert Styling** (1.5 hours)
+   - RED cards for cyclone/geofence
+   - YELLOW for high wind/waves
+   - BLUE for info alerts
+
+3. **Test** (30 min)
+
+---
+
+### Afternoon (4 hours)
+
+**ARP (Map Heatmap):**
+
+1. **Render Risk Heatmap** (1.5 hours)
+   ```typescript
+   // Add heatmap layer to map
+   useEffect(() => {
+     if (layers.risk) {
+       fetchRiskHeatmap().then(geojson => {
+         // Render GeoJSON with fillColor based on risk score
+         geojson.features.forEach(feature => {
+           const color = feature.properties.risk_score > 70 ? '#00AA00' : '#FFAA00' : '#DD0000';
+           // Add to map
+         });
+       });
+     }
+   }, [layers.risk]);
+   ```
+
+2. **Performance Optimization** (1.5 hours)
+   - Cluster zones for faster rendering
+   - Lazy-load heatmap tiles
+   - Cache locally
+
+3. **Integration Test** (1 hour)
+   - Toggle risk layer on/off
+   - Verify colors match risk levels
+   - Check for lag
+
+---
+
+### EOD Checkpoint
+- ✅ Alerts screen displays weather + geofencing alerts
+- ✅ Red/yellow/blue color coding working
+- ✅ Map heatmap shows risk distribution
+- ✅ All 4 screens functional
+
+---
+
+## DAY 5: INTEGRATION, POLISH & DEPLOYMENT
+
+### Morning (4 hours)
+
+**MNV + ARP (Integration Testing):**
+
+1. **End-to-End Tests** (2 hours)
+   - Chat query → Map shows relevant data
+   - Click zone on PFZ screen → Centers map
+   - Geofencing alert triggers correctly
+   - All data displays match backend response
 
 2. **Bug Fixes** (2 hours)
-   - Handle API failures gracefully (Copernicus/Open-Meteo down?)
-   - Handle missing data (return mock values)
-   - Timeout protection (if Sarvam is slow)
-   - Frontend loading states
-
-3. **Mock Data Fallback** (if APIs are unavailable)
-   ```python
-   # src/data/mock.py
-   MOCK_OCEAN_DATA = {
-       'sst': 27.2,
-       'chlorophyll': 0.65,
-       'wind_knots': 12,
-       'cyclone_alert': False
-   }
-   ```
+   - Fix CORS/timeout issues
+   - Handle API failures gracefully (use mocks)
+   - Optimize rendering (profile with React Native profiler)
+   - Test on actual device (iPhone/Android)
 
 ---
 
-### Afternoon (4 hours) - DEMO PREP & DEPLOYMENT
+### Afternoon (4 hours)
 
-**MNV:**
+**MNV (Backend Deployment):**
+
 1. **Production Build** (1 hour)
    ```bash
    # Dockerfile
@@ -709,130 +522,100 @@
    COPY requirements.txt .
    RUN pip install -r requirements.txt
    COPY . .
-   CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
-   ```
-   
-   ```bash
-   docker build -t marine-platform-backend .
-   docker run -p 8000:8000 marine-platform-backend
+   CMD ["uvicorn", "main:app", "--host", "0.0.0.0"]
    ```
 
-2. **Database (SQLite for demo)** (30 min)
-   - Skip PostgreSQL for hackathon, use SQLite
-   - Pre-load static data into SQLite for faster queries
+2. **Database/Cache Setup** (1.5 hours)
+   - Use SQLite for local dev (no PostgreSQL needed)
+   - Pre-load static data
+   - Test with mock data if APIs down
 
-3. **Environment File** (30 min)
-   - Document all required API keys
-   - Provide mock fallbacks if any API fails
+3. **API Testing** (30 min)
+   - Verify all endpoints respond correctly
+   - Test error handling
 
 ---
 
-**ARP:**
-1. **Frontend Production Build** (1 hour)
+**ARP (Mobile Deployment):**
+
+1. **Build APK/IPA** (1.5 hours)
    ```bash
-   npm run build
-   npm run preview  # Test production build locally
+   npm run build:ios
+   npm run build:android
+   # Or use Expo:
+   eas build --platform ios
+   eas build --platform android
    ```
 
-2. **Deployment** (1.5 hours)
-   - Option A: Deploy to Vercel (frontend) + Railway/Render (backend)
-   - Option B: Single server with both (nginx reverse proxy)
-   - Option C: Local demo machine (simplest for hackathon)
+2. **Polish UI** (1 hour)
+   - Colors, spacing, fonts
+   - Loading indicators
+   - Error messages clear
 
-3. **Demo Script** (1.5 hours)
-   ```
-   [ 5-MINUTE DEMO SCRIPT ]
-   
-   0:00-0:30: "This is a marine intelligence platform for Indian fishermen"
-   
-   0:30-2:00: Query 1: "Best fishing zones near Kochi?"
-   - Show chat + agent processing
-   - Show map with zones highlighted
-   - Show zone distances + productivity
-   
-   2:00-3:30: Query 2: "Is it safe today?"
-   - Show safety assessment
-   - Show SAFE with score
-   - Highlight wind/wave/chlorophyll factors
-   
-   3:30-4:30: Query 3: "Near boundary alert"
-   - Show geofencing alert
-   - Show boundary visualization
-   
-   4:30-5:00: "This will help fishermen make safer, better decisions"
-   ```
+3. **Demo Preparation** (1.5 hours)
+   - Create demo script:
+     ```
+     0:00 - Open app, show 4 tabs
+     0:30 - Ask "Can I fish tomorrow?" → Show chat response
+     1:30 - Tap Map → Show zones + risk heatmap
+     2:30 - Tap PFZ → Show nearest zones
+     3:30 - Tap Alerts → Show weather + geofence warnings
+     4:30 - Swipe through screens, show data sources
+     5:00 - "This will help fishermen fish safer"
+     ```
 
 ---
 
 ### EOD Checkpoint - FINAL DELIVERABLES
-- ✅ Full agentic system working end-to-end
-- ✅ All 4 agent nodes (Planner, Data, Geo/Risk, Response) functioning
-- ✅ Safety assessment with real rules
-- ✅ Interactive map with layer toggles
-- ✅ Deployed or locally runnable
-- ✅ 5-minute demo ready
+- ✅ Mobile app (APK/IPA) deployed or locally runnable
+- ✅ All 4 screens working end-to-end
+- ✅ Backend API responsive
+- ✅ Chat, Map, PFZ, Alerts all integrated
+- ✅ 5-minute demo script ready
+- ✅ Data displays real/mock ocean conditions
 
 ---
 
-## DAILY STANDUPS (15 min each)
+## WHO DOES WHAT (Quick Reference)
 
-**End of each day:**
-- What worked?
-- What blocked you?
-- What's the plan for tomorrow?
-- Blockers MNV ↔ ARP (dependency check)
-
----
-
-## COMMUNICATION CHECKLIST
-
-- **Day 1 PM:** Both confirm "Hello world" API calls working
-- **Day 2 PM:** Both confirm agent graph + chat working end-to-end (even with mock data)
-- **Day 3 PM:** Both confirm safety rules + geofencing working
-- **Day 4 PM:** Both confirm map + chat styled and functional
-- **Day 5 PM:** Both confirm deployable + demo script ready
-
----
-
-## QUICK REFERENCE: WHO DOES WHAT
-
-| Component | Owner | Depends On | Status |
-|-----------|-------|-----------|--------|
-| FastAPI scaffold | MNV | Nothing | Day 1 |
-| Sarvam integration | MNV | SARVAM_API_KEY | Day 1 |
-| LangGraph setup | MNV | FastAPI | Day 2 |
-| Data agent (PFZ fetch) | MNV | static GeoJSON | Day 2 |
-| Risk agent (safety) | MNV | Data agent | Day 3 |
-| Geo agent (geofence) | MNV | static boundaries | Day 3 |
-| Backend endpoints | MNV | All agents | Day 4 |
-| React scaffold | ARP | Nothing | Day 1 |
-| Chat component | ARP | Backend API | Day 2 |
-| Map component | ARP | Backend geojson endpoints | Day 4 |
-| Frontend styling | ARP | Chat + Map | Day 4 |
-| Voice input | ARP | Chat component | Day 4 (optional) |
-| Frontend deployment | ARP | npm build | Day 5 |
-| Backend deployment | MNV | Docker | Day 5 |
+| Component | Owner | Days | Dependencies |
+|-----------|-------|------|--------------|
+| FastAPI scaffold | MNV | 1-2 | None |
+| Sarvam integration | MNV | 1-2 | SARVAM_API_KEY |
+| LangGraph agents | MNV | 2-3 | FastAPI |
+| /chat endpoint | MNV | 2-3 | Agents |
+| /pfz/nearest endpoint | MNV | 3 | Static PFZ data |
+| /geojson/* endpoints | MNV | 3-4 | Static GeoJSON |
+| /alerts endpoint | MNV | 4 | Weather APIs |
+| Backend deployment | MNV | 5 | Docker |
+| React Native setup | ARP | 1 | None |
+| Chat screen | ARP | 2-3 | /chat endpoint |
+| Map screen | ARP | 3-4 | /geojson/* endpoints |
+| PFZ screen | ARP | 3 | /pfz/nearest endpoint |
+| Alerts screen | ARP | 4 | /alerts endpoint |
+| Mobile deployment | ARP | 5 | npm build |
 
 ---
 
-## SUCCESS METRICS
+## SUCCESS METRICS (EOD Day 5)
 
-By EOD Day 5:
-- User query → Agent processing → Response displayed
-- Safety assessment working
-- Map shows zones + boundaries
-- Voice input (optional but nice)
-- Deployed or locally executable
-- 5-min demo video/script ready
+- ✅ User asks "Can I fish?" → Gets risk level + conditions in < 3sec
+- ✅ Map renders 52 zones with layer toggles
+- ✅ PFZ screen shows 5 nearest zones with confidence
+- ✅ Alerts display for geofencing + weather
+- ✅ App works offline (uses cached data)
+- ✅ Deployable APK/IPA or locally runnable
+- ✅ 5-min demo video ready
 
 **Stretch Goals:**
-- Multilingual response (Sarvam translate)
-- Route visualization (A* if time)
+- Cyclone path visualization
 - Historical chlorophyll comparison
+- Route optimization to nearest zone
 
 ---
 
-**Document Version:** 2.0
-**Last Updated:** Planning Phase (Roles Swapped)
-**Execution Start:** Day 1, Morning
+**Document Version:** 1.0
+**Platform:** React Native (Expo)
+**Backend:** FastAPI (Python)
+**Status:** Ready for Execution
 
