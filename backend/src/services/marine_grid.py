@@ -31,8 +31,11 @@ LAT_MIN, LAT_MAX = 4.0, 25.0
 LON_MIN, LON_MAX = 65.0, 100.0
 
 # Path to EEZ GeoJSON (authoritative boundary for filtering)
+# File is at: backend/src/services/marine_grid.py
+# Data is at:  SeaSarathi/data/static/
+# So we go up: src/services -> src -> backend -> SeaSarathi -> data/static
 _EEZ_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "..", "data", "static", "INDIA-EEZ.geojson"
+    os.path.dirname(__file__), "..", "..", "..", "data", "static", "INDIA-EEZ.geojson"
 )
 
 

@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from src.agents.state import AgentState
 from src.services.weather_service import fetch_combined_forecasts_for_grid, generate_grid_point_id
+from src.services.copernicus_service import lookup_nearest as lookup_sst_chl
 
 # Mock data fallback (used when APIs are unavailable)
 MOCK_DATA = {
@@ -72,8 +73,21 @@ async def data_agent(state: AgentState) -> AgentState:
         print(f"[DataAgent] Unified API error: {e}. Using mock data.")
         sources.append("mock-data")
 
-    # TODO Day 2: Add Copernicus SST + Chlorophyll fetch here
-    # TODO Day 2: Add IMD cyclone check here
+    # SST + Chlorophyll: local lookup against the precomputed Copernicus grid
+    # (data/dynamic/sst_chl_grid.json, built by scripts/fetch_copernicus_grid.py).
+    # Not used by risk_agent's scoring — informational only, mirrors /pfz/nearest.
+    sst_c = None
+    chlorophyll_mg_m3 = None
+    sst_chl = lookup_sst_chl(lat, lon)
+    if sst_chl:
+        sst_c = sst_chl["sst_c"]
+        chlorophyll_mg_m3 = sst_chl["chl_mg_m3"]
+        sources.append("copernicus-marine")
+
+    # IMD cyclone check: blocked. All 5 IMD endpoints (port warning, sea/coastal
+    # bulletin, cyclone track/wind) return HTTP 401 "API key missing" — confirmed
+    # via test_apis.py — and no IMD_API_KEY is available in backend/.env. cyclone
+    # stays at its mock/default value (False) until IMD credentials are obtained.
 
     return {
         **state,
@@ -84,5 +98,7 @@ async def data_agent(state: AgentState) -> AgentState:
         "wind_gusts_10m": wind_gusts_10m,
         "lightning": lightning,
         "cyclone": cyclone,
+        "sst_c": sst_c,
+        "chlorophyll_mg_m3": chlorophyll_mg_m3,
         "sources": sources,
     }

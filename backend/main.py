@@ -69,6 +69,8 @@ class ChatResponse(BaseModel):
     wind_gusts_10m: float
     lightning: bool
     cyclone: bool
+    sst_c: float | None = None
+    chlorophyll_mg_m3: float | None = None
     recommendation: str
     confidence: int             # 0-100
     sources: list[str]
@@ -113,6 +115,8 @@ async def chat(request: ChatRequest):
                 "wind_gusts_10m": 0.0,
                 "lightning": False,
                 "cyclone": False,
+                "sst_c": None,
+                "chlorophyll_mg_m3": None,
                 "recommendation": "",
                 "confidence": 0,
                 "sources": [],
@@ -150,21 +154,28 @@ DATA_DIR = os.path.join(os.path.dirname(__file__), "..", "data", "static")
 @app.get("/geojson/pfz", summary="PFZ Zones GeoJSON")
 async def get_pfz_geojson():
     """Returns all 52 Potential Fishing Zones as GeoJSON FeatureCollection."""
-    path = os.path.join(DATA_DIR, "pfz_zones.geojson")
+    path = os.path.join(DATA_DIR, "PFZ.geojson")
     if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="pfz_zones.geojson not found in /data/static/")
+        raise HTTPException(status_code=404, detail="PFZ.geojson not found in /data/static/")
     with open(path) as f:
         return json.load(f)
 
 
 @app.get("/geojson/boundaries", summary="Maritime Boundaries GeoJSON")
 async def get_boundaries_geojson():
-    """Returns India EEZ, international maritime boundaries, and MPAs."""
-    path = os.path.join(DATA_DIR, "boundaries.geojson")
-    if not os.path.exists(path):
-        raise HTTPException(status_code=404, detail="boundaries.geojson not found in /data/static/")
-    with open(path) as f:
-        return json.load(f)
+    """Returns India EEZ + international maritime boundaries as one FeatureCollection."""
+    eez_path = os.path.join(DATA_DIR, "INDIA-EEZ.geojson")
+    boundaries_path = os.path.join(DATA_DIR, "INDIAN-WATER-BOUNDARIES.geojson")
+    if not os.path.exists(eez_path) or not os.path.exists(boundaries_path):
+        raise HTTPException(status_code=404, detail="INDIA-EEZ.geojson or INDIAN-WATER-BOUNDARIES.geojson not found in /data/static/")
+    with open(eez_path) as f:
+        eez = json.load(f)
+    with open(boundaries_path) as f:
+        boundaries = json.load(f)
+    return {
+        "type": "FeatureCollection",
+        "features": eez.get("features", []) + boundaries.get("features", []),
+    }
 
 
 # ─── PFZ Endpoint ──────────────────────────────────────────────────────────────────
@@ -177,6 +188,7 @@ async def get_nearest_pfz(latitude: float = 8.5, longitude: float = 76.2, limit:
     and SST/Chlorophyll placeholders (Copernicus integration pending).
     """
     from src.utils.geo import find_nearest_zones
+    from src.services.copernicus_service import lookup_nearest as lookup_sst_chl
     import math
 
     pfz_path = os.path.join(DATA_DIR, "PFZ.geojson")
@@ -198,11 +210,23 @@ async def get_nearest_pfz(latitude: float = 8.5, longitude: float = 76.2, limit:
 
     for zone in nearest:
         d = zone["distance_km"]
-        zone["confidence"] = max(20, min(100, int(100 - d * 1.5)))
         zone["direction"] = bearing(latitude, longitude, zone["centroid_lat"], zone["centroid_lon"])
-        zone["sst"] = None
-        zone["chlorophyll"] = None
-        zone["data_note"] = "SST and Chlorophyll pending Copernicus integration"
+
+        sst_chl = lookup_sst_chl(zone["centroid_lat"], zone["centroid_lon"])
+        confidence = max(20, min(100, int(100 - d * 1.5)))
+        if sst_chl:
+            zone["sst"] = sst_chl["sst_c"]
+            zone["chlorophyll"] = sst_chl["chl_mg_m3"]
+            zone["data_note"] = f"SST/Chlorophyll from Copernicus grid ({sst_chl['sst_time'][:10]}), " \
+                                 f"~{sst_chl['distance_km']} km from zone centroid"
+            # Slightly discount confidence if the nearest grid cell is far from the zone.
+            if sst_chl["distance_km"] > 60:
+                confidence = max(20, confidence - 10)
+        else:
+            zone["sst"] = None
+            zone["chlorophyll"] = None
+            zone["data_note"] = "SST/Chlorophyll grid unavailable — run scripts/fetch_copernicus_grid.py"
+        zone["confidence"] = confidence
 
     return {"zones": nearest, "count": len(nearest), "query_lat": latitude, "query_lon": longitude}
 

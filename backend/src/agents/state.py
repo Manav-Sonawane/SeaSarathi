@@ -15,6 +15,8 @@ class AgentState(TypedDict):
     wind_gusts_10m: float
     lightning: bool
     cyclone: bool
+    sst_c: float | None
+    chlorophyll_mg_m3: float | None
 
     # Results
     recommendation: str
