@@ -409,7 +409,7 @@
    @app.get("/geojson/risk")
    async def get_risk_heatmap():
        # For each point in Indian waters grid:
-       # Calculate risk score (0-100)
+       # Calculate risk score (0-100) 
        # Return as GeoJSON with features colored by score
        # Tile-based for performance
        return geojson_heatmap

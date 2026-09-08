@@ -30,6 +30,20 @@ def risk_agent(state: AgentState) -> AgentState:
             "confidence": 98,
         }
 
+    # ── RULE 1b: Geofence Border Danger or Outside EEZ = instant HIGH risk ───
+    geofence = state.get("geofence") or {}
+    geo_alerts = geofence.get("alerts", [])
+    if any(a.get("type") in ("GEOFENCE_DANGER", "INTERNATIONAL_WATERS") for a in geo_alerts):
+        return {
+            **state,
+            "risk_level": "HIGH",
+            "confidence": 99,
+        }
+    if any(a.get("type") == "GEOFENCE_WARNING" for a in geo_alerts):
+        score -= 35
+        reasons.append("Caution: Approaching international maritime boundary")
+
+
     # ── RULE 2: Wind Speed (km/h) ────────────────────────────────────────────
     wind = state.get("wind_speed_10m", 0.0)
     if wind > 46:          # > 25 knots

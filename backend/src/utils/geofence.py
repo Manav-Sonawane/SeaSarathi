@@ -202,23 +202,18 @@ def check_geofence(lat: float, lon: float) -> list[dict]:
     pt = Point(lon, lat)
 
     # ── Check 1: Is the point outside India's EEZ? ───────────────────────────
-    eez = _load_eez_union()
-    if eez is not None:
-        try:
-            if not eez.contains(pt):
-                alerts.append({
-                    "type": "INTERNATIONAL_WATERS",
-                    "message": (
-                        "You appear to be outside India's EEZ. "
-                        "Entering international waters without proper documentation "
-                        "is illegal. Return to Indian maritime territory."
-                    ),
-                    "boundary": "India EEZ Limit",
-                    "distance_km": 0.0,
-                    "severity": "HIGH",
-                })
-        except Exception as e:
-            print(f"[geofence] EEZ check failed: {e}")
+    if not is_in_indian_waters(lat, lon):
+        alerts.append({
+            "type": "INTERNATIONAL_WATERS",
+            "message": (
+                "You appear to be outside India's EEZ. "
+                "Entering international waters without proper documentation "
+                "is illegal. Return to Indian maritime territory."
+            ),
+            "boundary": "India EEZ Limit",
+            "distance_km": 0.0,
+            "severity": "HIGH",
+        })
 
     # ── Check 2: Proximity to international boundaries ──────────────────────────────────────────────────
     boundary_features = _load_boundary_features()
@@ -266,14 +261,20 @@ def check_geofence(lat: float, lon: float) -> list[dict]:
 
 
 def is_in_indian_waters(lat: float, lon: float) -> bool:
-    """Returns True if the point is inside India's EEZ."""
+    """Returns True if the point is inside India's EEZ or coastal territory."""
     eez = _load_eez_union()
     if eez is None:
         return True  # Default to safe if EEZ data missing
     try:
-        return bool(eez.contains(Point(lon, lat)))
+        pt = Point(lon, lat)
+        if eez.contains(pt):
+            return True
+        # Coastal harbor check: within 30 km of EEZ boundary
+        dist = _min_distance_to_geometry(lat, lon, eez)
+        return dist <= 30.0
     except Exception:
         return True
+
 
 
 # ── CLI Test ───────────────────────────────────────────────────────────────────

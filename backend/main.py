@@ -71,6 +71,10 @@ class ChatResponse(BaseModel):
     cyclone: bool
     sst_c: float | None = None
     chlorophyll_mg_m3: float | None = None
+    nearest_pfz: dict | None = None
+    geofence: dict | None = None
+    nearest_landing: dict | None = None
+    alerts: list[dict] = []
     recommendation: str
     confidence: int             # 0-100
     sources: list[str]
@@ -117,12 +121,18 @@ async def chat(request: ChatRequest):
                 "cyclone": False,
                 "sst_c": None,
                 "chlorophyll_mg_m3": None,
+                "nearest_pfz": None,
+                "geofence": None,
+                "nearest_landing": None,
+                "alerts": [],
                 "recommendation": "",
                 "confidence": 0,
                 "sources": [],
             }
             result = await agent.ainvoke(initial_state)
             return ChatResponse(**result)
+
+
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Agent error: {str(e)}")
     else:

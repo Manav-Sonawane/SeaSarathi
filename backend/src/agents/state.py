@@ -1,4 +1,4 @@
-﻿from typing import TypedDict
+from typing import TypedDict
 
 class AgentState(TypedDict):
     query: str
@@ -17,8 +17,13 @@ class AgentState(TypedDict):
     cyclone: bool
     sst_c: float | None
     chlorophyll_mg_m3: float | None
+    nearest_pfz: dict | None
+    geofence: dict | None
+    nearest_landing: dict | None
+    alerts: list[dict]
 
     # Results
     recommendation: str
     confidence: int
     sources: list[str]
+
