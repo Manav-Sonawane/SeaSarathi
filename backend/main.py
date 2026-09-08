@@ -72,6 +72,7 @@ class ChatResponse(BaseModel):
     sst_c: float | None = None
     chlorophyll_mg_m3: float | None = None
     nearest_pfz: dict | None = None
+    local_fishing_area: dict | None = None   # Populated when PFZ is >50 km away
     pfz_weather: dict | None = None
     geofence: dict | None = None
     nearest_landing: dict | None = None
@@ -125,6 +126,7 @@ async def chat(request: ChatRequest):
                 "sst_c": None,
                 "chlorophyll_mg_m3": None,
                 "nearest_pfz": None,
+                "local_fishing_area": None,
                 "pfz_weather": None,
                 "geofence": None,
                 "nearest_landing": None,

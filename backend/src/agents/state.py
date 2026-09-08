@@ -18,6 +18,7 @@ class AgentState(TypedDict):
     sst_c: float | None
     chlorophyll_mg_m3: float | None
     nearest_pfz: dict | None
+    local_fishing_area: dict | None   # Fallback when nearest PFZ is >50 km away
     pfz_weather: dict | None
     geofence: dict | None
     nearest_landing: dict | None

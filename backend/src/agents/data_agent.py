@@ -49,7 +49,14 @@ async def data_agent(state: AgentState) -> AgentState:
     sources = []
 
     # ── 1. Nearest Potential Fishing Zone (PFZ) ────────────────────────────────
+    # Rule: if the nearest PFZ centroid is >50 km away it is impractical for
+    # small-boat fishermen. In that case we discard it and instead compute a
+    # "local fishing area" bounding box enriched with SST/CHL values from the
+    # Copernicus grid directly around the user's current position.
+    PFZ_MAX_DISTANCE_KM = 50.0
+
     nearest_pfz = None
+    local_fishing_area = None
     pfz_lat, pfz_lon = lat, lon
     try:
         from src.utils.geo import find_nearest_zones
@@ -60,19 +67,58 @@ async def data_agent(state: AgentState) -> AgentState:
             zones = find_nearest_zones(lat, lon, pfz_geojson, n=1)
             if zones:
                 z = zones[0]
-                pfz_lat = z["centroid_lat"]
-                pfz_lon = z["centroid_lon"]
-                z_sst_chl = lookup_sst_chl(pfz_lat, pfz_lon)
-                nearest_pfz = {
-                    "name": z["name"],
-                    "latitude": round(pfz_lat, 4),
-                    "longitude": round(pfz_lon, 4),
-                    "distance_km": round(z["distance_km"], 1),
-                    "direction": calc_bearing(lat, lon, pfz_lat, pfz_lon),
-                    "sst_c": z_sst_chl["sst_c"] if z_sst_chl else None,
-                    "chlorophyll_mg_m3": round(z_sst_chl["chl_mg_m3"], 2) if z_sst_chl else None,
-                }
-                sources.append("pfz-incois")
+                dist_km = z["distance_km"]
+                if dist_km <= PFZ_MAX_DISTANCE_KM:
+                    # ── Normal path: PFZ is reachable ──────────────────────────
+                    pfz_lat = z["centroid_lat"]
+                    pfz_lon = z["centroid_lon"]
+                    z_sst_chl = lookup_sst_chl(pfz_lat, pfz_lon)
+                    nearest_pfz = {
+                        "name": z["name"],
+                        "latitude": round(pfz_lat, 4),
+                        "longitude": round(pfz_lon, 4),
+                        "distance_km": round(dist_km, 1),
+                        "direction": calc_bearing(lat, lon, pfz_lat, pfz_lon),
+                        "sst_c": z_sst_chl["sst_c"] if z_sst_chl else None,
+                        "chlorophyll_mg_m3": round(z_sst_chl["chl_mg_m3"], 2) if z_sst_chl else None,
+                    }
+                    sources.append("pfz-incois")
+                else:
+                    # ── Fallback: PFZ too far → compute local bounding box ─────
+                    # Build a ±0.15° box (~16.5 km radius) around user coords
+                    # enriched with SST/CHL from the nearest Copernicus grid cell.
+                    print(f"[DataAgent] PFZ too far ({dist_km:.1f} km > {PFZ_MAX_DISTANCE_KM} km). "
+                          f"Switching to local area box.")
+                    local_sst_chl = lookup_sst_chl(lat, lon)
+                    _deg_offset = 0.15   # ≈ 16-17 km at Indian latitudes
+                    sst_val = local_sst_chl["sst_c"] if local_sst_chl else None
+                    chl_val = round(local_sst_chl["chl_mg_m3"], 2) if local_sst_chl else None
+                    # Determine area quality based on chlorophyll productivity
+                    if chl_val is not None:
+                        if chl_val >= 1.0:
+                            area_quality = "High productivity"
+                        elif chl_val >= 0.3:
+                            area_quality = "Moderate productivity"
+                        else:
+                            area_quality = "Low productivity"
+                    else:
+                        area_quality = "Unknown productivity"
+                    local_fishing_area = {
+                        "type": "local_area_box",
+                        "reason": f"Nearest PFZ is {round(dist_km, 1)} km away — beyond practical reach for small vessels.",
+                        "sst_c": sst_val,
+                        "chlorophyll_mg_m3": chl_val,
+                        "productivity": area_quality,
+                        "bounding_box": {
+                            "north": round(lat + _deg_offset, 4),
+                            "south": round(lat - _deg_offset, 4),
+                            "east": round(lon + _deg_offset, 4),
+                            "west": round(lon - _deg_offset, 4),
+                        },
+                        "center": {"latitude": round(lat, 4), "longitude": round(lon, 4)},
+                        "radius_km": round(_deg_offset * 111.0, 1),
+                    }
+                    sources.append("copernicus-local-area")
     except Exception as e:
         print(f"[DataAgent] PFZ lookup error: {e}")
 
@@ -287,6 +333,7 @@ async def data_agent(state: AgentState) -> AgentState:
         "sst_c": sst_c,
         "chlorophyll_mg_m3": chlorophyll_mg_m3,
         "nearest_pfz": nearest_pfz,
+        "local_fishing_area": local_fishing_area,
         "pfz_weather": pfz_weather,
         "geofence": geofence,
         "nearest_landing": nearest_landing,

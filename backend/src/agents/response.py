@@ -12,7 +12,8 @@ def get_dynamic_fallback(
     pfz_weather: dict = None,
     geofence: dict = None,
     landing_options: list = None,
-    alerts: list = None
+    alerts: list = None,
+    local_area: dict = None,
 ) -> str:
     """Fallback recommendation formatted with exact numerical conditions and route domain facts."""
     geo_alerts = (geofence or {}).get("alerts", [])
@@ -32,6 +33,18 @@ def get_dynamic_fallback(
     if pfz:
         pw_str = f" (PFZ conditions: wind {pfz_weather['wind_speed_10m']:.0f} km/h, waves {pfz_weather['wave_height']:.1f} m)" if pfz_weather else ""
         pfz_str = f" Nearest Potential Fishing Zone ({pfz['name']}) is {pfz['distance_km']} km {pfz['direction']} at ({pfz['latitude']}°N, {pfz['longitude']}°E){pw_str}."
+    elif local_area:
+        bb = local_area.get("bounding_box", {})
+        radius = local_area.get("radius_km", 16.5)
+        chl = local_area.get("chlorophyll_mg_m3")
+        la_sst = local_area.get("sst_c")
+        prod = local_area.get("productivity", "Unknown productivity")
+        chl_str = f" Chlorophyll {chl} mg/m³." if chl is not None else ""
+        la_sst_str = f" SST {la_sst:.1f}°C." if la_sst is not None else ""
+        pfz_str = (
+            f" No INCOIS PFZ within practical range. Fish within a {radius:.0f} km local zone "
+            f"(N {bb.get('north')}°, S {bb.get('south')}°, E {bb.get('east')}°, W {bb.get('west')}°) — {prod}.{la_sst_str}{chl_str}"
+        )
 
     landing_str = ""
     if landing_options:
@@ -67,6 +80,7 @@ def response_node(state: AgentState) -> AgentState:
     query = state.get("query", "")
     pfz = state.get("nearest_pfz")
     pfz_weather = state.get("pfz_weather")
+    local_area = state.get("local_fishing_area")
     geofence = state.get("geofence") or {}
     landing_options = state.get("landing_options") or []
     alerts = state.get("alerts", [])
@@ -85,6 +99,16 @@ def response_node(state: AgentState) -> AgentState:
         pfz_info = (
             f"Nearest PFZ: {pfz['name']} | Distance: {pfz['distance_km']} km {pfz['direction']} | "
             f"Coordinates: ({pfz['latitude']}°N, {pfz['longitude']}°E) | SST: {pfz.get('sst_c')}°C | Chlorophyll: {pfz.get('chlorophyll_mg_m3')} mg/m³{pw_txt}"
+        )
+    elif local_area:
+        bb = local_area.get("bounding_box", {})
+        pfz_info = (
+            f"No INCOIS PFZ within 50 km. LOCAL FISHING AREA (SST/CHL-derived): "
+            f"Center ({local_area['center']['latitude']}°N, {local_area['center']['longitude']}°E) | "
+            f"Radius ~{local_area['radius_km']} km | "
+            f"Bounding box: N {bb.get('north')}° S {bb.get('south')}° E {bb.get('east')}° W {bb.get('west')}° | "
+            f"SST: {local_area.get('sst_c')}°C | Chlorophyll: {local_area.get('chlorophyll_mg_m3')} mg/m³ | "
+            f"Productivity: {local_area.get('productivity')}"
         )
     else:
         pfz_info = "Nearest PFZ: None nearby"
@@ -122,7 +146,8 @@ Active Alerts: {active_alerts_text}
 
 Instructions:
 - Provide a clear, practical answer grounded strictly on the data above.
-- If user asks about fishing spots/PFZ or general safety, mention the nearest PFZ coordinates ({pfz['latitude'] if pfz else ''}°N, {pfz['longitude'] if pfz else ''}°E), distance, and the weather at the destination PFZ.
+- If a nearest PFZ is provided (within 50 km), mention its name, coordinates ({pfz['latitude'] if pfz else ''}°N, {pfz['longitude'] if pfz else ''}°E), distance, and weather.
+- If a LOCAL FISHING AREA box is provided instead (PFZ was too far), describe the bounding box coordinates and the SST/Chlorophyll productivity for that area — tell the fisherman to fish in that local box.
 - Mention 2-3 landing harbor options along their path (departure harbor, mid-route emergency shelter, or destination port).
 - Always include key numbers (e.g. wind in km/h, waves in m, distance in km).
 - If risk is HIGH, firmly advise staying ashore.
@@ -136,7 +161,7 @@ Instructions:
             raise ValueError("Empty or too short response from Sarvam")
     except Exception as e:
         print(f"[Response] Sarvam call failed: {e}. Using dynamic fallback template.")
-        recommendation = get_dynamic_fallback(risk, wind, wave, rain, state.get("sst_c"), pfz, pfz_weather, geofence, landing_options, alerts)
+        recommendation = get_dynamic_fallback(risk, wind, wave, rain, state.get("sst_c"), pfz, pfz_weather, geofence, landing_options, alerts, local_area)
 
     return {
         **state,
