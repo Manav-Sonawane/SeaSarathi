@@ -20,71 +20,16 @@ MOCK_DATA = {
 
 async def data_agent(state: AgentState) -> AgentState:
     """
-    Data Agent: central data aggregator that executes and coordinates all domain data lookups:
-      1. Real-time Weather & Marine conditions (Open-Meteo)
-      2. Oceanographic SST & Chlorophyll (Copernicus NetCDF Grid)
-      3. Nearest Potential Fishing Zone with coordinates & bearing (INCOIS PFZ.geojson)
-      4. Maritime Geofencing & International Border check (INDIAN-WATER-BOUNDARIES.geojson & INDIA-EEZ)
-      5. Nearest Fish Landing Center / Harbor (LANDING-LOCATIONS.geojson)
-      6. Unified Multi-hazard Safety Alerts synthesis
+    Data Agent: central data aggregator that executes path-aware marine intelligence:
+      1. Finds nearest Potential Fishing Zone (PFZ) and extracts destination coordinates.
+      2. Pulls exact real-time Weather & Marine conditions for BOTH User location AND Destination PFZ.
+      3. Pulls Copernicus SST & Chlorophyll at exact User coordinates AND Destination PFZ.
+      4. Discovers 2-3 strategic Landing Centers along the traversal path (Departure, Mid-route shelter, PFZ harbor).
+      5. Performs Maritime Geofencing & International Border checks.
+      6. Synthesizes Unified Safety Alerts across the entire voyage.
     """
     lat = state["latitude"]
     lon = state["longitude"]
-
-    sources = []
-    wind_speed_10m = MOCK_DATA["wind_speed_10m"]
-    wave_height = MOCK_DATA["wave_height"]
-    precipitation = MOCK_DATA["precipitation"]
-    visibility = MOCK_DATA["visibility"]
-    wind_gusts_10m = MOCK_DATA["wind_gusts_10m"]
-    lightning = MOCK_DATA["lightning"]
-    cyclone = MOCK_DATA["cyclone"]
-
-    # 1. Weather & Marine Forecast
-    try:
-        combined = fetch_combined_forecasts_for_grid(np.array([lat]), np.array([lon]))
-        point_id = generate_grid_point_id(lat, lon)
-        data = combined.get(point_id, {})
-        
-        weather_df = data.get("general_weather_forecast")
-        marine_df = data.get("marine_forecast")
-        now_utc = pd.Timestamp.now(tz="UTC")
-        
-        if weather_df is not None and not weather_df.empty:
-            window = weather_df[weather_df["date"] <= now_utc + pd.Timedelta(hours=12)]
-            if window.empty:
-                window = weather_df.head(12)
-            
-            wind_speed_10m = float(window["wind_speed_10m"].max())
-            wind_gusts_10m = float(window["wind_gusts_10m"].max())
-            precipitation = float(window["precipitation"].sum())
-            visibility = float(window["visibility"].min())
-            
-            code_vals = window["weather_code"].dropna()
-            max_code = int(code_vals.max()) if not code_vals.empty else 0
-            lightning = max_code >= 95
-            sources.append("open-meteo-forecast")
-            
-        if marine_df is not None and not marine_df.empty:
-            window = marine_df[marine_df["date"] <= now_utc + pd.Timedelta(hours=12)]
-            if window.empty:
-                window = marine_df.head(12)
-            
-            wave_height = float(window["wave_height"].max())
-            sources.append("open-meteo-marine")
-
-    except Exception as e:
-        print(f"[DataAgent] Weather API error: {e}. Using fallback.")
-        sources.append("mock-data")
-
-    # 2. SST + Chlorophyll from Copernicus Grid
-    sst_c = None
-    chlorophyll_mg_m3 = None
-    sst_chl = lookup_sst_chl(lat, lon)
-    if sst_chl:
-        sst_c = sst_chl["sst_c"]
-        chlorophyll_mg_m3 = sst_chl["chl_mg_m3"]
-        sources.append("copernicus-marine")
 
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     data_static_dir = os.path.join(base_dir, "data", "static")
@@ -101,8 +46,11 @@ async def data_agent(state: AgentState) -> AgentState:
         dirs = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]
         return dirs[int((angle + 22.5) / 45) % 8]
 
-    # 3. Nearest Potential Fishing Zone (PFZ)
+    sources = []
+
+    # ── 1. Nearest Potential Fishing Zone (PFZ) ────────────────────────────────
     nearest_pfz = None
+    pfz_lat, pfz_lon = lat, lon
     try:
         from src.utils.geo import find_nearest_zones
         pfz_file = os.path.join(data_static_dir, "PFZ.geojson")
@@ -112,21 +60,141 @@ async def data_agent(state: AgentState) -> AgentState:
             zones = find_nearest_zones(lat, lon, pfz_geojson, n=1)
             if zones:
                 z = zones[0]
-                z_sst_chl = lookup_sst_chl(z["centroid_lat"], z["centroid_lon"])
+                pfz_lat = z["centroid_lat"]
+                pfz_lon = z["centroid_lon"]
+                z_sst_chl = lookup_sst_chl(pfz_lat, pfz_lon)
                 nearest_pfz = {
                     "name": z["name"],
-                    "latitude": round(z["centroid_lat"], 4),
-                    "longitude": round(z["centroid_lon"], 4),
+                    "latitude": round(pfz_lat, 4),
+                    "longitude": round(pfz_lon, 4),
                     "distance_km": round(z["distance_km"], 1),
-                    "direction": calc_bearing(lat, lon, z["centroid_lat"], z["centroid_lon"]),
-                    "sst_c": z_sst_chl["sst_c"] if z_sst_chl else sst_c,
-                    "chlorophyll_mg_m3": round(z_sst_chl["chl_mg_m3"], 2) if z_sst_chl else chlorophyll_mg_m3,
+                    "direction": calc_bearing(lat, lon, pfz_lat, pfz_lon),
+                    "sst_c": z_sst_chl["sst_c"] if z_sst_chl else None,
+                    "chlorophyll_mg_m3": round(z_sst_chl["chl_mg_m3"], 2) if z_sst_chl else None,
                 }
                 sources.append("pfz-incois")
     except Exception as e:
         print(f"[DataAgent] PFZ lookup error: {e}")
 
-    # 4. Geofencing & International Border Check
+    # ── 2. SST + Chlorophyll from Copernicus Grid at Exact User Coordinates ───
+    sst_c = None
+    chlorophyll_mg_m3 = None
+    sst_chl_user = lookup_sst_chl(lat, lon)
+    if sst_chl_user:
+        sst_c = sst_chl_user["sst_c"]
+        chlorophyll_mg_m3 = sst_chl_user["chl_mg_m3"]
+        sources.append("copernicus-marine")
+
+    # ── 3. Weather & Marine Forecast at Start AND Destination PFZ ──────────────
+    wind_speed_10m = MOCK_DATA["wind_speed_10m"]
+    wave_height = MOCK_DATA["wave_height"]
+    precipitation = MOCK_DATA["precipitation"]
+    visibility = MOCK_DATA["visibility"]
+    wind_gusts_10m = MOCK_DATA["wind_gusts_10m"]
+    lightning = MOCK_DATA["lightning"]
+    cyclone = MOCK_DATA["cyclone"]
+    pfz_weather = None
+
+    try:
+        # Build multi-point array: [User Location, Destination PFZ]
+        if nearest_pfz and (abs(lat - pfz_lat) > 0.01 or abs(lon - pfz_lon) > 0.01):
+            query_lats = np.array([lat, pfz_lat])
+            query_lons = np.array([lon, pfz_lon])
+        else:
+            query_lats = np.array([lat])
+            query_lons = np.array([lon])
+
+        combined = fetch_combined_forecasts_for_grid(query_lats, query_lons)
+        now_utc = pd.Timestamp.now(tz="UTC")
+
+        # Parse user location conditions
+        user_point_id = generate_grid_point_id(lat, lon)
+        user_data = combined.get(user_point_id, {})
+        user_w_df = user_data.get("general_weather_forecast")
+        user_m_df = user_data.get("marine_forecast")
+
+        if user_w_df is not None and not user_w_df.empty:
+            w_win = user_w_df[user_w_df["date"] <= now_utc + pd.Timedelta(hours=12)]
+            if w_win.empty:
+                w_win = user_w_df.head(12)
+            wind_speed_10m = float(w_win["wind_speed_10m"].max())
+            wind_gusts_10m = float(w_win["wind_gusts_10m"].max())
+            precipitation = float(w_win["precipitation"].sum())
+            visibility = float(w_win["visibility"].min())
+            code_vals = w_win["weather_code"].dropna()
+            max_code = int(code_vals.max()) if not code_vals.empty else 0
+            lightning = max_code >= 95
+            sources.append("open-meteo-forecast")
+
+        if user_m_df is not None and not user_m_df.empty:
+            m_win = user_m_df[user_m_df["date"] <= now_utc + pd.Timedelta(hours=12)]
+            if m_win.empty:
+                m_win = user_m_df.head(12)
+            wave_height = float(m_win["wave_height"].max())
+            sources.append("open-meteo-marine")
+
+        # Parse Destination PFZ conditions if distinct
+        if nearest_pfz and len(query_lats) > 1:
+            pfz_point_id = generate_grid_point_id(pfz_lat, pfz_lon)
+            pfz_data = combined.get(pfz_point_id, {})
+            pfz_w_df = pfz_data.get("general_weather_forecast")
+            pfz_m_df = pfz_data.get("marine_forecast")
+
+            dest_wind = wind_speed_10m
+            dest_wave = wave_height
+            dest_rain = precipitation
+            dest_gusts = wind_gusts_10m
+            dest_lightning = lightning
+
+            if pfz_w_df is not None and not pfz_w_df.empty:
+                pw_win = pfz_w_df[pfz_w_df["date"] <= now_utc + pd.Timedelta(hours=12)]
+                if pw_win.empty:
+                    pw_win = pfz_w_df.head(12)
+                dest_wind = float(pw_win["wind_speed_10m"].max())
+                dest_gusts = float(pw_win["wind_gusts_10m"].max())
+                dest_rain = float(pw_win["precipitation"].sum())
+                p_code = int(pw_win["weather_code"].dropna().max()) if not pw_win["weather_code"].dropna().empty else 0
+                dest_lightning = p_code >= 95
+
+            if pfz_m_df is not None and not pfz_m_df.empty:
+                pm_win = pfz_m_df[pfz_m_df["date"] <= now_utc + pd.Timedelta(hours=12)]
+                if pm_win.empty:
+                    pm_win = pfz_m_df.head(12)
+                dest_wave = float(pm_win["wave_height"].max())
+
+            pfz_weather = {
+                "wind_speed_10m": round(dest_wind, 1),
+                "wave_height": round(dest_wave, 2),
+                "wind_gusts_10m": round(dest_gusts, 1),
+                "precipitation": round(dest_rain, 1),
+                "lightning": dest_lightning,
+                "sst_c": nearest_pfz.get("sst_c"),
+                "chlorophyll_mg_m3": nearest_pfz.get("chlorophyll_mg_m3"),
+            }
+
+    except Exception as e:
+        print(f"[DataAgent] Weather API multi-point error: {e}. Using fallback.")
+        sources.append("mock-data")
+
+    # ── 4. Strategic Landing Centers Along Traversal Path ──────────────────────
+    landing_options = []
+    nearest_landing = None
+    try:
+        from src.utils.geo import find_route_landing_options
+        landing_file = os.path.join(data_static_dir, "LANDING-LOCATIONS.geojson")
+        if os.path.exists(landing_file):
+            with open(landing_file, "r", encoding="utf-8") as f:
+                landing_geojson = json.load(f)
+            landing_options = find_route_landing_options(lat, lon, pfz_lat, pfz_lon, landing_geojson, n=3)
+            if landing_options:
+                for opt in landing_options:
+                    opt["direction_from_user"] = calc_bearing(lat, lon, opt["latitude"], opt["longitude"])
+                nearest_landing = landing_options[0]
+                sources.append("landing-locations")
+    except Exception as e:
+        print(f"[DataAgent] Landing options error: {e}")
+
+    # ── 5. Geofencing & International Border Check ────────────────────────────
     geofence = {"in_indian_waters": True, "alert_count": 0, "alerts": []}
     try:
         from src.utils.geofence import check_geofence, is_in_indian_waters
@@ -142,34 +210,8 @@ async def data_agent(state: AgentState) -> AgentState:
     except Exception as e:
         print(f"[DataAgent] Geofence error: {e}")
 
-    # 5. Nearest Fish Landing Site / Port
-    nearest_landing = None
-    try:
-        from src.utils.geo import find_nearest_landing_sites
-        landing_file = os.path.join(data_static_dir, "LANDING-LOCATIONS.geojson")
-        if os.path.exists(landing_file):
-            with open(landing_file, "r", encoding="utf-8") as f:
-                landing_geojson = json.load(f)
-            sites = find_nearest_landing_sites(lat, lon, landing_geojson, n=1)
-            if sites:
-                s = sites[0]
-                nearest_landing = {
-                    "name": s["name"],
-                    "district": s.get("district", ""),
-                    "sector": s.get("sector", ""),
-                    "latitude": round(s["latitude"], 4),
-                    "longitude": round(s["longitude"], 4),
-                    "distance_km": round(s["distance_km"], 1),
-                    "direction": calc_bearing(lat, lon, s["latitude"], s["longitude"]),
-                }
-
-                sources.append("landing-locations")
-    except Exception as e:
-        print(f"[DataAgent] Landing site lookup error: {e}")
-
-    # 6. Unified Safety Alerts Compilation
+    # ── 6. Unified Safety Alerts Compilation ──────────────────────────────────
     alerts = []
-    # Add geofence alerts
     for a in geofence.get("alerts", []):
         alerts.append({
             "type": a["type"],
@@ -177,49 +219,61 @@ async def data_agent(state: AgentState) -> AgentState:
             "message": a["message"],
             "source": "geofence"
         })
-    # Add weather alerts
-    if wind_speed_10m > 46:
+
+    max_path_wind = max(wind_speed_10m, (pfz_weather or {}).get("wind_speed_10m", 0.0))
+    max_path_wave = max(wave_height, (pfz_weather or {}).get("wave_height", 0.0))
+
+    if max_path_wind > 46:
         alerts.append({
             "type": "HIGH_WIND",
             "severity": "HIGH",
-            "message": f"Dangerous winds: {wind_speed_10m:.0f} km/h (gusts {wind_gusts_10m:.0f} km/h). Do not venture out.",
+            "message": f"Dangerous winds along voyage: {max_path_wind:.0f} km/h. Do not venture out.",
             "source": "open-meteo"
         })
-    elif wind_speed_10m > 28:
+    elif max_path_wind > 28:
         alerts.append({
             "type": "MODERATE_WIND",
             "severity": "MODERATE",
-            "message": f"Elevated winds: {wind_speed_10m:.0f} km/h. Exercise caution at sea.",
+            "message": f"Elevated winds along route: {max_path_wind:.0f} km/h. Exercise caution.",
             "source": "open-meteo"
         })
-    if wave_height > 3.5:
+    if max_path_wave > 3.5:
         alerts.append({
             "type": "DANGEROUS_WAVES",
             "severity": "HIGH",
-            "message": f"Dangerous waves: {wave_height:.1f} m. Small vessels must stay ashore.",
+            "message": f"Dangerous waves along voyage: {max_path_wave:.1f} m. Small vessels stay ashore.",
             "source": "open-meteo-marine"
         })
-    elif wave_height > 2.0:
+    elif max_path_wave > 2.0:
         alerts.append({
             "type": "HIGH_WAVES",
             "severity": "MODERATE",
-            "message": f"High waves: {wave_height:.1f} m. Avoid smaller vessels.",
+            "message": f"High waves on route/PFZ: {max_path_wave:.1f} m. Avoid smaller vessels.",
             "source": "open-meteo-marine"
         })
     if precipitation > 50:
         alerts.append({
             "type": "HEAVY_RAIN",
             "severity": "HIGH",
-            "message": f"Heavy rainfall: {precipitation:.0f} mm. Visibility and conditions degraded.",
+            "message": f"Heavy rainfall: {precipitation:.0f} mm. Visibility and sea conditions degraded.",
             "source": "open-meteo"
         })
-    if lightning:
+    if lightning or (pfz_weather and pfz_weather.get("lightning")):
         alerts.append({
             "type": "THUNDERSTORM",
             "severity": "HIGH",
-            "message": "Thunderstorm and lightning forecast. Do not go out to sea.",
+            "message": "Thunderstorm and lightning forecast on route/PFZ. Do not go out to sea.",
             "source": "open-meteo"
         })
+
+    route_summary = {
+        "start_coordinates": {"latitude": lat, "longitude": lon},
+        "destination_coordinates": {"latitude": pfz_lat, "longitude": pfz_lon},
+        "distance_km": (nearest_pfz or {}).get("distance_km", 0.0),
+        "bearing": (nearest_pfz or {}).get("direction", "N"),
+        "max_route_wind_kmh": round(max_path_wind, 1),
+        "max_route_wave_m": round(max_path_wave, 2),
+    }
 
     return {
         **state,
@@ -233,10 +287,14 @@ async def data_agent(state: AgentState) -> AgentState:
         "sst_c": sst_c,
         "chlorophyll_mg_m3": chlorophyll_mg_m3,
         "nearest_pfz": nearest_pfz,
+        "pfz_weather": pfz_weather,
         "geofence": geofence,
         "nearest_landing": nearest_landing,
+        "landing_options": landing_options,
+        "route_summary": route_summary,
         "alerts": alerts,
-        "sources": sources,
+        "sources": list(dict.fromkeys(sources)),
     }
+
 
 

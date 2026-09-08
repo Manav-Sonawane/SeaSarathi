@@ -72,8 +72,11 @@ class ChatResponse(BaseModel):
     sst_c: float | None = None
     chlorophyll_mg_m3: float | None = None
     nearest_pfz: dict | None = None
+    pfz_weather: dict | None = None
     geofence: dict | None = None
     nearest_landing: dict | None = None
+    landing_options: list[dict] = []
+    route_summary: dict | None = None
     alerts: list[dict] = []
     recommendation: str
     confidence: int             # 0-100
@@ -122,8 +125,11 @@ async def chat(request: ChatRequest):
                 "sst_c": None,
                 "chlorophyll_mg_m3": None,
                 "nearest_pfz": None,
+                "pfz_weather": None,
                 "geofence": None,
                 "nearest_landing": None,
+                "landing_options": [],
+                "route_summary": None,
                 "alerts": [],
                 "recommendation": "",
                 "confidence": 0,
@@ -131,6 +137,7 @@ async def chat(request: ChatRequest):
             }
             result = await agent.ainvoke(initial_state)
             return ChatResponse(**result)
+
 
 
         except Exception as e:

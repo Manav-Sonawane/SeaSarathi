@@ -166,3 +166,63 @@ def find_nearest_landing_sites(lat: float, lon: float, geojson: dict, n: int = 5
         })
 
     return sorted(sites, key=lambda s: s["distance_km"])[:n]
+
+
+def find_route_landing_options(
+    start_lat: float,
+    start_lon: float,
+    dest_lat: float,
+    dest_lon: float,
+    geojson: dict,
+    n: int = 3
+) -> list[dict]:
+    """
+    Find 2-3 strategic emergency and safe landing centers along the voyage traversal path:
+      - Option A: Nearest harbor to Start / Departure
+      - Option B: Nearest harbor to Mid-Point along the path to PFZ (mid-voyage emergency shelter)
+      - Option C: Nearest coastal harbor to Destination PFZ
+
+    Each option includes stage description, role, distance from query point, coordinates, and bearing.
+    """
+    mid_lat = (start_lat + dest_lat) / 2.0
+    mid_lon = (start_lon + dest_lon) / 2.0
+
+    start_sites = find_nearest_landing_sites(start_lat, start_lon, geojson, n=5)
+    mid_sites = find_nearest_landing_sites(mid_lat, mid_lon, geojson, n=5)
+    dest_sites = find_nearest_landing_sites(dest_lat, dest_lon, geojson, n=5)
+
+    selected = []
+    seen_ids = set()
+
+    if start_sites:
+        s0 = dict(start_sites[0])
+        s0["stage"] = "Departure Harbor"
+        s0["role"] = "DEPARTURE_HARBOR"
+        selected.append(s0)
+        seen_ids.add(s0.get("unique_id") or s0["name"])
+
+    for m in mid_sites:
+        m_id = m.get("unique_id") or m["name"]
+        if m_id not in seen_ids:
+            m_copy = dict(m)
+            m_copy["stage"] = "Mid-Route Emergency Shelter"
+            m_copy["role"] = "MID_ROUTE_SHELTER"
+            # Distance from start for reference
+            m_copy["distance_from_start_km"] = round(haversine(start_lat, start_lon, m["latitude"], m["longitude"]), 1)
+            selected.append(m_copy)
+            seen_ids.add(m_id)
+            break
+
+    for d in dest_sites:
+        d_id = d.get("unique_id") or d["name"]
+        if d_id not in seen_ids:
+            d_copy = dict(d)
+            d_copy["stage"] = "Nearest Harbor to Destination PFZ"
+            d_copy["role"] = "DESTINATION_HARBOR"
+            d_copy["distance_from_pfz_km"] = round(haversine(dest_lat, dest_lon, d["latitude"], d["longitude"]), 1)
+            selected.append(d_copy)
+            seen_ids.add(d_id)
+            break
+
+    return selected[:n]
+

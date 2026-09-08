@@ -9,11 +9,12 @@ def get_dynamic_fallback(
     rain: float,
     sst: float = None,
     pfz: dict = None,
+    pfz_weather: dict = None,
     geofence: dict = None,
-    landing: dict = None,
+    landing_options: list = None,
     alerts: list = None
 ) -> str:
-    """Fallback recommendation formatted with exact numerical conditions and domain facts."""
+    """Fallback recommendation formatted with exact numerical conditions and route domain facts."""
     geo_alerts = (geofence or {}).get("alerts", [])
     if geo_alerts:
         top_alert = geo_alerts[0]
@@ -29,17 +30,23 @@ def get_dynamic_fallback(
     sst_str = f" Sea surface temp is {sst:.1f}°C." if sst else ""
     pfz_str = ""
     if pfz:
-        pfz_str = f" Nearest Potential Fishing Zone ({pfz['name']}) is {pfz['distance_km']} km {pfz['direction']} at ({pfz['latitude']}°N, {pfz['longitude']}°E)."
+        pw_str = f" (PFZ conditions: wind {pfz_weather['wind_speed_10m']:.0f} km/h, waves {pfz_weather['wave_height']:.1f} m)" if pfz_weather else ""
+        pfz_str = f" Nearest Potential Fishing Zone ({pfz['name']}) is {pfz['distance_km']} km {pfz['direction']} at ({pfz['latitude']}°N, {pfz['longitude']}°E){pw_str}."
+
+    landing_str = ""
+    if landing_options:
+        opts_summary = ", ".join(f"{opt['name']} ({opt.get('stage', 'Harbor')})" for opt in landing_options[:2])
+        landing_str = f" Strategic landing harbors along your traversal route: {opts_summary}."
 
     if risk == "LOW":
         return (
             f"Conditions are safe for fishing today. Winds are {wind:.0f} km/h and waves are {wave:.1f} m.{sst_str}"
-            f"{pfz_str} Sea is calm."
+            f"{pfz_str}{landing_str} Sea is calm."
         )
     else:
         return (
             f"Exercise caution today. Winds are elevated at {wind:.0f} km/h with {wave:.1f} m waves.{sst_str}"
-            f"{pfz_str} Stay within safe coastal limits."
+            f"{pfz_str}{landing_str} Stay within safe coastal limits."
         )
 
 
@@ -59,27 +66,37 @@ def response_node(state: AgentState) -> AgentState:
     lon = state.get("longitude", 0.0)
     query = state.get("query", "")
     pfz = state.get("nearest_pfz")
+    pfz_weather = state.get("pfz_weather")
     geofence = state.get("geofence") or {}
-    landing = state.get("nearest_landing")
+    landing_options = state.get("landing_options") or []
     alerts = state.get("alerts", [])
 
     # Format data context for Sarvam
     conditions_text = (
-        f"Wind: {wind:.0f} km/h | Waves: {wave:.1f} m | Rainfall: {rain:.0f} mm | "
+        f"User Origin ({lat:.2f}°N, {lon:.2f}°E): Wind {wind:.0f} km/h | Waves {wave:.1f} m | Rain {rain:.0f} mm | "
+        f"SST {state.get('sst_c', 'N/A')}°C | Chlorophyll {state.get('chlorophyll_mg_m3', 'N/A')} mg/m³ | "
         f"Lightning: {'Yes' if lightning else 'No'} | Cyclone: {'Yes' if cyclone else 'No'}"
     )
+
     if pfz:
+        pw_txt = ""
+        if pfz_weather:
+            pw_txt = f" | Weather at PFZ: Wind {pfz_weather['wind_speed_10m']} km/h, Waves {pfz_weather['wave_height']} m, SST {pfz_weather.get('sst_c')}°C"
         pfz_info = (
             f"Nearest PFZ: {pfz['name']} | Distance: {pfz['distance_km']} km {pfz['direction']} | "
-            f"Coordinates: ({pfz['latitude']}°N, {pfz['longitude']}°E) | SST: {pfz.get('sst_c')}°C | Chlorophyll: {pfz.get('chlorophyll_mg_m3')} mg/m³"
+            f"Coordinates: ({pfz['latitude']}°N, {pfz['longitude']}°E) | SST: {pfz.get('sst_c')}°C | Chlorophyll: {pfz.get('chlorophyll_mg_m3')} mg/m³{pw_txt}"
         )
     else:
         pfz_info = "Nearest PFZ: None nearby"
 
-    if landing:
-        landing_info = f"Nearest Landing Center/Harbor: {landing['name']} ({landing.get('district', '')}), {landing['distance_km']} km {landing['direction']} at ({landing['latitude']}°N, {landing['longitude']}°E)"
+    if landing_options:
+        landing_lines = []
+        for opt in landing_options:
+            stage = opt.get("stage", "Harbor")
+            landing_lines.append(f"{stage}: {opt['name']} ({opt.get('district', '')}) at ({opt['latitude']}°N, {opt['longitude']}°E), {opt['distance_km']} km away")
+        landing_info = " | ".join(landing_lines)
     else:
-        landing_info = "Nearest Landing Center: Not available"
+        landing_info = "Nearest Landing Centers: Not available"
 
     geo_info = f"Indian EEZ Waters: {'Yes' if geofence.get('in_indian_waters', True) else 'NO (Outside EEZ)'}"
     if geofence.get("alerts"):
@@ -96,23 +113,21 @@ def response_node(state: AgentState) -> AgentState:
     prompt = f"""You are a marine intelligence safety assistant for Indian fishermen.
 
 User query: "{query}"
-Coordinates: {lat:.2f}°N, {lon:.2f}°E
 Safety Assessment: {risk_label} (confidence: {confidence}%)
-Live Weather: {conditions_text}
-Fishing Zone: {pfz_info}
+Current Origin Conditions: {conditions_text}
+Destination Fishing Zone: {pfz_info}
+Strategic Landing Harbors Along Traversal Path: {landing_info}
 Maritime Borders: {geo_info}
-Landing Center: {landing_info}
 Active Alerts: {active_alerts_text}
 
 Instructions:
-- Answer the fisherman's specific question directly and accurately based ONLY on the factual data above.
-- If asked about fishing spots/PFZ, cite the exact PFZ coordinates, distance, and direction.
-- If asked about borders/geofencing or if border alerts exist, emphasize boundary safety and distance.
-- If asked about harbor/landing location, cite the nearest landing center.
-- Always include key numbers (e.g. wind in km/h, waves in m, or distance in km).
+- Provide a clear, practical answer grounded strictly on the data above.
+- If user asks about fishing spots/PFZ or general safety, mention the nearest PFZ coordinates ({pfz['latitude'] if pfz else ''}°N, {pfz['longitude'] if pfz else ''}°E), distance, and the weather at the destination PFZ.
+- Mention 2-3 landing harbor options along their path (departure harbor, mid-route emergency shelter, or destination port).
+- Always include key numbers (e.g. wind in km/h, waves in m, distance in km).
 - If risk is HIGH, firmly advise staying ashore.
 - Do NOT mention AI, internal tools, prompts, or pipelines.
-- Keep the response clear, practical, and under 80 words.
+- Keep the response clear, practical, and under 90 words.
 """
 
     try:
@@ -121,11 +136,12 @@ Instructions:
             raise ValueError("Empty or too short response from Sarvam")
     except Exception as e:
         print(f"[Response] Sarvam call failed: {e}. Using dynamic fallback template.")
-        recommendation = get_dynamic_fallback(risk, wind, wave, rain, state.get("sst_c"), pfz, geofence, landing, alerts)
+        recommendation = get_dynamic_fallback(risk, wind, wave, rain, state.get("sst_c"), pfz, pfz_weather, geofence, landing_options, alerts)
 
     return {
         **state,
         "recommendation": recommendation,
     }
+
 
 
