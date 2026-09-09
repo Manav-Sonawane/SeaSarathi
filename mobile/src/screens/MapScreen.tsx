@@ -7,6 +7,7 @@ import {
   SafeAreaView,
   StatusBar,
   Platform,
+  PanResponder,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
@@ -36,6 +37,9 @@ export function MapScreen({ navigation }: any) {
   const { operatingPort, portInfo } = useUserStore();
 
   const [hudOpen, setHudOpen] = useState(false);
+  const [zoom, setZoom] = useState(11);
+  const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+
   const [layers, setLayers] = useState({
     risk: true,
     pfz: true,
@@ -54,6 +58,29 @@ export function MapScreen({ navigation }: any) {
     sst: '28.4°C',
     chl: '1.84 mg/m³',
   });
+
+  const panResponder = React.useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_, gestureState) =>
+          Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3,
+        onPanResponderMove: (_, gestureState) => {
+          setPanOffset((prev) => ({
+            x: prev.x + gestureState.dx * 0.12,
+            y: prev.y + gestureState.dy * 0.12,
+          }));
+        },
+      }),
+    []
+  );
+
+  const handleZoomIn = () => setZoom((z) => Math.min(z + 1, 18));
+  const handleZoomOut = () => setZoom((z) => Math.max(z - 1, 5));
+  const handleRecenter = () => {
+    setZoom(11);
+    setPanOffset({ x: 0, y: 0 });
+  };
 
   const toggleLayer = (key: keyof typeof layers) => {
     setLayers((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -102,8 +129,8 @@ export function MapScreen({ navigation }: any) {
         <Text style={styles.bathyText}>BATHYMETRY V4.2</Text>
       </View>
 
-      {/* Map Viewport */}
-      <View style={styles.mapContainer}>
+      {/* Map Viewport with PanResponder for Drag / Pan Gestures */}
+      <View style={styles.mapContainer} {...panResponder.panHandlers}>
         {Platform.OS !== 'web' && MapView ? (
           <MapView
             style={styles.map}
@@ -175,6 +202,8 @@ export function MapScreen({ navigation }: any) {
             activePort={portInfo}
             layers={layers}
             onSelectZone={setSelectedZone}
+            zoom={zoom}
+            panOffset={panOffset}
           />
         )}
 
@@ -190,13 +219,16 @@ export function MapScreen({ navigation }: any) {
             <Text style={styles.compassBearing}>285°</Text>
           </View>
 
-          <TouchableOpacity style={styles.iconBtn}>
+          <TouchableOpacity style={styles.iconBtn} onPress={handleZoomIn}>
             <Ionicons name="add" size={22} color={colors.onSurface} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn}>
+          <TouchableOpacity style={styles.iconBtn} onPress={handleZoomOut}>
             <Ionicons name="remove" size={22} color={colors.onSurface} />
           </TouchableOpacity>
-          <TouchableOpacity style={[styles.iconBtn, { backgroundColor: colors.primaryContainer }]}>
+          <TouchableOpacity
+            style={[styles.iconBtn, { backgroundColor: colors.primaryContainer }]}
+            onPress={handleRecenter}
+          >
             <Ionicons name="locate" size={20} color={colors.white} />
           </TouchableOpacity>
         </View>
