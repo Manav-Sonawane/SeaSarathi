@@ -13,7 +13,7 @@ import { colors } from '../theme/colors';
 
 import { useUserStore } from '../store/userStore';
 
-import { IndiaMapCanvas } from '../components/IndiaMapCanvas';
+import { GoogleMapContainer } from '../components/GoogleMapContainer';
 
 let MapView: any = null;
 let Polygon: any = null;
@@ -171,7 +171,7 @@ export function MapScreen({ navigation }: any) {
             )}
           </MapView>
         ) : (
-          <IndiaMapCanvas
+          <GoogleMapContainer
             activePort={portInfo}
             layers={layers}
             onSelectZone={setSelectedZone}

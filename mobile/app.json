@@ -1,22 +1,26 @@
 {
   "expo": {
-    "name": "mobile",
-    "slug": "mobile",
+    "name": "SeaSarathi",
+    "slug": "seasarathi",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "config": {
+        "googleMapsApiKey": "AIzaSyDAipJLXbPfmpSdi91j_4mcWHbFSfmjq4c"
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#E6F4FE"
       },
-      "predictiveBackGestureEnabled": false
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDAipJLXbPfmpSdi91j_4mcWHbFSfmjq4c"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
