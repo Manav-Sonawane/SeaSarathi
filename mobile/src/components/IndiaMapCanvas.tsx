@@ -105,8 +105,8 @@ export function IndiaMapCanvas({
   // Selected Port position
   const activePos = projectCoord(activePort.latitude, activePort.longitude, MAP_W, MAP_H);
 
-  // Scale factor
-  const scale = zoom / 11;
+  // Scale factor (exponential scaling based on zoom level)
+  const scale = Math.pow(1.25, zoom - 11);
   const pivotX = activePos.x;
   const pivotY = activePos.y;
 

@@ -39,6 +39,11 @@ export function MapScreen({ navigation }: any) {
   const [hudOpen, setHudOpen] = useState(false);
   const [zoom, setZoom] = useState(11);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
+  const [bearing, setBearing] = useState(285);
+
+  const panOffsetRef = React.useRef(panOffset);
+  panOffsetRef.current = panOffset;
+  const panStartRef = React.useRef({ x: 0, y: 0 });
 
   const [layers, setLayers] = useState({
     risk: true,
@@ -65,12 +70,20 @@ export function MapScreen({ navigation }: any) {
         onStartShouldSetPanResponder: () => false,
         onMoveShouldSetPanResponder: (_, gestureState) =>
           Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3,
-        onPanResponderMove: (_, gestureState) => {
-          setPanOffset((prev) => ({
-            x: prev.x + gestureState.dx * 0.12,
-            y: prev.y + gestureState.dy * 0.12,
-          }));
+        onPanResponderGrant: () => {
+          panStartRef.current = {
+            x: panOffsetRef.current.x,
+            y: panOffsetRef.current.y,
+          };
         },
+        onPanResponderMove: (_, gestureState) => {
+          setPanOffset({
+            x: panStartRef.current.x + gestureState.dx,
+            y: panStartRef.current.y + gestureState.dy,
+          });
+        },
+        onPanResponderRelease: () => {},
+        onPanResponderTerminate: () => {},
       }),
     []
   );
@@ -80,6 +93,11 @@ export function MapScreen({ navigation }: any) {
   const handleRecenter = () => {
     setZoom(11);
     setPanOffset({ x: 0, y: 0 });
+    panStartRef.current = { x: 0, y: 0 };
+    setBearing(285);
+  };
+  const handleCompassPress = () => {
+    setBearing((prev) => (prev === 285 ? 0 : 285));
   };
 
   const toggleLayer = (key: keyof typeof layers) => {
@@ -208,28 +226,34 @@ export function MapScreen({ navigation }: any) {
         )}
 
         {/* Floating Compass Rose & Controls (Top Left) */}
-        <View style={styles.topLeftControls}>
-          <View style={styles.compassBox}>
+        <View style={styles.topLeftControls} pointerEvents="auto">
+          <TouchableOpacity
+            style={styles.compassBox}
+            onPress={handleCompassPress}
+            activeOpacity={0.8}
+          >
             <Text style={styles.compassN}>N</Text>
             <MaterialCommunityIcons
               name="compass-outline"
               size={24}
               color={colors.inversePrimary}
+              style={{ transform: [{ rotate: `${bearing}deg` }] }}
             />
-            <Text style={styles.compassBearing}>285°</Text>
-          </View>
-
-          <TouchableOpacity style={styles.iconBtn} onPress={handleZoomIn}>
-            <Ionicons name="add" size={22} color={colors.onSurface} />
+            <Text style={styles.compassBearing}>{bearing}°</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={handleZoomOut}>
-            <Ionicons name="remove" size={22} color={colors.onSurface} />
+
+          <TouchableOpacity style={styles.iconBtn} onPress={handleZoomIn} activeOpacity={0.7}>
+            <Ionicons name="add" size={24} color={colors.onSurface} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.iconBtn} onPress={handleZoomOut} activeOpacity={0.7}>
+            <Ionicons name="remove" size={24} color={colors.onSurface} />
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.iconBtn, { backgroundColor: colors.primaryContainer }]}
             onPress={handleRecenter}
+            activeOpacity={0.7}
           >
-            <Ionicons name="locate" size={20} color={colors.white} />
+            <Ionicons name="locate" size={22} color={colors.white} />
           </TouchableOpacity>
         </View>
 
@@ -513,6 +537,8 @@ const styles = StyleSheet.create({
     top: 14,
     left: 14,
     gap: 8,
+    zIndex: 999,
+    elevation: 10,
   },
   compassBox: {
     width: 48,

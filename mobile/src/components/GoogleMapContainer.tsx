@@ -31,18 +31,29 @@ export function GoogleMapContainer({
   const [mapMode, setMapMode] = useState<'satellite' | 'vector'>('satellite');
 
   // Compute dynamic center latitude and longitude based on drag pan offset
-  // Pixel delta conversion to degrees
   const latDelta = -panOffset.y * (0.005 / Math.pow(1.5, zoom - 11));
   const lonDelta = panOffset.x * (0.005 / Math.pow(1.5, zoom - 11));
 
   const centerLat = (activePort.latitude + latDelta).toFixed(4);
   const centerLon = (activePort.longitude + lonDelta).toFixed(4);
 
+  // Debounce iframe center coordinates to prevent rapid iframe reloads during 60fps pan dragging
+  const [stableLat, setStableLat] = React.useState((activePort.latitude).toFixed(4));
+  const [stableLon, setStableLon] = React.useState((activePort.longitude).toFixed(4));
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setStableLat(centerLat);
+      setStableLon(centerLon);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [centerLat, centerLon]);
+
   // Google Maps Static Satellite Image with Port Marker
   const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLon}&zoom=${zoom}&size=640x480&scale=2&maptype=hybrid&markers=color:red%7Clabel:P%7C${activePort.latitude},${activePort.longitude}&key=${GOOGLE_MAPS_KEY}`;
 
-  // Google Maps Interactive Embed iframe URL
-  const embedUrl = `https://www.google.com/maps/embed/v1/view?key=${GOOGLE_MAPS_KEY}&center=${centerLat},${centerLon}&zoom=${zoom}&maptype=satellite`;
+  // Google Maps Interactive Embed iframe URL with debounced center
+  const embedUrl = `https://www.google.com/maps/embed/v1/view?key=${GOOGLE_MAPS_KEY}&center=${stableLat},${stableLon}&zoom=${zoom}&maptype=satellite`;
 
   return (
     <View style={styles.container}>
