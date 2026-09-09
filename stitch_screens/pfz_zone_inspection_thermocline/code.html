@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" name="viewport"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&amp;family=JetBrains+Mono:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{width:100vw;margin:0;padding:0;background-color:#f9f9ff;}body{overscroll-behavior:none;-webkit-tap-highlight-color:transparent;}.pb-safe{padding-bottom:env(safe-area-inset-bottom,0px);}.pt-safe{padding-top:env(safe-area-inset-top,0px);}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "primary-container": "#004d99", "secondary": "#006e29", "inverse-surface": "#293040", "secondary-fixed": "#75fe8b", "inverse-primary": "#a9c7ff", "tertiary": "#4e3100", "primary-fixed-dim": "#a9c7ff", "surface": "#f9f9ff", "on-error-container": "#93000a", "secondary-fixed-dim": "#57e072", "on-primary-fixed-variant": "#00468c", "on-surface": "#141b2b", "surface-container-highest": "#dce2f7", "surface-variant": "#dce2f7", "on-tertiary-fixed-variant": "#633f00", "surface-container-lowest": "#ffffff", "on-tertiary-container": "#ffb02f", "on-tertiary-fixed": "#291800", "outline-variant": "#c2c6d3", "outline": "#727782", "tertiary-fixed": "#ffddb4", "primary-fixed": "#d6e3ff", "on-tertiary": "#ffffff", "tertiary-fixed-dim": "#ffb952", "primary": "#003670", "tertiary-container": "#6d4600", "background": "#f9f9ff", "on-secondary-fixed-variant": "#00531d", "on-secondary-fixed": "#002107", "on-secondary": "#ffffff", "on-surface-variant": "#424751", "inverse-on-surface": "#edf0ff", "on-error": "#ffffff", "secondary-container": "#75fe8b", "on-primary-container": "#9ec1ff", "on-primary-fixed": "#001b3d", "surface-container-high": "#e1e8fd", "on-primary": "#ffffff", "error-container": "#ffdad6", "on-background": "#141b2b", "surface-container-low": "#f1f3ff", "error": "#ba1a1a", "surface-tint": "#225eab", "on-secondary-container": "#00752c", "surface-bright": "#f9f9ff", "surface-container": "#e9edff", "surface-dim": "#d3daef" }, "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, "spacing": { "touch-target-dense": "3rem", "card-pad-sm": "0.75rem", "card-pad-md": "1.125rem", "section-gap": "1.5rem", "gutter-mobile": "1rem", "card-pad-lg": "1.5rem", "touch-target-min": "3.5rem", "gutter-tablet": "1.5rem", "telemetry-gap": "0.5rem" }, "fontFamily": { "headline-xl-mobile": ["Inter"], "body-lg": ["Inter"], "telemetry-md": ["JetBrains Mono"], "headline-xl": ["Inter"], "telemetry-lg": ["JetBrains Mono"], "headline-lg": ["Inter"], "body-md": ["Inter"], "label-compact": ["Inter"], "headline-md": ["Inter"], "label-tactical": ["JetBrains Mono"], "body-sm": ["Inter"] }, "fontSize": { "headline-xl-mobile": ["26px", { "lineHeight": "32px", "fontWeight": "800" }], "body-lg": ["17px", { "lineHeight": "24px", "fontWeight": "500" }], "telemetry-md": ["22px", { "lineHeight": "26px", "fontWeight": "700" }], "headline-xl": ["32px", { "lineHeight": "38px", "fontWeight": "800" }], "telemetry-lg": ["34px", { "lineHeight": "38px", "fontWeight": "700" }], "headline-lg": ["24px", { "lineHeight": "30px", "fontWeight": "700" }], "body-md": ["15px", { "lineHeight": "22px", "fontWeight": "400" }], "label-compact": ["11px", { "lineHeight": "14px", "fontWeight": "700" }], "headline-md": ["20px", { "lineHeight": "26px", "fontWeight": "700" }], "label-tactical": ["12px", { "lineHeight": "16px", "fontWeight": "600" }], "body-sm": ["13px", { "lineHeight": "18px", "fontWeight": "500" }] } } } }</script></head><body class="bg-surface text-on-surface font-body-md text-body-md antialiased flex flex-col min-h-screen selection:bg-primary-container selection:text-on-primary-container"><header class="fixed top-0 w-full z-50 bg-surface/90 backdrop-blur-xl shadow-[0_1px_8px_rgba(0,0,0,0.04)] pt-safe"><div class="h-20 px-gutter-mobile flex flex-col justify-center gap-1"><div class="flex items-center justify-between"><div class="flex items-center gap-1.5"><a aria-label="Back to PFZ Zones" class="flex items-center justify-center w-10 h-10 -ml-1.5 rounded-lg text-primary hover:bg-surface-container active:scale-95 transition-all" href="#" onclick="window.history.back(); return false;"><span class="material-symbols-outlined text-[26px]">arrow_back</span></a><div class="flex flex-col"><span class="font-headline-md text-headline-md font-bold tracking-tight text-primary leading-none">SeaSarathi</span><span class="font-label-compact text-label-compact uppercase tracking-widest text-on-surface-variant font-bold truncate max-w-[170px]">Zone Inspection &amp; Thermocline</span></div></div><div class="flex items-center gap-2"><div class="flex items-center gap-1.5 px-2 py-1 rounded bg-secondary-container/40 text-on-secondary-container"><span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span></span><span class="font-label-tactical text-label-tactical font-semibold tracking-tight uppercase">GPS LOCK</span></div><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA8voYmNT9-Nm4r4cHIjl2EMApAx03_gFUGiKQ-GUV19n0tMDKjY8NAace2nUINoD16knnp4RwspdEIlfzao49mI4EMm21RE2-m8E4mBgPy6yWfadIMy680nt3xrumHZAwGpts1PvTWZu6cajMMsKRo-sSGdEXUwPjcStOMrfX2f98M1xEWGbyvWR4HdXIIfUdsW5jZvgGAw0LLr8cpuFxRj7RkaI8vEgCRZbHzHPiBRNvMh96BDKyD"/></div></div><div class="flex items-center justify-between px-0.5"><div class="flex items-center gap-1 text-on-surface-variant"><span class="material-symbols-outlined text-[14px]">location_on</span><span class="font-label-tactical text-label-tactical font-medium tracking-tight truncate max-w-[190px]">Kochi Harbor 9.93°N, 76.26°E</span></div><div class="flex items-center gap-1 text-on-surface-variant"><span class="material-symbols-outlined text-[14px] text-secondary">cloud_done</span><span class="font-label-tactical text-label-tactical font-medium tracking-tight">CACHE OK</span></div></div></div></header><main class="flex-1 flex flex-col relative w-full pt-20 pb-20 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<!-- Offline Cache Status Banner -->
+<div class="w-full bg-surface-container-high px-gutter-mobile py-2 flex items-center justify-between shadow-sm">
+<div class="flex items-center gap-2">
+<span class="relative flex h-2 w-2">
+<span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-secondary opacity-75"></span>
+<span class="relative inline-flex rounded-full h-2 w-2 bg-secondary"></span>
+</span>
+<span class="font-label-tactical text-label-tactical text-on-surface font-bold uppercase tracking-wider">ZONE PFZ-KCH-14 INSPECTION</span>
+</div>
+<div class="flex items-center gap-1 bg-secondary-container/60 px-2 py-0.5 rounded">
+<span class="material-symbols-outlined text-secondary text-[15px]">offline_pin</span>
+<span class="font-label-tactical text-label-tactical text-on-secondary-fixed-variant font-bold">CACHED OFFLINE</span>
+</div>
+</div>
+<div class="px-gutter-mobile py-3 flex flex-col gap-3">
+<!-- Tactical Location & Heading Strip -->
+<div class="bg-surface-container-lowest p-3 rounded shadow-sm flex flex-col gap-2">
+<div class="flex items-center justify-between flex-wrap gap-2">
+<div class="flex items-center gap-1.5 text-primary">
+<span class="material-symbols-outlined text-[18px]">explore</span>
+<span class="font-label-tactical text-label-tactical font-bold tracking-tight">09°58.4′ N, 075°52.1′ E</span>
+</div>
+<div class="flex items-center gap-1 bg-surface-container px-2 py-0.5 rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px] text-primary">near_me</span>
+<span class="font-label-tactical text-label-tactical font-bold">14.2 NM • 280° WNW</span>
+</div>
+</div>
+<!-- Target Species Alert Chip -->
+<div class="bg-surface-container-low p-2.5 rounded flex items-center justify-between gap-2">
+<div class="flex items-center gap-2 min-w-0">
+<div class="w-8 h-8 rounded bg-primary-fixed flex items-center justify-center shrink-0 text-primary">
+<span class="material-symbols-outlined text-[20px]">set_meal</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-compact text-label-compact uppercase text-on-surface-variant font-bold">Target Shoal Species</span>
+<span class="font-body-sm text-body-sm font-bold text-on-surface truncate">Indian Oil Sardine &amp; Mackerel</span>
+</div>
+</div>
+<div class="bg-secondary px-2.5 py-1 rounded text-right shrink-0">
+<span class="font-label-tactical text-label-tactical font-bold text-on-secondary tracking-tighter">92% CONF</span>
+</div>
+</div>
+</div>
+<!-- Section 1: Productivity Score & Ocean Dynamics -->
+<div class="bg-surface-container-lowest p-card-md rounded shadow-sm flex flex-col gap-3">
+<div class="flex items-start justify-between">
+<div class="flex flex-col">
+<span class="font-label-compact text-label-compact uppercase tracking-widest text-on-surface-variant font-bold">Munambam Deep Swell Shelf</span>
+<div class="flex items-baseline gap-1 mt-0.5">
+<span class="font-telemetry-lg text-telemetry-lg text-secondary font-bold">92%</span>
+<span class="font-body-md text-body-md font-bold text-on-surface">CATCH POTENTIAL</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-[32px] text-secondary">trending_up</span>
+</div>
+<!-- Marine Telemetry Grid -->
+<div class="grid grid-cols-2 gap-2">
+<div class="bg-surface-container-low p-2.5 rounded flex flex-col">
+<div class="flex items-center justify-between text-on-surface-variant">
+<span class="font-label-compact text-label-compact uppercase font-bold">SST Temp</span>
+<span class="material-symbols-outlined text-[16px] text-primary">thermostat</span>
+</div>
+<span class="font-telemetry-md text-telemetry-md text-on-surface mt-1">28.4<span class="font-body-sm text-body-sm font-bold text-on-surface-variant">°C</span></span>
+<span class="font-label-tactical text-[11px] text-secondary font-bold mt-0.5">Stable Gradient</span>
+</div>
+<div class="bg-surface-container-low p-2.5 rounded flex flex-col">
+<div class="flex items-center justify-between text-on-surface-variant">
+<span class="font-label-compact text-label-compact uppercase font-bold">Chlorophyll-a</span>
+<span class="material-symbols-outlined text-[16px] text-secondary">water_ph</span>
+</div>
+<span class="font-telemetry-md text-telemetry-md text-on-surface mt-1">1.84<span class="font-body-sm text-body-sm font-bold text-on-surface-variant">mg/m³</span></span>
+<span class="font-label-tactical text-[11px] text-secondary font-bold mt-0.5">Dense Bloom</span>
+</div>
+<div class="bg-surface-container-low p-2.5 rounded flex flex-col">
+<div class="flex items-center justify-between text-on-surface-variant">
+<span class="font-label-compact text-label-compact uppercase font-bold">Mixed Layer</span>
+<span class="material-symbols-outlined text-[16px] text-primary">layers</span>
+</div>
+<span class="font-telemetry-md text-telemetry-md text-on-surface mt-1">32<span class="font-body-sm text-body-sm font-bold text-on-surface-variant">m</span></span>
+<span class="font-label-tactical text-[11px] text-on-surface-variant font-bold mt-0.5">MLD Horizon</span>
+</div>
+<div class="bg-surface-container-low p-2.5 rounded flex flex-col">
+<div class="flex items-center justify-between text-on-surface-variant">
+<span class="font-label-compact text-label-compact uppercase font-bold">Seabed Depth</span>
+<span class="material-symbols-outlined text-[16px] text-primary">scuba_diving</span>
+</div>
+<span class="font-telemetry-md text-telemetry-md text-on-surface mt-1">42<span class="font-body-sm text-body-sm font-bold text-on-surface-variant">m</span></span>
+<span class="font-label-tactical text-[11px] text-on-surface-variant font-bold mt-0.5">Swell Shelf</span>
+</div>
+</div>
+<!-- Tactical Operational Advisory -->
+<div class="bg-secondary-container/40 p-2.5 rounded flex flex-col gap-1 text-on-secondary-container">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-[18px] text-secondary">verified</span>
+<span class="font-label-tactical text-label-tactical font-bold uppercase">EXCELLENT UPWELLING DYNAMICS</span>
+</div>
+<p class="font-body-sm text-body-sm leading-tight text-on-surface">
+          Optimal nocturnal schooling window: <strong class="text-primary font-bold">21:30 - 04:30 IST</strong>. Surface drift aligns with traditional purse seine casting arc.
+        </p>
+</div>
+</div>
+<!-- Section 2: Water Column Temperature Profile & Thermocline Stratification Graph -->
+<div class="bg-surface-container-lowest p-card-md rounded shadow-sm flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[20px]">ssid_chart</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">Thermocline Stratification</h2>
+</div>
+<span class="bg-surface-container px-2 py-0.5 rounded font-label-tactical text-label-tactical text-primary font-bold">SONAR PROFILE</span>
+</div>
+<!-- Metric View Toggle Switcher -->
+<div class="grid grid-cols-3 gap-1 bg-surface-container-high p-1 rounded">
+<button class="py-1.5 text-center font-label-tactical text-[11px] font-bold rounded bg-primary text-on-primary shadow-sm transition-all" id="btn-therm" onclick="switchStratGraph('temp')">
+          TEMP (°C)
+        </button>
+<button class="py-1.5 text-center font-label-tactical text-[11px] font-bold rounded text-on-surface-variant hover:text-on-surface transition-all" id="btn-chlo" onclick="switchStratGraph('chlo')">
+          CHL-A
+        </button>
+<button class="py-1.5 text-center font-label-tactical text-[11px] font-bold rounded text-on-surface-variant hover:text-on-surface transition-all" id="btn-curr" onclick="switchStratGraph('curr')">
+          DRIFT (KTS)
+        </button>
+</div>
+<!-- High-fidelity SVG Tactical Chart -->
+<div class="relative w-full bg-surface-container-low rounded p-2 overflow-hidden">
+<!-- SVG Water Column Chart -->
+<svg class="w-full h-64 overflow-visible font-label-tactical" id="water-strat-svg" viewbox="0 0 340 260" xmlns="http://www.w3.org/2000/svg">
+<defs>
+<!-- Pelagic Feeding Zone Layer Gradient -->
+<lineargradient id="pelagicGlow" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#006e29" stop-opacity="0.25"></stop>
+<stop offset="50%" stop-color="#75fe8b" stop-opacity="0.35"></stop>
+<stop offset="100%" stop-color="#004d99" stop-opacity="0.25"></stop>
+</lineargradient>
+<!-- Water Body Depth Depth Gradient -->
+<lineargradient id="seaDepthFade" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" stop-color="#d6e3ff" stop-opacity="0.4"></stop>
+<stop offset="100%" stop-color="#001b3d" stop-opacity="0.2"></stop>
+</lineargradient>
+</defs>
+<!-- Water column canvas -->
+<rect fill="url(#seaDepthFade)" height="210" rx="2" width="280" x="44" y="16"></rect>
+<!-- Active Pelagic Feeding Layer (18m - 32m: Y=106 to Y=176) -->
+<rect fill="url(#pelagicGlow)" height="70" width="280" x="44" y="106"></rect>
+<line stroke="#00AA44" stroke-dasharray="3,3" stroke-width="1.5" x1="44" x2="324" y1="106" y2="106"></line>
+<line stroke="#00AA44" stroke-dasharray="3,3" stroke-width="1.5" x1="44" x2="324" y1="176" y2="176"></line>
+<!-- Feeding Zone Floating Tactical Label -->
+<rect fill="#141b2b" fill-opacity="0.85" height="18" rx="3" width="176" x="140" y="132"></rect>
+<text fill="#75fe8b" font-size="9" font-weight="700" letter-spacing="0.5" x="146" y="145">ACTIVE PELAGIC FEEDING LAYER (18-32m)</text>
+<!-- Fish School Glyphs inside Active Band -->
+<g fill="#006e29" opacity="0.9">
+<!-- Fish 1 -->
+<path d="M 68 135 Q 74 131 82 135 Q 86 137 90 135 L 94 139 L 94 131 L 90 135 Z" fill="#006e29"></path>
+<circle cx="72" cy="134" fill="#ffffff" r="0.8"></circle>
+<!-- Fish 2 -->
+<path d="M 102 150 Q 107 147 114 150 Q 118 152 121 150 L 124 154 L 124 146 L 121 150 Z" fill="#006e29"></path>
+<!-- Fish 3 -->
+<path d="M 76 162 Q 81 159 88 162 Q 91 164 94 162 L 97 165 L 97 159 L 94 162 Z" fill="#006e29"></path>
+</g>
+<!-- Depth Axis Grid & Labels (Y) -->
+<!-- 0m -->
+<line stroke="#c2c6d3" stroke-width="0.75" x1="44" x2="324" y1="16" y2="16"></line>
+<text fill="#424751" font-size="10" font-weight="700" text-anchor="end" x="38" y="20">0m</text>
+<!-- 10m -->
+<line stroke="#c2c6d3" stroke-dasharray="2,2" stroke-width="0.75" x1="44" x2="324" y1="66" y2="66"></line>
+<text fill="#424751" font-size="10" font-weight="700" text-anchor="end" x="38" y="70">-10m</text>
+<!-- 20m -->
+<line stroke="#c2c6d3" stroke-dasharray="2,2" stroke-width="0.75" x1="44" x2="324" y1="116" y2="116"></line>
+<text fill="#424751" font-size="10" font-weight="700" text-anchor="end" x="38" y="120">-20m</text>
+<!-- 30m -->
+<line stroke="#c2c6d3" stroke-dasharray="2,2" stroke-width="0.75" x1="44" x2="324" y1="166" y2="166"></line>
+<text fill="#424751" font-size="10" font-weight="700" text-anchor="end" x="38" y="170">-30m</text>
+<!-- 42m Shelf Bottom -->
+<line stroke="#4e3100" stroke-width="2" x1="44" x2="324" y1="226" y2="226"></line>
+<text fill="#4e3100" font-size="10" font-weight="700" text-anchor="end" x="38" y="230">-42m</text>
+<text fill="#4e3100" font-size="9" font-weight="700" x="245" y="222">SHELF SEABED (-42m)</text>
+<!-- Temperature Axis Grid & Labels (X: 20°C=44px to 30°C=324px; scale=28px/°C) -->
+<!-- 20°C -->
+<line stroke="#c2c6d3" stroke-width="0.75" x1="44" x2="44" y1="16" y2="226"></line>
+<text fill="#424751" font-size="10" font-weight="700" text-anchor="middle" x="44" y="244">20°C</text>
+<!-- 22°C -->
+<line stroke="#c2c6d3" stroke-dasharray="2,2" stroke-width="0.5" x1="100" x2="100" y1="16" y2="226"></line>
+<text fill="#424751" font-size="10" font-weight="700" text-anchor="middle" x="100" y="244">22°C</text>
+<!-- 24°C -->
+<line stroke="#c2c6d3" stroke-dasharray="2,2" stroke-width="0.5" x1="156" x2="156" y1="16" y2="226"></line>
+<text fill="#424751" font-size="10" font-weight="700" text-anchor="middle" x="156" y="244">24°C</text>
+<!-- 26°C -->
+<line stroke="#c2c6d3" stroke-dasharray="2,2" stroke-width="0.5" x1="212" x2="212" y1="16" y2="226"></line>
+<text fill="#424751" font-size="10" font-weight="700" text-anchor="middle" x="212" y="244">26°C</text>
+<!-- 28°C -->
+<line stroke="#c2c6d3" stroke-dasharray="2,2" stroke-width="0.5" x1="268" x2="268" y1="16" y2="226"></line>
+<text fill="#424751" font-size="10" font-weight="700" text-anchor="middle" x="268" y="244">28°C</text>
+<!-- 30°C -->
+<line stroke="#c2c6d3" stroke-width="0.75" x1="324" x2="324" y1="16" y2="226"></line>
+<text fill="#424751" font-size="10" font-weight="700" text-anchor="middle" x="324" y="244">30°C</text>
+<!-- Temperature Curve Path (Surface 28.4°C [X=279, Y=16] -> 27.8°C at -20m [X=262, Y=116] -> sharp drop to 22.1°C at -35m [X=103, Y=191] -> 21.4°C at -42m [X=83, Y=226]) -->
+<path d="M 279 16 C 275 60, 268 90, 262 116 C 255 140, 150 168, 103 191 C 90 198, 85 210, 83 226" fill="none" id="graph-curve-temp" stroke="#004D99" stroke-linecap="round" stroke-width="3.5"></path>
+<!-- Key Data Markers & Badges on Curve -->
+<!-- Surface Marker -->
+<circle cx="279" cy="16" fill="#004D99" r="4.5"></circle>
+<circle cx="279" cy="16" fill="#ffffff" r="2"></circle>
+<rect fill="#003670" height="13" rx="2" width="60" x="238" y="2"></rect>
+<text fill="#ffffff" font-size="8.5" font-weight="700" text-anchor="middle" x="268" y="11">28.4°C SST</text>
+<!-- Sharp Thermocline Droppoint Marker -->
+<circle cx="160" cy="166" fill="#ba1a1a" r="4"></circle>
+<line stroke="#ba1a1a" stroke-width="1.2" x1="160" x2="195" y1="166" y2="175"></line>
+<rect fill="#ffdad6" height="15" rx="2" width="124" x="195" y="168"></rect>
+<text fill="#93000a" font-size="8.5" font-weight="700" text-anchor="middle" x="257" y="179">GRADIENT -0.6°C / m</text>
+<!-- Seabed Cold Pool Marker -->
+<circle cx="83" cy="226" fill="#003670" r="4"></circle>
+<text fill="#003670" font-size="8.5" font-weight="700" x="91" y="222">21.4°C Pool</text>
+</svg>
+</div>
+<!-- Water Column Stratification Annotation Cards -->
+<div class="flex flex-col gap-1.5">
+<div class="p-2 bg-surface-container-low rounded flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-primary shrink-0"></span>
+<span class="font-body-sm text-body-sm font-bold text-on-surface">Surface Mixed Layer (0-20m)</span>
+</div>
+<span class="font-label-tactical text-label-tactical font-bold text-primary">28.4°C - 27.8°C</span>
+</div>
+<div class="p-2 bg-secondary-container/40 rounded flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-secondary shrink-0"></span>
+<span class="font-body-sm text-body-sm font-bold text-on-surface">Thermocline Edge (18-32m)</span>
+</div>
+<span class="font-label-tactical text-label-tactical font-bold text-secondary">Pelagic Shoals</span>
+</div>
+<div class="p-2 bg-surface-container-low rounded flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="w-2.5 h-2.5 rounded-full bg-on-surface-variant shrink-0"></span>
+<span class="font-body-sm text-body-sm font-bold text-on-surface">Sub-thermocline Cold Pool</span>
+</div>
+<span class="font-label-tactical text-label-tactical font-bold text-on-surface-variant">21.4°C @ 42m</span>
+</div>
+</div>
+</div>
+<!-- Section 3: Biomass & Oceanographic Telemetry Details -->
+<div class="bg-surface-container-lowest p-card-md rounded shadow-sm flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[20px]">waves</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">Ocean Hydrodynamics</h2>
+</div>
+<span class="font-label-tactical text-label-tactical text-secondary font-bold">OPTIMAL DRIFT</span>
+</div>
+<div class="flex flex-col gap-2">
+<!-- Telemetry Row 1: Thermal Front -->
+<div class="p-3 bg-surface-container-low rounded flex items-center justify-between gap-2">
+<div class="flex items-center gap-2.5 min-w-0">
+<div class="w-9 h-9 rounded bg-primary-fixed flex items-center justify-center shrink-0 text-primary">
+<span class="material-symbols-outlined text-[20px]">device_thermostat</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-compact text-label-compact uppercase text-on-surface-variant font-bold">Thermal Front Gradient</span>
+<span class="font-body-sm text-body-sm font-bold text-on-surface truncate">ΔT = 1.2°C over 1.5 NM</span>
+</div>
+</div>
+<div class="px-2 py-1 bg-surface-container rounded text-right shrink-0">
+<span class="font-label-tactical text-[11px] font-bold text-primary">STRONG UPWELLING</span>
+</div>
+</div>
+<!-- Telemetry Row 2: Chlorophyll Plume -->
+<div class="p-3 bg-surface-container-low rounded flex items-center justify-between gap-2">
+<div class="flex items-center gap-2.5 min-w-0">
+<div class="w-9 h-9 rounded bg-secondary-container/80 flex items-center justify-center shrink-0 text-on-secondary-container">
+<span class="material-symbols-outlined text-[20px]">filter_vintage</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-compact text-label-compact uppercase text-on-surface-variant font-bold">Phytoplankton Plume</span>
+<span class="font-body-sm text-body-sm font-bold text-on-surface truncate">1.84 mg/m³ Chlorophyll-a</span>
+</div>
+</div>
+<div class="px-2 py-1 bg-secondary-container/40 rounded text-right shrink-0">
+<span class="font-label-tactical text-[11px] font-bold text-secondary">BAITFISH CONGREGATION</span>
+</div>
+</div>
+<!-- Telemetry Row 3: Salinity & Dissolved O2 -->
+<div class="p-3 bg-surface-container-low rounded flex items-center justify-between gap-2">
+<div class="flex items-center gap-2.5 min-w-0">
+<div class="w-9 h-9 rounded bg-surface-container-highest flex items-center justify-center shrink-0 text-primary">
+<span class="material-symbols-outlined text-[20px]">opacity</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-compact text-label-compact uppercase text-on-surface-variant font-bold">Salinity &amp; Dissolved O₂</span>
+<span class="font-body-sm text-body-sm font-bold text-on-surface truncate">34.8 PSU • DO: 4.8 ml/L</span>
+</div>
+</div>
+<div class="px-2 py-1 bg-surface-container rounded text-right shrink-0">
+<span class="font-label-tactical text-[11px] font-bold text-secondary">AERATED SHELF</span>
+</div>
+</div>
+<!-- Telemetry Row 4: Current Vector & Drift -->
+<div class="p-3 bg-surface-container-low rounded flex items-center justify-between gap-2">
+<div class="flex items-center gap-2.5 min-w-0">
+<div class="w-9 h-9 rounded bg-primary-fixed flex items-center justify-center shrink-0 text-primary">
+<span class="material-symbols-outlined text-[20px]">navigation</span>
+</div>
+<div class="flex flex-col min-w-0">
+<span class="font-label-compact text-label-compact uppercase text-on-surface-variant font-bold">Current Vector &amp; Drift</span>
+<span class="font-body-sm text-body-sm font-bold text-on-surface truncate">0.8 kts @ 145° SSE</span>
+</div>
+</div>
+<div class="px-2 py-1 bg-surface-container rounded text-right shrink-0">
+<span class="font-label-tactical text-[11px] font-bold text-primary">IDEAL DRIFT NET</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 4: Satellite & Ground Truth Sources -->
+<div class="bg-surface-container-lowest p-card-md rounded shadow-sm flex flex-col gap-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-1.5">
+<span class="material-symbols-outlined text-primary text-[20px]">satellite_alt</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">Data Verification Feeds</h2>
+</div>
+<div class="flex items-center gap-1">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="font-label-tactical text-label-tactical text-secondary font-bold">94% MODEL MATCH</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<div class="p-2 bg-surface-container-low rounded flex flex-col">
+<span class="font-label-compact text-label-compact uppercase text-on-surface-variant font-bold">INCOIS OCM-3</span>
+<span class="font-body-sm text-body-sm font-bold text-on-surface">Ocean Color</span>
+<span class="font-label-tactical text-[11px] text-secondary font-bold mt-1">Synced 45m ago</span>
+</div>
+<div class="p-2 bg-surface-container-low rounded flex flex-col">
+<span class="font-label-compact text-label-compact uppercase text-on-surface-variant font-bold">MODIS Aqua SST</span>
+<span class="font-body-sm text-body-sm font-bold text-on-surface">Thermal Infra</span>
+<span class="font-label-tactical text-[11px] text-secondary font-bold mt-1">Synced 1h ago</span>
+</div>
+<div class="p-2 bg-surface-container-low rounded flex flex-col">
+<span class="font-label-compact text-label-compact uppercase text-on-surface-variant font-bold">CMFRI Catch Logs</span>
+<span class="font-body-sm text-body-sm font-bold text-on-surface">Pelagic Tonnage</span>
+<span class="font-label-tactical text-[11px] text-primary font-bold mt-1">Today 06:00 IST</span>
+</div>
+<div class="p-2 bg-surface-container-low rounded flex flex-col">
+<span class="font-label-compact text-label-compact uppercase text-on-surface-variant font-bold">Sentinel-3 Altimetry</span>
+<span class="font-body-sm text-body-sm font-bold text-on-surface">Sea Height Anomaly</span>
+<span class="font-label-tactical text-[11px] text-secondary font-bold mt-1">Validated (+4cm)</span>
+</div>
+</div>
+<div class="p-2 bg-surface-container-high rounded flex items-center gap-2">
+<span class="material-symbols-outlined text-primary text-[18px]">verified_user</span>
+<span class="font-label-tactical text-label-tactical text-on-surface font-semibold">Convergence: 4/4 Satellite &amp; Vessel Logs in Complete Agreement</span>
+</div>
+</div>
+<!-- Section 5: Skipper Tactical Actions (Large Touch Anchors) -->
+<div class="flex flex-col gap-2.5 pt-1 pb-4">
+<!-- Primary Large Tactical Action -->
+<button class="w-full h-touch-target-min bg-primary hover:bg-primary-container active:scale-[0.98] transition-transform rounded flex items-center justify-center gap-2 text-on-primary shadow-md" onclick="triggerWaypointNav()">
+<span class="material-symbols-outlined text-[24px]">navigation</span>
+<span class="font-headline-md text-headline-md tracking-tight">Plot Waypoint &amp; Navigate (14.2 NM)</span>
+</button>
+<!-- Secondary Map Overlay Action -->
+<button class="w-full h-touch-target-dense bg-surface-container-lowest hover:bg-surface-container active:scale-[0.98] transition-transform rounded flex items-center justify-center gap-2 text-primary shadow-sm" onclick="viewMapOverlay()">
+<span class="material-symbols-outlined text-[22px]">map</span>
+<span class="font-body-lg text-body-lg font-bold">View in Marine Map Overlay</span>
+</button>
+<!-- Tertiary Offline Contour Download Action -->
+<button class="w-full h-12 bg-surface-container-high hover:bg-surface-container-highest active:scale-[0.98] transition-transform rounded flex items-center justify-center gap-2 text-on-surface-variant" onclick="downloadContourPack()">
+<span class="material-symbols-outlined text-[18px]">download_for_offline</span>
+<span class="font-label-tactical text-label-tactical font-bold uppercase">Download Offline Contour Packet (1.4 MB)</span>
+</button>
+</div>
+</div>
+<script>
+    function switchStratGraph(metric) {
+      const btnTherm = document.getElementById('btn-therm');
+      const btnChlo = document.getElementById('btn-chlo');
+      const btnCurr = document.getElementById('btn-curr');
+      const curve = document.getElementById('graph-curve-temp');
+
+      // Reset classes
+      [btnTherm, btnChlo, btnCurr].forEach(b => {
+        b.className = 'py-1.5 text-center font-label-tactical text-[11px] font-bold rounded text-on-surface-variant hover:text-on-surface transition-all';
+      });
+
+      if (metric === 'temp') {
+        btnTherm.className = 'py-1.5 text-center font-label-tactical text-[11px] font-bold rounded bg-primary text-on-primary shadow-sm transition-all';
+        curve.setAttribute('d', 'M 279 16 C 275 60, 268 90, 262 116 C 255 140, 150 168, 103 191 C 90 198, 85 210, 83 226');
+        curve.setAttribute('stroke', '#004D99');
+      } else if (metric === 'chlo') {
+        btnChlo.className = 'py-1.5 text-center font-label-tactical text-[11px] font-bold rounded bg-secondary text-on-secondary shadow-sm transition-all';
+        curve.setAttribute('d', 'M 80 16 C 120 50, 260 110, 290 145 C 310 170, 160 195, 95 226');
+        curve.setAttribute('stroke', '#006E29');
+      } else if (metric === 'curr') {
+        btnCurr.className = 'py-1.5 text-center font-label-tactical text-[11px] font-bold rounded bg-tertiary text-on-tertiary shadow-sm transition-all';
+        curve.setAttribute('d', 'M 250 16 C 240 60, 210 116, 170 150 C 130 180, 110 210, 100 226');
+        curve.setAttribute('stroke', '#4E3100');
+      }
+    }
+
+    function triggerWaypointNav() {
+      alert('Waypoint PFZ-KCH-14 locked. Autopilot heading 280° WNW transmitted to helm console.');
+    }
+
+    function viewMapOverlay() {
+      const mapTab = document.querySelector('nav a[data-path="marine-map"]');
+      if (mapTab) {
+        mapTab.click();
+      } else {
+        alert('Switching to Marine Map PFZ Chlorophyll Layer overlay.');
+      }
+    }
+
+    function downloadContourPack() {
+      alert('Munambam Deep Swell Bathymetric and SST packet (1.4MB) cached to local device storage for zero-connectivity offshore navigation.');
+    }
+  </script>
+</div></main><nav class="fixed bottom-0 w-full z-50 pb-safe bg-surface/95 backdrop-blur-xl shadow-[0_-2px_12px_rgba(0,0,0,0.06)]" data-active-classes="text-primary font-bold"><div class="flex justify-around items-center h-20 px-2"><a class="flex flex-col items-center justify-center gap-1 min-w-[64px] h-touch-target-min text-on-surface-variant transition-colors group" data-path="chat" href="#"><div class="relative flex items-center justify-center w-10 h-8 rounded-full transition-transform group-active:scale-95"><span class="material-symbols-outlined text-[24px]">forum</span></div><span class="font-label-compact text-label-compact tracking-tight">Chat</span></a><a class="flex flex-col items-center justify-center gap-1 min-w-[64px] h-touch-target-min text-on-surface-variant transition-colors group" data-path="marine-map" href="#"><div class="relative flex items-center justify-center w-10 h-8 rounded-full transition-transform group-active:scale-95"><span class="material-symbols-outlined text-[24px]">layers</span></div><span class="font-label-compact text-label-compact tracking-tight">Marine Map</span></a><a class="flex flex-col items-center justify-center gap-1 min-w-[64px] h-touch-target-min text-on-surface-variant transition-colors group" data-path="pfz-zones" href="#"><div class="relative flex items-center justify-center w-10 h-8 rounded-full transition-transform group-active:scale-95"><span class="material-symbols-outlined text-[24px]">explore</span></div><span class="font-label-compact text-label-compact tracking-tight">PFZ Zones</span></a><a class="flex flex-col items-center justify-center gap-1 min-w-[64px] h-touch-target-min text-on-surface-variant transition-colors group" data-path="alerts" href="#"><div class="relative flex items-center justify-center w-10 h-8 rounded-full transition-transform group-active:scale-95"><span class="material-symbols-outlined text-[24px]">warning</span><span class="absolute -top-0.5 right-1 px-1.5 py-0.2 rounded-full bg-error text-on-error font-label-tactical text-[10px] font-bold leading-none">3</span></div><span class="font-label-compact text-label-compact tracking-tight">Alerts</span></a></div></nav></body></html>
