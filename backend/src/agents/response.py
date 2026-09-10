@@ -134,26 +134,19 @@ def response_node(state: AgentState) -> AgentState:
         "HIGH": "HIGH RISK (Do not venture out)",
     }.get(risk, "UNKNOWN")
 
-    prompt = f"""You are a marine intelligence safety assistant for Indian fishermen.
+    prompt = f"""You are a marine assistant for Indian fishermen.
+
+Data:
+Risk Level: {risk_label}
+{conditions_text}
+{pfz_info}
+{landing_info}
+{geo_info}
+Alerts: {active_alerts_text}
 
 User query: "{query}"
-Safety Assessment: {risk_label} (confidence: {confidence}%)
-Current Origin Conditions: {conditions_text}
-Destination Fishing Zone: {pfz_info}
-Strategic Landing Harbors Along Traversal Path: {landing_info}
-Maritime Borders: {geo_info}
-Active Alerts: {active_alerts_text}
 
-Instructions:
-- Provide a clear, practical answer grounded strictly on the data above.
-- If a nearest PFZ is provided (within 50 km), mention its name, coordinates ({pfz['latitude'] if pfz else ''}°N, {pfz['longitude'] if pfz else ''}°E), distance, and weather.
-- If a LOCAL FISHING AREA box is provided instead (PFZ was too far), describe the bounding box coordinates and the SST/Chlorophyll productivity for that area — tell the fisherman to fish in that local box.
-- Mention 2-3 landing harbor options along their path (departure harbor, mid-route emergency shelter, or destination port).
-- Always include key numbers (e.g. wind in km/h, waves in m, distance in km).
-- If risk is HIGH (high alert), firmly advise staying ashore and DO NOT suggest any location for fishing.
-- If there is a thunderstorm or dangerous weather, SUPPRESS EVERY OTHER INFO and only issue a severe warning.
-- Do NOT mention AI, internal tools, prompts, or pipelines.
-- Keep the response clear, practical, and under 90 words.
+Understand what the user is actually asking, then answer only that, using whatever data above is relevant to it. Leave out data that isn't relevant to the question. Answer in 2 lines.
 """
 
     try:

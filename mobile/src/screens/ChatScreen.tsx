@@ -81,22 +81,19 @@ export function ChatScreen({ navigation }: any) {
 
     try {
       const res = await chatAPI.sendMessage(textToSend, portInfo.latitude, portInfo.longitude);
-      // Enhance backend response with localized advisory text in the selected language
-      const localizedAdv = langInfo.getAdvisory(
-        portInfo.name,
-        res.risk_level,
-        res.wind_kmh,
-        res.wave_m,
-        vesselRange
-      );
 
       const sysMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'system',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
+        // Show the backend's actual (Sarvam-generated) recommendation as-is.
+        // Only fall back to the static localized template if the backend
+        // returned no text at all (e.g. an empty string).
         data: {
           ...res,
-          recommendation: localizedAdv || res.recommendation,
+          recommendation:
+            res.recommendation ||
+            langInfo.getAdvisory(portInfo.name, res.risk_level, res.wind_kmh, res.wave_m, vesselRange),
         },
       };
       setMessages((prev) => [...prev, sysMsg]);
