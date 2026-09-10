@@ -1,1210 +1,1218 @@
-# SeaSarathi: Complete 5-Day Upgrade Plan
-## All Enhancements + New Features Consolidated
+# SeaSarathi: Strategic Improvisation & Feature Overhaul
 
-**Objective:** Transform SeaSarathi from rule-based MVP to intelligent, personalized marine advisory system with live tracking and home screen widget.
+**Objective:** Pivot from generic marine advisory to specialized fishing-intelligence platform with offline-first architecture and fishery-specific datasets.
 
-**Timeline:** 5 days (40 hours total)  
-**Team:** MNV (Backend/AI) + ARP (Mobile/Frontend)  
-**Last Updated:** September 2026
-
----
-
-## 📊 EXECUTIVE SUMMARY
-
-This document consolidates ALL upgrade tasks including:
-- ✅ Core MVP enhancements (personalization, voice, anomaly detection)
-- ✅ **NEW Feature 1:** Live Location Tracking (GPS + geofencing)
-- ✅ **NEW Feature 2:** Android Home Screen Widget
-- ✅ ML models, fallback logic, Docker deployment
-
-**Total Scope:** 40 hours across 5 phases  
-**Critical Path:** Profile → Prompt Injection → Decision Tree → Location → Voice  
-**Can ship in 32 hours** (without widget) or 40 hours (with widget)
+**Date:** September 2026  
+**Status:** Pre-implementation (10 major improvements)  
+**Impact:** Increases app utility by 3x, reduces API costs by 40%, enables deep-sea operations
 
 ---
 
-## 🎯 PRIORITY MATRIX
+## 🎯 IMPROVISATION OVERVIEW
 
-| Priority | Component | Impact | Effort | Days | Owner | Skip If |
-|----------|-----------|--------|--------|------|-------|---------|
-| **P0** | Profile Building | 🔥🔥 | ⚡ | 1.5 | ARP+MNV | NO |
-| **P0** | Prompt Injection | 🔥🔥 | ⚡ | 1 | MNV | NO |
-| **P1** | Decision Tree | 🔥🔥 | ⚡ | 2 | MNV | NO |
-| **P1** | TTS-STT | 🔥🔥 | 🔥 | 2 | MNV+ARP | NO |
-| **P1** | Chat UI + Badge | 🔥 | 🔥 | 2 | ARP | NO |
-| **P1** | Live Location Tracking | 🔥 | 🔥 | 3 | ARP+MNV | NO (Safety) |
-| **P2** | Android Widget | 🔥 | 🔥🔥 | 4 | ARP | YES (First cut) |
-| **P2** | Anomaly Detection | 🟡 | ⚡ | 1.5 | MNV | Maybe |
-| **P2** | ML Models | 🟡 | 🔥🔥 | 4–6 | MNV | Maybe |
-| **P3** | Fallback Logic | 🟡 | ⚡ | 1 | MNV | Maybe |
-| **P3** | Map/PFZ/Alerts | 🟡 | 🔥 | 3 | ARP | Maybe |
+| # | Change | Impact | Priority | Hours |
+|---|--------|--------|----------|-------|
+| 1 | Drop Widget | Simplify scope | LOW | -4h saved |
+| 2 | Fish Dataset (lat-long) | Core fishery data | 🔥🔥 HIGH | 4h |
+| 3 | Deep Sea Connectivity | Offline-first | 🔥🔥 HIGH | 3h |
+| 4 | Multi-day Forecasts | Deep sea planning | 🔥 HIGH | 2h |
+| 5 | Tides (High/Low) | Port accessibility | 🔥 HIGH | 2h |
+| 6 | Maritime Bulletin | Safety alerts | 🔥 HIGH | 2h |
+| 7 | Dashboard Refactor | Better UX | 🔥 HIGH | 3h |
+| 8 | Frontend Response Filter | Fix UI parity | 🟡 MEDIUM | 1h |
+| 9 | TTS-STT | Voice I/O | 🔥 HIGH | 2h |
+| 10 | Multi-Lang UI | Accessibility | 🔥 HIGH | 2h |
+
+**Total Impact:** +27 hours (but -4h from widget drop = +23h net)  
+**New Total:** ~55 hours (from 40h)  
+**Recommendation:** Prioritize 2, 3, 4, 5, 6, 7, 9, 10 (drop 1, defer 8)
 
 ---
 
-# PHASE 1: FOUNDATION (DAY 1 — 8 HOURS)
+# IMPROVEMENT 1: DROP WIDGET ❌➜✅
 
-## Task 1.1: Profile Building — Zustand Store
-**Owner:** MNV  
-**Duration:** 1 hour  
-**Blocker Status:** YES (everything depends on this)
+**Status:** DROPPED (save 4 hours)
 
-**File:** `mobile/src/stores/profileStore.ts`
+**Rationale:**
+- Widget is bonus feature (not core)
+- Deep sea connectivity + offline-first invalidates real-time updates
+- Better to invest 4h in fish dataset + forecasts than widget automation
+- Mobile screen real estate better used for new dashboard
 
-**Requirements:**
-```typescript
-export interface Profile {
-  vesselType: "small_boat" | "medium_boat" | "large_boat" | "union_fleet"
-  operatingPort: "Kochi" | "Mumbai" | "Chennai" | "Visakhapatnam" | "Thiruvananthapuram" | "Mangalore"
-  riskTolerance: "conservative" | "moderate" | "aggressive"
-  language: "en" | "ml" | "ta" | "te"
-  role: "individual" | "union_leader"
+**Result:**
+- Save 4 hours (SeaSarathiWidget.kt, WidgetBridge.kt, native code)
+- Simplify architecture (no SharedPreferences sync layer)
+- Focus engineering on core features
+
+**New Priority Matrix:** Widget removed, other tasks elevated
+
+---
+
+# IMPROVEMENT 2: FISH DATASET WITH LAT-LONG MAPPING 🐟
+
+**NEW Feature → CRITICAL for fishermen**
+
+**Owner:** MNV (Backend) + ARP (Mobile UI)  
+**Duration:** 4 hours (Day 3-4)  
+**Impact:** 🔥🔥 HIGH (core fishing intelligence)
+
+## 2.1: Fish Dataset Schema
+
+**Data Source:** CMFRI (Central Marine Fisheries Research Institute)
+- Historical catch by species, month, location (decade of data)
+- Seasonal migration patterns
+- Depth preferences
+- Water temperature range
+- Salinity tolerance
+- Mesh size recommendations
+
+**File:** `backend/data/fish_species.json`
+
+```json
+{
+  "species": [
+    {
+      "id": "species_001",
+      "name": "Mackerel",
+      "scientific_name": "Rastrelliger kanagurta",
+      "availability": {
+        "season": "Apr-Oct (peak: Jun-Aug)",
+        "depth": "0-50m",
+        "temp_range": [20, 28],
+        "salinity": [32, 35]
+      },
+      "distribution_zones": [
+        {
+          "zone_id": "pfz_kochi_01",
+          "catch_probability": 0.92,
+          "avg_catch_kg_per_trip": 150,
+          "season": "Jun-Aug"
+        }
+      ],
+      "mesh_size_mm": [25, 28, 32],
+      "target_time": "early_morning",
+      "migration_pattern": "inshore_offshore_seasonal"
+    },
+    {
+      "id": "species_002",
+      "name": "Sardine",
+      "scientific_name": "Sardinella longiceps",
+      "availability": {
+        "season": "Nov-May (peak: Jan-Mar)",
+        "depth": "0-30m",
+        "temp_range": [18, 26],
+        "salinity": [33, 35]
+      },
+      "distribution_zones": [...]
+    },
+    // ... 50+ species
+  ]
 }
+```
 
-export const useProfileStore = create((set) => ({
-  profile: {
-    vesselType: "small_boat",
-    operatingPort: "Kochi",
-    riskTolerance: "moderate",
-    language: "en",
-    role: "individual"
-  },
-  
-  updateProfile: (updates: Partial<Profile>) => 
-    set((state) => ({ profile: { ...state.profile, ...updates } })),
-  
-  loadProfile: async () => {
-    const saved = await AsyncStorage.getItem("seasarathi_profile")
-    if (saved) set({ profile: JSON.parse(saved) })
-  },
-  
-  resetProfile: () => {
-    AsyncStorage.removeItem("seasarathi_profile")
-    set({ profile: defaultProfile })
-  },
-  
-  getMaxRange: () => {
-    const ranges = { small_boat: 15, medium_boat: 35, large_boat: 75, union_fleet: 100 }
-    return ranges[state.profile.vesselType]
-  },
-  
-  getProfileSummary: () => 
-    `🚤 ${state.profile.vesselType} | ${state.profile.operatingPort} | ${state.profile.riskTolerance}`
-}))
+## 2.2: Geo-Spatial Fish Availability Engine
 
-// Auto-persist on every update
-useProfileStore.subscribe(
-  (state) => {
-    AsyncStorage.setItem("seasarathi_profile", JSON.stringify(state.profile))
-  },
-  (state) => state.profile
+**File:** NEW — `backend/src/services/fish_availability.py`
+
+```python
+class FishAvailabilityEngine:
+    def __init__(self, fish_data: dict, historical_catches: List[dict]):
+        self.fish_data = fish_data
+        self.historical = historical_catches
+    
+    async def get_catchable_species(
+        self, 
+        latitude: float, 
+        longitude: float, 
+        current_sst: float,
+        current_chlorophyll: float,
+        current_month: int
+    ) -> List[dict]:
+        """
+        Given GPS coordinates + current conditions, return list of 
+        species likely to be catchable right now at that location.
+        
+        Returns ranked by catch probability + avg catch size.
+        """
+        catchable = []
+        
+        for species in self.fish_data["species"]:
+            # Check if any zone near this GPS has this species
+            nearest_zones = find_zones_within_50km(latitude, longitude)
+            
+            for zone in nearest_zones:
+                if zone.id in species["distribution_zones"]:
+                    zone_data = species["distribution_zones"][zone.id]
+                    
+                    # Check if season matches
+                    if not is_season_match(current_month, species):
+                        continue
+                    
+                    # Check if temperature matches
+                    if not (species["availability"]["temp_range"][0] <= current_sst <= species["availability"]["temp_range"][1]):
+                        continue
+                    
+                    # Check if depth is accessible
+                    depth = zone.avg_depth
+                    if depth > species["availability"]["depth"]:
+                        continue
+                    
+                    # Calculate catch probability
+                    catch_prob = zone_data["catch_probability"]
+                    
+                    # Adjust by current chlorophyll (productivity indicator)
+                    if current_chlorophyll > historical_mean:
+                        catch_prob *= 1.1
+                    
+                    catchable.append({
+                        "species_name": species["name"],
+                        "zone": zone.name,
+                        "distance": zone.distance_from_gps,
+                        "catch_probability": catch_prob,
+                        "avg_catch_kg": zone_data["avg_catch_kg_per_trip"],
+                        "recommended_mesh_mm": species["mesh_size_mm"],
+                        "best_time": species["target_time"],
+                        "depth_m": depth
+                    })
+        
+        # Rank by catch probability × avg catch size
+        catchable.sort(key=lambda x: x["catch_probability"] * (x["avg_catch_kg"] / 100), reverse=True)
+        return catchable
+```
+
+## 2.3: Chat Integration
+
+**Modify:** `/chat` endpoint to include fish data
+
+```python
+# In chat_with_profile(), before Claude synthesis:
+catchable_fish = await fish_engine.get_catchable_species(
+    latitude=gps[0],
+    longitude=gps[1],
+    current_sst=live_data["sst"],
+    current_chlorophyll=live_data["chlorophyll"],
+    current_month=datetime.now().month
 )
-```
 
-**Screen Changes:** None (backend only at this stage)
-
----
-
-## Task 1.2: Onboarding Form Screen
-**Owner:** ARP  
-**Duration:** 1.5 hours  
-**Screen:** NEW — `mobile/src/screens/OnboardingScreen.tsx`
-
-**Screen Structure:**
-1. **Header** — "Welcome to SeaSarathi 🌊"
-2. **Vessel Type** — Radio/card buttons (🚤 Small: 15km, ⛵ Medium: 35km, 🛳️ Large: 75km, ⚓ Union: 100km)
-3. **Operating Port** — Dropdown (Kochi, Mumbai, Chennai, Visakhapatnam, Thiruvananthapuram, Mangalore)
-4. **Role** — Toggle (Individual / Union Leader)
-5. **Risk Tolerance** — Slider (Conservative / Moderate / Aggressive)
-6. **Language** — Radio buttons (English, Malayalam, Tamil, Telugu)
-7. **Actions** — [Cancel] [Complete Setup]
-
-**Key Features:**
-- Validation: All fields required before setup enabled
-- Save: Triggers `useProfileStore.updateProfile()` + AsyncStorage persist
-- Navigation: Completes → HomeStack (5 tabs)
-- Styling: react-native-paper, colors (#0066CC primary, #10B981 success)
-
----
-
-## Task 1.3: Navigation Integration
-**Owner:** ARP  
-**Duration:** 30 minutes  
-**File:** `mobile/src/navigation/RootNavigator.tsx`
-
-**Logic:**
-```typescript
-export const RootNavigator = () => {
-  const [hasProfile, setHasProfile] = useState<boolean | null>(null)
-
-  useEffect(() => {
-    const checkProfile = async () => {
-      const profile = await AsyncStorage.getItem("seasarathi_profile")
-      setHasProfile(!!profile)
-    }
-    checkProfile()
-  }, [])
-
-  return (
-    <NavigationContainer>
-      {hasProfile === null ? (
-        <SplashScreen />
-      ) : hasProfile ? (
-        <HomeStack />  // ChatScreen, MapScreen, PFZScreen, AlertsScreen, ProfileScreen
-      ) : (
-        <OnboardingStack />  // OnboardingScreen (non-dismissible)
-      )}
-    </NavigationContainer>
-  )
-}
-```
-
----
-
-## Task 1.4: Language Preference + Prompt Injection
-**Owner:** MNV  
-**Duration:** 1 hour  
-**File:** Modified — `backend/src/agents/chat_agent.py`
-
-**Function:** `async def chat_with_profile(query: str, gps: tuple, profile: dict) → dict`
-
-**System Prompt Template:**
-```python
-system_prompt = f"""
-You are SeaSarathi, a fishing advisory AI for Indian coastal fishermen.
-
-USER PROFILE:
-- Vessel Type: {profile['vesselType']} (Maximum range: {VESSEL_RANGES[profile['vesselType']]}km)
-- Operating Port: {profile['operatingPort']}
-- Risk Tolerance: {profile['riskTolerance']}
-- Role: {profile['role']}
-- Language: {profile['language']}
-
-RESPONSE RULES:
-
-1. DISTANCE FILTERING:
-   If zone > {max_range}km:
-   - For small_boat: Suggest nearby high-chlorophyll patches within {max_range}km
-   - For union_fleet + aggressive: Acknowledge primary zone as secondary option
-   
-2. RISK FILTERING:
-   - conservative: Only recommend zones with wind < 12 knots, avoid cyclone alerts entirely
-   - moderate: Standard filtering (IMD warnings override)
-   - aggressive: Flag risks but still recommend if navigable
-
-3. UNION LEADER BRANCHING:
-   If role == "union_leader": Suggest crew coordination strategies
-
-4. DATA CITATION (MANDATORY):
-   ALWAYS include: SST (°C), Chlorophyll (mg/m³), Wind (knots), Source, Timestamp, Confidence (%)
-
-5. LANGUAGE:
-   Respond ONLY in {profile['language']}. Use simple language for fishermen.
-
-6. EXPLANATION:
-   Explain WHY each recommendation (seasonal patterns, current conditions, anomalies)
-
-Current conditions:
-{live_data_summary}
-
-Nearby zones:
-{pfz_ranked_list}
-
-User query: "{query}"
-"""
-
-response = await claude.messages.create(
-    model="claude-3-5-sonnet-20241022",
-    max_tokens=1024,
-    system=system_prompt,
-    messages=[{"role": "user", "content": query}]
-)
-```
-
-**API Endpoint Update:**
-```python
-@app.post("/chat")
-async def chat(
-    query: str,
-    gps: list[float],  # [lat, lon]
-    profile: dict  # NEW parameter
-):
-    """
-    Args:
-        profile: {
-          "vesselType": str,
-          "operatingPort": str,
-          "riskTolerance": str,
-          "language": str,
-          "role": str
-        }
-    """
-    # Validate profile
-    if not all(k in profile for k in ["vesselType", "operatingPort", "riskTolerance", "language", "role"]):
-        return {"error": "Incomplete profile", "status": 400}
-    
-    response = await chat_with_profile(query, tuple(gps), profile)
-    return response
-```
-
-**Check:** User can complete onboarding → Profile persists → Claude responds in user's language ✅
-
----
-
-# PHASE 2: CORE LOGIC (DAYS 2-3 — 16 HOURS)
-
-## Task 2.1: Local Decision Tree (Boat Size Filtering)
-**Owner:** MNV  
-**Duration:** 2 hours  
-**File:** `backend/src/agents/chat_agent.py` (new function)
-
-**Function:** `async def filter_zones_by_vessel(pfz_list: list, profile: dict, gps: tuple) → dict`
-
-```python
-VESSEL_RANGES = {
-    "small_boat": 15,
-    "medium_boat": 35,
-    "large_boat": 75,
-    "union_fleet": 100
-}
-
-async def filter_zones_by_vessel(pfz_list: list, profile: dict, gps: tuple) -> dict:
-    max_range = VESSEL_RANGES[profile["vesselType"]]
-    
-    feasible_zones = [z for z in pfz_list if z["distance"] <= max_range]
-    too_far_zones = [z for z in pfz_list if z["distance"] > max_range]
-    
-    # For small boats: suggest nearshore high-chlorophyll patches
-    nearshore_suggestions = []
-    if profile["vesselType"] == "small_boat" and too_far_zones:
-        nearshore_suggestions = await suggest_nearshore_alternatives(gps)
-    
-    # For union leaders: split-team strategy
-    crew_strategy = ""
-    if profile["role"] == "union_leader" and len(feasible_zones) >= 2:
-        crew_strategy = suggest_crew_split(feasible_zones)
-    
-    return {
-        "feasible_zones": feasible_zones,
-        "too_far_zones": too_far_zones,
-        "nearshore_suggestions": nearshore_suggestions,
-        "crew_strategy": crew_strategy,
-        "recommendation_text": f"You can safely fish in {len(feasible_zones)} zones within your {max_range}km range..."
-    }
-```
-
-**Integration:** Pass filtered zones + strategy to Claude for synthesis
-
-**Check:** Small boat query → "Zone too far ⚠️", Large boat → "Zone reachable ✅" ✅
-
----
-
-## Task 2.2: Fallback Logic + Caching
-**Owner:** MNV  
-**Duration:** 1 hour  
-**File:** NEW — `backend/src/utils/cache_manager.py`
-
-```python
-import time
-from typing import Optional, Dict, Any
-
-class CacheManager:
-    def __init__(self, ttl_seconds: int = 86400):  # 24 hours
-        self.cache: Dict[str, tuple[Any, float]] = {}
-        self.ttl = ttl_seconds
-    
-    async def get(self, key: str) -> Optional[Any]:
-        if key in self.cache:
-            value, timestamp = self.cache[key]
-            if time.time() - timestamp < self.ttl:
-                return value
-            else:
-                del self.cache[key]
-        return None
-    
-    async def set(self, key: str, value: Any):
-        self.cache[key] = (value, time.time())
-    
-    async def fetch_with_fallback(self, api_call, cache_key: str) -> dict:
-        """Try live API, fallback to cache if fails"""
-        try:
-            result = await api_call()
-            await self.set(cache_key, result)
-            return {
-                "data": result,
-                "source": "live",
-                "timestamp": datetime.now().isoformat(),
-                "confidence": 100.0
-            }
-        except (TimeoutError, ConnectionError, Exception) as e:
-            cached = await self.get(cache_key)
-            if cached:
-                return {
-                    "data": cached,
-                    "source": "cached",
-                    "timestamp": datetime.now().isoformat(),
-                    "confidence": 65.0,  # Reduced confidence for cached data
-                    "warning": "Live data unavailable, showing cached response"
-                }
-            else:
-                return {
-                    "error": "Data unavailable. Please check connectivity.",
-                    "source": "fallback"
-                }
-
-cache_manager = CacheManager(ttl_seconds=86400)  # 24h TTL
-```
-
-**Screen Changes:** None (backend logic)
-
----
-
-## Task 2.3: Chat Screen Integration + Profile Badge
-**Owner:** ARP  
-**Duration:** 2 hours  
-**Screen:** Modified — `mobile/src/screens/ChatScreen.tsx`
-
-**Changes:**
-
-1. **Import Profile:**
-```typescript
-const { profile } = useProfileStore()
-const { gps } = useLocationContext()
-```
-
-2. **Add Profile Badge (Header):**
-```typescript
-<View style={{ flexDirection: 'row', alignItems: 'center', padding: 12 }}>
-  <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
-    <Text style={{ fontSize: 12, color: '#666' }}>
-      🚤 {profile.vesselType} | {profile.operatingPort} | {profile.getMaxRange()}km
-    </Text>
-  </TouchableOpacity>
-</View>
-```
-
-3. **Modify sendMessage():**
-```typescript
-const sendMessage = async (text: string) => {
-  addMessage({ text, role: 'user' })
-  
-  const response = await api.post("/chat", {
-    query: text,
-    gps: [gps.latitude, gps.longitude],
-    profile: profile  // ← NEW
-  })
-  
-  // Rich message rendering
-  addMessage({
-    text: response.response,
-    role: 'assistant',
-    confidence: response.confidence,
-    dataSource: response.dataSource,
-    timestamp: response.timestamp,
-    audioUrl: response.audioUrl,
-    recommendation: response.primaryRecommendation,
-    alerts: response.alerts
-  })
-}
-```
-
-4. **Assistant Message Rendering:**
-- Show text bubble + confidence badge (🟢 ≥80%, 🟡 50–79%, 🔴 <50%)
-- Show data source footer (small gray text)
-- Show primary recommendation card (distance color-coded)
-- Show alerts stacked by severity
-- Show audio play button if audioUrl exists
-
-**Screen Changes:** ChatScreen.tsx (header badge + message rendering)
-
----
-
-## Task 2.4: Live Location Tracking — NEW FEATURE
-**Owner:** ARP (Mobile) + MNV (Backend)  
-**Duration:** 3 hours total  
-**Blocker Status:** NO (but enables critical geofencing)
-
-### 2.4A: Continuous GPS Service (ARP) — 1.5 hours
-**File:** NEW — `mobile/src/services/LocationService.ts`
-
-```typescript
-import * as TaskManager from 'expo-task-manager'
-import * as Location from 'expo-location'
-
-const LOCATION_TASK_NAME = 'background-location-task'
-
-export async function startLocationTracking() {
-  // Request permissions
-  const { status } = await Location.requestForegroundPermissionsAsync()
-  if (status !== 'granted') {
-    console.log('Location permission denied')
-    return
-  }
-
-  // Start background tracking
-  await Location.startLocationUpdatesAsync(LOCATION_TASK_NAME, {
-    accuracy: Location.Accuracy.Balanced,  // 50m accuracy
-    timeInterval: 30000,  // Every 30 seconds
-    distanceInterval: 50,  // Or 50m movement
-    foregroundService: {
-      notificationTitle: "SeaSarathi",
-      notificationBody: "Tracking your location for safety alerts"
-    }
-  })
-}
-
-// Background task handler
-TaskManager.defineTask(LOCATION_TASK_NAME, ({ data, error }) => {
-  if (error) {
-    console.error('Location task error:', error)
-    return
-  }
-  
-  const { locations } = data
-  const currentLocation = locations[0]
-  
-  // Update Zustand store
-  useLocationStore.setState({
-    latitude: currentLocation.coords.latitude,
-    longitude: currentLocation.coords.longitude,
-    timestamp: currentLocation.timestamp,
-    accuracy: currentLocation.coords.accuracy,
-    status: "active"
-  })
-
-  // Log to backend
-  logLocationToBackend(currentLocation)
-})
-
-export async function stopLocationTracking() {
-  await Location.stopLocationUpdatesAsync(LOCATION_TASK_NAME)
-}
-```
-
-**Screen Changes:**
-- RootNavigator.tsx: Call `startLocationTracking()` on app launch
-- ChatScreen.tsx: Add GPS status badge ("🟢 Live: 50m accuracy" / "🔴 Disabled")
-
-### 2.4B: Real-Time Geofence Monitoring (MNV) — 1 hour
-**File:** NEW — `backend/src/routes/location.py`
-
-```python
-@app.post("/location/log")
-async def log_location(
-    latitude: float,
-    longitude: float,
-    timestamp: str,
-    accuracy: float
-):
-    """
-    Mobile sends continuous GPS updates.
-    Returns immediate geofence check.
-    """
-    geofence_status = await check_geofence(latitude, longitude)
-    
-    if geofence_status["status"] == "DANGER":  # Crossed boundary
-        return {
-            "alert": True,
-            "severity": "red",
-            "message": "CRITICAL: You have crossed an international maritime boundary. Alter course immediately.",
-            "boundary": geofence_status["boundary_name"],
-            "distance": 0,
-            "timestamp": timestamp
-        }
-    
-    if geofence_status["status"] == "WARNING":  # 5km away
-        return {
-            "alert": True,
-            "severity": "yellow",
-            "message": f"Warning: {geofence_status['distance_to_boundary']}km from {geofence_status['boundary_name']}",
-            "distance": geofence_status['distance_to_boundary'],
-            "timestamp": timestamp
-        }
-    
-    return { "alert": False, "timestamp": timestamp }
-
-async def check_geofence(lat: float, lon: float) -> dict:
-    """Check if GPS in EEZ, international boundaries, or MPAs"""
-    point = Point(lon, lat)
-    
-    # Check boundaries
-    for boundary in boundaries_geojson['features']:
-        if shape(boundary['geometry']).contains(point):
-            return {
-                "status": "DANGER",
-                "boundary_name": boundary['properties']['name'],
-                "type": boundary['properties']['type']
-            }
-    
-    # Check approaching (5km buffer)
-    for boundary in boundaries_geojson['features']:
-        distance = point.distance(shape(boundary['geometry'])) * 111  # approx km
-        if distance < 5:
-            return {
-                "status": "WARNING",
-                "boundary_name": boundary['properties']['name'],
-                "distance_to_boundary": round(distance, 1)
-            }
-    
-    return { "status": "SAFE" }
-```
-
-### 2.4C: Location Store + Auto-Refresh (ARP) — 0.5 hours
-**File:** NEW — `mobile/src/stores/locationStore.ts`
-
-```typescript
-export const useLocationStore = create((set) => ({
-  latitude: null,
-  longitude: null,
-  timestamp: null,
-  accuracy: null,
-  status: "searching",  // searching | active | disabled
-  
-  setLocation: (lat, lon, ts, acc) => 
-    set({ latitude: lat, longitude: lon, timestamp: ts, accuracy: acc, status: "active" }),
-  
-  setStatus: (status) => set({ status })
-}))
-```
-
-**Integration:** ChatScreen + MapScreen + PFZScreen all subscribe to location updates
-
-```typescript
-useEffect(() => {
-  const unsubscribe = useLocationStore.subscribe(
-    (state) => [state.latitude, state.longitude],
-    async ([lat, lon]) => {
-      if (lat && lon) {
-        // Refresh nearby zones
-        await refreshNearbyZones(lat, lon)
-        // Refresh alerts
-        await refreshAlerts(lat, lon)
-      }
-    }
-  )
-  return unsubscribe
-}, [])
-```
-
-**Check:** GPS updates every 30 sec, location badge shows "Live", geofence alert appears when approaching boundary ✅
-
----
-
-## Task 2.5: TTS-STT Integration (Sarvam)
-**Owner:** MNV (backend) + ARP (mobile UI)  
-**Duration:** 2 hours total
-
-### 2.5A: Backend TTS (MNV) — 1 hour
-**File:** Modified — `backend/src/agents/chat_agent.py`
-
-```python
-import httpx
-import os
-
-SARVAM_API_KEY = os.getenv("SARVAM_API_KEY")
-SARVAM_ENDPOINT = "https://api.sarvam.ai/text-to-speech"
-
-async def generate_tts(text: str, language: str) -> Optional[str]:
-    """
-    Generate TTS audio via Sarvam API
-    Returns audio URL or None if fails
-    """
-    try:
-        async with httpx.AsyncClient() as client:
-            response = await client.post(
-                SARVAM_ENDPOINT,
-                headers={"Authorization": f"Bearer {SARVAM_API_KEY}"},
-                json={
-                    "text": text,
-                    "language": language,  # hi, ml, ta, te, kn, bn, gu, en
-                    "speaker": "default",
-                    "format": "mp3"
-                }
-            )
-            if response.status_code == 200:
-                data = response.json()
-                return data.get("audio_url")
-    except Exception as e:
-        print(f"TTS generation failed: {e}")
-    
-    return None
-
-# In chat_with_profile(), after Claude response:
-response_text = claude_response.content[0].text
-
-# Generate TTS if non-English
-audio_url = None
-if profile.get("language") != "en":
-    audio_url = await generate_tts(response_text, profile["language"])
-
-return {
-    "response": response_text,
-    "audioUrl": audio_url,
-    "confidence": confidence,
-    "dataSource": "Copernicus, NASA MODIS, IMD",
-    "timestamp": datetime.now().isoformat(),
-    ...
-}
-```
-
-### 2.5B: Mobile Audio Playback (ARP) — 1 hour
-**File:** Modified — `mobile/src/screens/ChatScreen.tsx`
-
-```typescript
-import * as Audio from 'expo-av'
-
-const playAudio = async (url: string) => {
-  try {
-    const { sound } = await Audio.Sound.createAsync({ uri: url })
-    setPlayingAudioId(messageId)
-    await sound.playAsync()
-    sound.setOnPlaybackStatusUpdate((status) => {
-      if (status.didJustFinish) {
-        setPlayingAudioId(null)
-      }
-    })
-  } catch (error) {
-    console.error("Audio playback failed:", error)
-  }
-}
-
-// In message bubble:
-{response.audioUrl && (
-  <TouchableOpacity 
-    onPress={() => playAudio(response.audioUrl)}
-    style={{ marginTop: 8 }}
-  >
-    <Icon name={playingAudioId === messageId ? "pause-circle" : "play-circle"} 
-          size={32} color="#0066CC" />
-    <Text style={{ fontSize: 12, color: "#0066CC" }}>
-      Play in {profile.language}
-    </Text>
-  </TouchableOpacity>
-)}
-```
-
-**Screen Changes:** ChatScreen.tsx (add play button in message bubble)
-
-**Check:** Response plays as audio in fisherman's language ✅
-
----
-
-# PHASE 3: ENRICHMENT (DAY 4 — 8–10 HOURS)
-
-## Task 3.1: Anomaly Detection (Z-Score Flagging)
-**Owner:** MNV  
-**Duration:** 1.5 hours  
-**File:** NEW — `backend/src/utils/anomaly_detection.py`
-
-```python
-import numpy as np
-from typing import List, Dict
-
-def flag_anomalies(
-    current_sst: float,
-    current_chlorophyll: float,
-    historical_data: List[Dict]  # Last 30 days
-) -> str:
-    """
-    Flag when current readings are anomalous vs. historical mean
-    Returns formatted string for Claude prompt injection
-    """
-    if not historical_data or len(historical_data) < 5:
-        return ""
-    
-    # Compute 30-day rolling stats
-    sst_values = [d["sst"] for d in historical_data[-30:]]
-    chlorophyll_values = [d["chlorophyll"] for d in historical_data[-30:]]
-    
-    mean_sst = np.mean(sst_values)
-    std_sst = np.std(sst_values) + 1e-6  # Avoid division by zero
-    
-    mean_chlo = np.mean(chlorophyll_values)
-    std_chlo = np.std(chlorophyll_values) + 1e-6
-    
-    # Calculate z-scores
-    z_sst = (current_sst - mean_sst) / std_sst
-    z_chlo = (current_chlorophyll - mean_chlo) / std_chlo
-    
-    anomalies = []
-    
-    # Flag SST anomaly
-    if abs(z_sst) > 1.5:
-        direction = "warmer" if z_sst > 0 else "cooler"
-        percent_diff = abs(z_sst) * 100 / 3  # Rough %
-        anomalies.append(
-            f"🔴 SST ANOMALY: {current_sst}°C is {abs(z_sst):.1f}σ from mean → {direction} than seasonal average"
-        )
-    
-    # Flag chlorophyll anomaly
-    if abs(z_chlo) > 1.5:
-        direction = "higher" if z_chlo > 0 else "lower"
-        anomalies.append(
-            f"🔴 CHLOROPHYLL ANOMALY: {current_chlorophyll}mg/m³ is {abs(z_chlo):.1f}σ from mean → {direction} productivity signal"
-        )
-    
-    return "\n".join(anomalies)
-
-# In chat_with_profile():
-anomaly_text = flag_anomalies(current_sst, current_chlorophyll, historical_data)
+# Inject into Claude prompt:
+fish_context = format_fish_data(catchable_fish)
 
 system_prompt = f"""
 ...existing prompt...
 
-ANOMALY CONTEXT (if applicable):
-{anomaly_text}
+FISHERY INTELLIGENCE (What you can catch):
+{fish_context}
+
+Example:
+- Mackerel: 92% catch probability, avg 150kg/trip, mesh 25-32mm, best at dawn
+- Sardine: 45% catch probability, avg 80kg/trip, mesh 20-25mm, best at dusk
 
 ...rest of prompt...
 """
 ```
 
-**Screen Changes:** None (logic only)
+## 2.4: Frontend Display
 
-**Check:** Response includes "Chlorophyll 40% above average" context ✅
+**New Screen Component:** `mobile/src/screens/FisheryIntelligence.tsx`
 
----
-
-## Task 3.2: Android Home Screen Widget — NEW FEATURE
-**Owner:** ARP  
-**Duration:** 4 hours total
-
-### 3.2A: Native Android Widget (Kotlin) — 3 hours
-**File:** NEW — `android/app/src/main/java/com/seasarathi/SeaSarathiWidget.kt`
-
-```kotlin
-import android.appwidget.AppWidgetManager
-import android.appwidget.AppWidgetProvider
-import android.content.Context
-import android.widget.RemoteViews
-
-class SeaSarathiWidget : AppWidgetProvider() {
-    
-    override fun onUpdate(
-        context: Context,
-        appWidgetManager: AppWidgetManager,
-        appWidgetIds: IntArray
-    ) {
-        for (appWidgetId in appWidgetIds) {
-            updateAppWidget(context, appWidgetManager, appWidgetId)
-        }
-    }
-
-    companion object {
-        fun updateAppWidget(
-            context: Context,
-            appWidgetManager: AppWidgetManager,
-            appWidgetId: Int
-        ) {
-            // Fetch from SharedPreferences (synced from React Native)
-            val prefs = context.getSharedPreferences("seasarathi_widget", Context.MODE_PRIVATE)
-            val riskLevel = prefs.getString("risk_level", "MODERATE") ?: "MODERATE"
-            val nearestZone = prefs.getString("nearest_zone", "Zone A") ?: "Zone A"
-            val distance = prefs.getFloat("nearest_distance", 0f)
-            val alertCount = prefs.getInt("alert_count", 0)
-            val lastUpdate = prefs.getString("last_update", "N/A") ?: "N/A"
-
-            // Build widget view
-            val views = RemoteViews(context.packageName, R.layout.widget_layout)
-            
-            // Set colors by risk level
-            val riskColor = when (riskLevel) {
-                "HIGH" -> context.getColor(android.R.color.holo_red_light)
-                "MODERATE" -> context.getColor(android.R.color.holo_orange_light)
-                else -> context.getColor(android.R.color.holo_green_light)
-            }
-            
-            views.setTextColor(R.id.risk_badge, riskColor)
-            views.setTextViewText(R.id.risk_badge, riskLevel)
-            views.setTextViewText(R.id.zone_name, nearestZone)
-            views.setTextViewText(R.id.distance, "$distance km")
-            views.setTextViewText(R.id.alert_count, 
-                if (alertCount > 0) "🔔 $alertCount alerts" else "✅ No alerts")
-            views.setTextViewText(R.id.last_update, "Updated: $lastUpdate")
-
-            // Intent to open app
-            val intent = Intent(context, MainActivity::class.java)
-            intent.setAction("com.seasarathi.OPEN_CHAT")
-            val pendingIntent = PendingIntent.getActivity(context, 0, intent, 
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
-            views.setOnClickPendingIntent(R.id.widget_root, pendingIntent)
-
-            appWidgetManager.updateAppWidget(appWidgetId, views)
-        }
-    }
-}
-```
-
-**Files to Create:**
-- `android/app/src/main/res/layout/widget_layout.xml` (XML layout)
-- `android/app/src/main/res/xml/widget_info.xml` (metadata)
-- `android/app/src/main/res/drawable/widget_background.xml` (shape)
-- `android/app/src/main/res/drawable/widget_*.xml` (5 drawables for colors)
-
-**Modify:**
-- `android/app/src/main/AndroidManifest.xml` (add widget receiver + permissions)
-
-### 3.2B: React Native ↔ Native Bridge (ARP) — 1 hour
-**File:** NEW — `android/app/src/main/java/com/seasarathi/WidgetBridge.kt`
-
-```kotlin
-import com.facebook.react.bridge.ReactContextBaseJavaModule
-import com.facebook.react.bridge.ReactMethod
-import com.facebook.react.bridge.ReadableMap
-
-class WidgetBridge(reactContext: ReactContext) : ReactContextBaseJavaModule(reactContext) {
-    override fun getName() = "WidgetBridge"
-
-    @ReactMethod
-    fun updateWidget(data: ReadableMap) {
-        val prefs = reactApplicationContext.getSharedPreferences("seasarathi_widget", Context.MODE_PRIVATE)
-        prefs.edit().apply {
-            putString("risk_level", data.getString("riskLevel"))
-            putString("nearest_zone", data.getString("nearestZone"))
-            putFloat("nearest_distance", data.getDouble("distance").toFloat())
-            putInt("alert_count", data.getInt("alertCount"))
-            putString("last_update", data.getString("lastUpdate"))
-            apply()
-        }
-
-        // Trigger widget update
-        val intent = Intent(AppWidgetManager.ACTION_APPWIDGET_UPDATE)
-        intent.setClass(reactApplicationContext, SeaSarathiWidget::class.java)
-        reactApplicationContext.sendBroadcast(intent)
-    }
-}
-```
-
-**Register in MainApplication.kt:**
-```kotlin
-override fun getPackages(): List<ReactPackage> {
-    return listOf(MainReactPackage(), WidgetBridge())
-}
-```
-
-**Usage in ChatScreen.tsx:**
 ```typescript
-import { NativeModules } from 'react-native'
-const { WidgetBridge } = NativeModules
+// Shows:
+// 1. Catchable species (ranked by probability)
+// 2. For each species:
+//    - Name + icon
+//    - Catch probability (87%)
+//    - Expected catch (avg 150kg)
+//    - Recommended mesh size (25-32mm)
+//    - Best fishing time (dawn)
+//    - Distance to best zone (18km)
+// 3. Tap species → see seasonal trend + historical data
 
-async function updateWidget(response: any) {
-  await WidgetBridge.updateWidget({
-    riskLevel: response.riskLevel,  // LOW | MODERATE | HIGH
-    nearestZone: response.primaryRecommendation.zoneName,
-    distance: response.primaryRecommendation.distance,
-    alertCount: response.alerts.length,
-    lastUpdate: new Date().toLocaleTimeString()
+// Integrates with:
+// - Chat response (highlighted: "You can catch mackerel here")
+// - Map (species overlay on zones)
+// - Dashboard (updated when fisherman logs in)
+```
+
+**Data Flow:**
+```
+GPS + SST + Chlorophyll + Month
+        ↓
+Fish Availability Engine
+        ↓
+Ranked species list (Mackerel 92%, Sardine 45%, Tuna 28%)
+        ↓
+Claude synthesis ("You can catch mackerel (92% probability) at Zone A...")
+        ↓
+Frontend display + TTS
+```
+
+**Check:** User opens app → sees "Mackerel likely today (92% confidence, avg 150kg catch)" ✅
+
+---
+
+# IMPROVEMENT 3: DEEP SEA CONNECTIVITY (OFFLINE-FIRST) 🌊
+
+**NEW Architecture → CRITICAL for safety**
+
+**Owner:** MNV (Backend) + ARP (Mobile)  
+**Duration:** 3 hours (Day 2-3)  
+**Impact:** 🔥🔥 HIGH (enables deep ocean ops)
+
+## 3.1: Problem Statement
+
+Current: App assumes cellular connection always available
+Reality: Deep sea (50+ km offshore) = no data signal
+
+**Solution:** Cache everything needed for 3-5 day offshore trip
+
+## 3.2: Offline Data Caching Strategy
+
+**File:** `backend/src/services/offline_cache.py`
+
+```python
+class OfflineDataManager:
+    def __init__(self):
+        self.cache_version = datetime.now().isoformat()
+    
+    async def prepare_offline_bundle(
+        self,
+        user_operating_port: str,
+        trip_duration_days: int = 5
+    ) -> dict:
+        """
+        Generate single offline bundle fisherman can download before sailing.
+        Bundle expires after trip_duration_days.
+        """
+        
+        bundle = {
+            "metadata": {
+                "created": datetime.now().isoformat(),
+                "valid_until": (datetime.now() + timedelta(days=trip_duration_days)).isoformat(),
+                "port": user_operating_port
+            },
+            
+            # Static data (never changes)
+            "static": {
+                "pfz_zones": load_geojson("data/pfz_zones.geojson"),
+                "maritime_boundaries": load_geojson("data/boundaries.geojson"),
+                "landing_centers": load_json("data/landing_centers.json"),
+                "fish_species": load_json("data/fish_species.json"),
+                "cyclone_zones": load_geojson("data/cyclone_history_zones.geojson")
+            },
+            
+            # Dynamic data (pre-fetch for next 5 days)
+            "dynamic": {
+                "forecast_5day": await fetch_5day_forecast(user_operating_port),
+                "sst_5day": await fetch_sst_forecast(user_operating_port, days=5),
+                "chlorophyll_5day": await fetch_chlorophyll_forecast(user_operating_port, days=5),
+                "tides_5day": await fetch_tides_forecast(user_operating_port, days=5),
+                "cyclone_alerts": await fetch_latest_cyclone_warnings(),
+                "maritime_bulletins": await fetch_maritime_bulletins()
+            },
+            
+            # Historical baseline (for anomaly detection)
+            "historical": {
+                "sst_30day_mean": fetch_historical_sst_mean(user_operating_port, days=30),
+                "chlorophyll_30day_mean": fetch_historical_chlorophyll_mean(user_operating_port, days=30)
+            }
+        }
+        
+        return bundle
+
+async def sync_offline_bundle(user_id: str, port: str, days: int = 5):
+    """
+    Mobile app calls this BEFORE sailing to download offline bundle.
+    Bundle size: ~50-100MB (manageable for 50km+ offshore trips)
+    """
+    bundle = await prepare_offline_bundle(port, days)
+    return {
+        "bundle": bundle,
+        "size_mb": estimate_size(bundle),
+        "valid_until": bundle["metadata"]["valid_until"]
+    }
+```
+
+## 3.3: Mobile Offline Mode
+
+**File:** Modified — `mobile/src/services/OfflineService.ts`
+
+```typescript
+class OfflineService {
+  async downloadOfflineBundle(port: string, tripDays: number = 5) {
+    // Download from backend before sailing
+    const bundle = await api.post("/offline/sync-bundle", { port, trip_days: tripDays })
+    
+    // Save to device storage (SQLite or local JSON)
+    await this.db.saveBundle(bundle)
+    
+    // Mark as "offline-ready"
+    await AsyncStorage.setItem("offline_mode_enabled", "true")
+    await AsyncStorage.setItem("bundle_valid_until", bundle.metadata.valid_until)
+  }
+  
+  async queryOffline(query: string, gps: [number, number]): Promise<any> {
+    // Once offshore (no signal), all queries use local data
+    
+    // 1. Check if in offline mode
+    const offlineEnabled = await AsyncStorage.getItem("offline_mode_enabled")
+    if (!offlineEnabled) return { error: "Offline bundle not loaded" }
+    
+    // 2. Load cached bundle from device DB
+    const bundle = await this.db.getBundle()
+    
+    // 3. Simulate backend logic locally (no API calls)
+    const nearbyZones = this.findZonesNearby(gps, bundle.static.pfz_zones)
+    const catchableFish = this.getCatchableSpecies(gps, bundle)
+    const tides = this.getTidesForDate(new Date(), bundle.dynamic.tides_5day)
+    const forecast = this.get24HourForecast(new Date(), bundle.dynamic.forecast_5day)
+    
+    // 4. Return formatted response (same as online)
+    return {
+      zones: nearbyZones,
+      fish: catchableFish,
+      tides: tides,
+      forecast: forecast,
+      offline: true,
+      timestamp: new Date().toISOString()
+    }
+  }
+}
+
+// In ChatScreen:
+const response = isOnline 
+  ? await api.post("/chat", { query, gps, profile })  // Live API
+  : await offlineService.queryOffline(query, gps)      // Local cached data
+```
+
+## 3.4: App Behavior
+
+**Before Sailing (Coastal):**
+- Normal app experience
+- All data fresh from APIs
+- Button: "Download Offline Bundle" (appears when internet available)
+- Fisherman taps → downloads 5-day bundle for their operating port
+
+**At Sea (Deep Ocean):**
+- No cellular signal → automatic switch to offline mode
+- Queries answered from cached data (instant, no API)
+- All features work: chat, zones, fish, tides, forecast
+- Responses show: "Offline mode (last updated: 2 hours ago)"
+
+**Return to Shore:**
+- Reconnects to cellular
+- Automatic sync with backend
+- Downloads fresh bundle for next trip
+- Trip analytics logged (where caught, how much)
+
+**Check:** Fisherman 80km offshore, no signal → still gets chat response, fish data, tides ✅
+
+---
+
+# IMPROVEMENT 4: MULTI-DAY FORECASTS FOR DEEP SEA 📅
+
+**NEW Feature → CRITICAL for trip planning**
+
+**Owner:** MNV  
+**Duration:** 2 hours (Day 2)  
+**Impact:** 🔥 HIGH (enables 3-5 day offshore planning)
+
+## 4.1: Extended Forecast Data
+
+**Modify:** `/offshore/forecast` endpoint
+
+```python
+@app.get("/offshore/forecast")
+async def get_offshore_forecast(
+    latitude: float,
+    longitude: float,
+    days: int = 5  # NEW: support 5-day forecast
+):
+    """
+    Return 5-day forecast for deep-sea planning.
+    Critical for boats staying offshore 2-3+ days.
+    """
+    
+    forecast = []
+    for day_offset in range(days):
+        target_date = datetime.now() + timedelta(days=day_offset)
+        
+        day_forecast = {
+            "date": target_date.isoformat(),
+            "day_name": target_date.strftime("%A"),
+            "weather": {
+                "wind_knots": await open_meteo.get_wind(latitude, longitude, target_date),
+                "wave_height_m": await open_meteo.get_waves(latitude, longitude, target_date),
+                "sst_celsius": await copernicus.get_forecast_sst(latitude, longitude, target_date),
+                "rain_probability": await open_meteo.get_rain_prob(latitude, longitude, target_date)
+            },
+            "safety": {
+                "cyclone_risk": await imd.get_cyclone_forecast(latitude, longitude, target_date),
+                "advisories": [...]
+            },
+            "fishing": {
+                "chlorophyll_forecast": await nasa.get_forecast_chlorophyll(latitude, longitude, target_date),
+                "tidal_range": await get_tidal_range(latitude, longitude, target_date)
+            },
+            "recommendation": generate_recommendation(day_forecast)
+        }
+        
+        forecast.append(day_forecast)
+    
+    return {
+        "location": {"lat": latitude, "lon": longitude},
+        "forecast_5day": forecast,
+        "safest_day": identify_safest_day(forecast),
+        "best_fishing_day": identify_best_fishing_day(forecast)
+    }
+```
+
+## 4.2: Frontend Display
+
+**Screen:** `mobile/src/screens/OffshoreForecasts.tsx`
+
+```typescript
+// Shows 5-day forecast in card format:
+// 
+// DAY 1 (Tomorrow)
+// ├─ Wind: 8 knots (Safe ✅)
+// ├─ Waves: 2m (Safe ✅)
+// ├─ SST: 28.5°C
+// ├─ Chlorophyll: 0.42 mg/m³ (Good fishing 🎣)
+// └─ Recommendation: OPTIMAL - Go out early, return by sunset
+//
+// DAY 2 (Day After)
+// ├─ Wind: 15 knots (Caution ⚠️)
+// ├─ Waves: 3.2m (Caution ⚠️)
+// ├─ SST: 27.8°C
+// ├─ Chlorophyll: 0.38 mg/m³
+// └─ Recommendation: RISKY - Only for experienced crews, day trip max
+//
+// DAY 3 (Friday)
+// ├─ Wind: 22 knots (HIGH ❌)
+// ├─ Waves: 4.5m (HIGH ❌)
+// ├─ Cyclone Alert: AMBER ⚠️
+// └─ Recommendation: STAY ASHORE - Severe weather incoming
+```
+
+**Chat Integration:**
+
+When fisherman asks "Can I fish for 3 days?", Claude sees:
+- Day 1: Safe + Good fishing
+- Day 2: Risky + Moderate fishing
+- Day 3: Dangerous + No fishing
+
+Claude responds: *"You can safely fish Days 1-2. Day 3 has cyclone risk—recommend returning to shore by Day 2 evening. Expect 200-250kg total catch."*
+
+**Check:** Fisherman plans 3-day trip → sees Day 3 has cyclone warning → decides to return Day 2 ✅
+
+---
+
+# IMPROVEMENT 5: TIDES (HIGH/LOW) 🌊
+
+**NEW Feature → CRITICAL for port operations**
+
+**Owner:** MNV  
+**Duration:** 2 hours (Day 2)  
+**Impact:** 🔥 HIGH (port accessibility)
+
+## 5.1: Tidal Data Integration
+
+**File:** `backend/src/services/tides.py`
+
+```python
+class TideService:
+    async def get_tides(
+        self,
+        port_name: str,  # Kochi, Mumbai, etc.
+        latitude: float,
+        longitude: float,
+        num_days: int = 5
+    ) -> dict:
+        """
+        Fetch tidal information for landing centers.
+        
+        Critical for:
+        - Large boats can only reach shore during high tide
+        - Small boats can navigate during low tide
+        - Port operations affected by tidal range
+        """
+        
+        tides = []
+        for day_offset in range(num_days):
+            target_date = datetime.now() + timedelta(days=day_offset)
+            
+            # Get high/low tide times for this port
+            day_tides = await tidal_api.get_tides(
+                port_name=port_name,
+                latitude=latitude,
+                longitude=longitude,
+                date=target_date
+            )
+            
+            # day_tides format:
+            # {
+            #   "date": "2026-09-10",
+            #   "high_tide_1": {"time": "06:30", "height_m": 2.8},
+            #   "low_tide_1": {"time": "12:45", "height_m": 0.2},
+            #   "high_tide_2": {"time": "19:15", "height_m": 2.9},
+            #   "low_tide_2": {"time": "23:30", "height_m": 0.1}
+            # }
+            
+            tides.append(day_tides)
+        
+        return {
+            "port": port_name,
+            "tides": tides,
+            "analysis": analyze_tides_for_operations(tides)
+        }
+
+def analyze_tides_for_operations(tides: list) -> dict:
+    """
+    Determine port accessibility for different boat types.
+    """
+    analysis = []
+    
+    for day_tide in tides:
+        date = day_tide["date"]
+        high_tide_max = max(day_tide["high_tide_1"]["height_m"], day_tide["high_tide_2"]["height_m"])
+        low_tide_min = min(day_tide["low_tide_1"]["height_m"], day_tide["low_tide_2"]["height_m"])
+        tidal_range = high_tide_max - low_tide_min
+        
+        # Determine boat accessibility
+        accessibility = {
+            "date": date,
+            "small_boat": "✅ Can reach shore (works during all tides)",
+            "large_boat": "⚠️ Can only reach during high tide" if high_tide_max > 2.0 else "❌ Cannot reach shore (insufficient draft)",
+            "high_tide_times": [day_tide["high_tide_1"]["time"], day_tide["high_tide_2"]["time"]],
+            "low_tide_times": [day_tide["low_tide_1"]["time"], day_tide["low_tide_2"]["time"]],
+            "tidal_range_m": tidal_range
+        }
+        
+        analysis.append(accessibility)
+    
+    return analysis
+```
+
+## 5.2: Frontend Integration
+
+**Dashboard Update:** Add tides section
+
+```typescript
+// Dashboard shows:
+// TODAY
+// ├─ High tide: 6:30 AM (2.8m) ← BEST time for large boats
+// ├─ Low tide: 12:45 PM (0.2m)
+// ├─ High tide: 7:15 PM (2.9m)
+// ├─ Low tide: 11:30 PM (0.1m)
+// └─ Port accessibility: ✅ Small boats OK | ⚠️ Large boats need high tide
+//
+// TOMORROW
+// ├─ High tide: 7:00 AM (2.7m)
+// └─ Port accessibility: ✅ Small boats OK | ⚠️ Large boats: Best window 7-9 AM
+```
+
+**Chat Context:**
+
+When Claude sees large boat operator asking to return, it includes:
+- Next high tide at 7:15 PM (2.9m) → "You can dock at 7 PM"
+- Following day high tide at 7 AM → "If you stay offshore tonight, return by 9 AM tomorrow"
+
+**Check:** Large boat wants to return → chat shows "High tide at 7 PM, you can dock then" ✅
+
+---
+
+# IMPROVEMENT 6: MARITIME BULLETIN + COAST BULLETIN 📡
+
+**NEW Alerts → CRITICAL for man-made incidents**
+
+**Owner:** MNV  
+**Duration:** 2 hours (Day 2)  
+**Impact:** 🔥 HIGH (additional safety layer)
+
+## 6.1: Maritime Bulletin Integration
+
+**File:** `backend/src/services/maritime_alerts.py`
+
+```python
+class MaritimeAlertService:
+    async def get_maritime_bulletins(
+        self,
+        latitude: float,
+        longitude: float,
+        radius_km: int = 100
+    ) -> dict:
+        """
+        Fetch maritime bulletins beyond IMD:
+        - Coast Guard warnings
+        - Oil spill alerts
+        - Shipping accidents
+        - Naval exercises
+        - Sudden weather anomalies
+        - Dead marine life wash (environmental)
+        """
+        
+        bulletins = {
+            "coast_guard_warnings": await fetch_coast_guard_warnings(latitude, longitude, radius_km),
+            "environmental_alerts": await fetch_environmental_alerts(latitude, longitude, radius_km),
+            "shipping_incidents": await fetch_shipping_incidents(latitude, longitude, radius_km),
+            "naval_exercises": await fetch_naval_exercises(latitude, longitude, radius_km),
+            "custom_bulletins": await fetch_regional_maritime_bulletins(latitude, longitude)
+        }
+        
+        return bulletins
+
+async def fetch_environmental_alerts(lat: float, lon: float, radius: int) -> list:
+    """
+    Check for:
+    - Oil spills (fish deaths)
+    - Red tide (algal bloom)
+    - Dead fish wash (disease)
+    - Pollution hotspots
+    """
+    alerts = []
+    
+    # Example: Oil spill detection
+    oil_spills = await source.query_oil_spill_database(lat, lon, radius)
+    for spill in oil_spills:
+        if spill["status"] == "active":
+            alerts.append({
+                "type": "OIL_SPILL",
+                "severity": "🔴 CRITICAL",
+                "location": spill["location"],
+                "distance_km": spill["distance"],
+                "description": f"Active oil spill {spill['distance']}km away. Avoid area. Fish deaths likely.",
+                "time_reported": spill["reported_time"],
+                "source": spill["source"]
+            })
+    
+    # Example: Dead fish wash (disease indicator)
+    dead_fish = await source.query_environmental_database(lat, lon, radius)
+    for event in dead_fish:
+        if event["type"] == "mass_mortality":
+            alerts.append({
+                "type": "DEAD_FISH_WASH",
+                "severity": "🟡 WARNING",
+                "location": event["location"],
+                "distance_km": event["distance"],
+                "description": f"Unusual fish mortality reported {event['distance']}km away. Possible disease. Avoid area.",
+                "time_reported": event["reported_time"],
+                "affected_species": event["species"]
+            })
+    
+    return alerts
+```
+
+## 6.2: Alert Hierarchy
+
+**In `/alerts` endpoint:**
+
+```python
+# Unified alert system:
+
+🔴 CRITICAL (Block operations):
+  ├─ Cyclone warning (IMD)
+  ├─ International boundary breach (geofence)
+  ├─ Oil spill active (maritime)
+  └─ Naval exercise ongoing (coast guard)
+
+🟡 WARNING (Caution, risky):
+  ├─ High waves > 4m
+  ├─ Unusual wind pattern
+  ├─ Dead fish wash (disease risk)
+  ├─ Shipping incident nearby
+  └─ Tidal anomaly
+
+🔵 INFO (Informational):
+  ├─ Seasonal pattern change
+  ├─ Port closure (maintenance)
+  └─ Fishing regulation update
+```
+
+## 6.3: Frontend Display
+
+**Updated AlertsScreen:**
+
+```typescript
+// Shows unified alert feed:
+
+🔴 CRITICAL
+├─ "Oil spill 15km south—avoid area. Fish deaths reported."
+└─ "Cyclone alert active—do NOT venture out."
+
+🟡 WARNING
+├─ "Mass fish mortality 25km away—disease risk, avoid."
+├─ "Tidal range unusual today (1.2m vs normal 2.8m)"
+└─ "Shipping accident reported 60km NE"
+
+🔵 INFO
+└─ "Mackerel migration peak this month—good fishing expected"
+```
+
+**Check:** Fisherman sees oil spill alert → avoids affected zone → safety improved ✅
+
+---
+
+# IMPROVEMENT 7: DASHBOARD REFACTOR (Separate UI) 📊
+
+**UX Improvement → CRITICAL for API efficiency**
+
+**Owner:** ARP  
+**Duration:** 3 hours (Days 3-4)  
+**Impact:** 🔥 HIGH (better UX, less API calls)
+
+## 7.1: Problem Statement
+
+**Current Architecture:**
+- `/chat` endpoint returns: response text + SST + wind + tides + alerts + forecast
+- Frontend shows all data inline
+- Multiple `/chat` calls = multiple data fetches
+- Sarvam TTS called for each query (expensive)
+
+**Issue:** User asks "Can I fish?" → Gets entire weather dashboard inline → Redundant on every query
+
+## 7.2: New Architecture
+
+**Split into 2 screens:**
+
+### Screen A: Dashboard (Auto-updated, read-only)
+**File:** `mobile/src/screens/Dashboard.tsx`
+
+```typescript
+// Dashboard = Static data updated once per login
+// Shows:
+// 1. Current conditions (SST, wind, waves, visibility)
+// 2. Next 5-day forecast card
+// 3. Tides (today + tomorrow)
+// 4. Latest alerts (unified feed)
+// 5. Fish migration season indicator
+// 6. Port status + accessibility
+
+// Updates ONCE when app opens (single API call)
+const refreshDashboard = async () => {
+  const dashboardData = await api.get("/dashboard", {
+    gps: [gps.latitude, gps.longitude],
+    days: 5
   })
+  
+  setDashboard(dashboardData)
+  // No more updates unless user manually refreshes
+}
+
+// Rendered as:
+// ┌─ CURRENT CONDITIONS ─────────────────┐
+// │ SST: 28.5°C                          │
+// │ Wind: 8 knots NW                     │
+// │ Waves: 2.1m                          │
+// │ Visibility: 15km                     │
+// └──────────────────────────────────────┘
+//
+// ┌─ 5-DAY FORECAST ─────────────────────┐
+// │ Tomorrow: Safe (8 knots, 2.0m waves) │
+// │ Day 3: Risky (18 knots, 3.5m waves) │
+// │ Day 4: Dangerous (Cyclone warning)  │
+// └──────────────────────────────────────┘
+//
+// ┌─ TIDES (Today) ──────────────────────┐
+// │ High: 6:30 AM (2.8m)                 │
+// │ Low: 12:45 PM (0.2m)                 │
+// │ High: 7:15 PM (2.9m)                 │
+// └──────────────────────────────────────┘
+//
+// ┌─ LATEST ALERTS ──────────────────────┐
+// │ 🔴 Cyclone warning active            │
+// │ 🟡 Waves 3.2m (caution)              │
+// │ 🔵 Mackerel season peak (good news) │
+// └──────────────────────────────────────┘
+```
+
+**Backend Endpoint:**
+```python
+@app.get("/dashboard")
+async def get_dashboard(
+    latitude: float,
+    longitude: float,
+    days: int = 5
+):
+    """
+    Single endpoint returning all dashboard data at once.
+    Updates once per app session (not per query).
+    """
+    return {
+        "current_conditions": fetch_current_conditions(latitude, longitude),
+        "forecast_days": fetch_forecast(latitude, longitude, days),
+        "tides": fetch_tides(latitude, longitude, days),
+        "alerts": fetch_alerts(latitude, longitude),
+        "fish_season": fetch_fish_season_indicator(latitude, longitude),
+        "timestamp": datetime.now().isoformat(),
+        "valid_until": (datetime.now() + timedelta(hours=6)).isoformat()
+    }
+```
+
+### Screen B: Chat (Focused, text-only)
+**File:** Modified — `mobile/src/screens/ChatScreen.tsx`
+
+```typescript
+// Chat = Only response text + confidence + audio
+// Does NOT include wind/SST/tides inline
+// User looks at Dashboard for that info
+
+// /chat endpoint returns ONLY:
+{
+  "response": "You can catch mackerel at Zone A (92% confidence)...",
+  "confidence": 92,
+  "dataSource": "Copernicus, NASA",
+  "timestamp": "2026-09-10T14:30:00Z",
+  "audioUrl": "https://sarvam.tts/audio_xyz.mp3",
+  "primaryRecommendation": {
+    "zone": "Zone A",
+    "distance": 18,
+    "sst": 28.5,
+    "chlorophyll": 0.42
+  }
+}
+
+// Much smaller response = faster processing
+// Sarvam TTS called ONLY for /chat (not dashboard)
+// Reduces API calls by 60%
+```
+
+## 7.3: User Flow
+
+**Before (Old Architecture):**
+```
+User logs in
+  ↓
+App calls /chat ("What's the status?")
+  ↓
+/chat returns: response + SST + wind + waves + tides + alerts + forecast
+  ↓
+User reads everything inline
+  ↓
+User asks another question → /chat called again → redundant data
+```
+
+**After (New Architecture):**
+```
+User logs in
+  ↓
+App calls /dashboard (once)
+  ↓
+Dashboard rendered (current conditions, tides, alerts, forecast)
+  ↓
+User asks "Can I fish?"
+  ↓
+App calls /chat (text only, minimal response)
+  ↓
+Chat response + audio, Dashboard data already visible
+  ↓
+User asks another question → /chat again (no redundant data)
+```
+
+**Benefits:**
+- ✅ Dashboard updates once per session (cheaper)
+- ✅ Chat queries are lightweight (faster)
+- ✅ Sarvam TTS called only once per question (save 70% TTS costs)
+- ✅ Better UX (dedicated info screens)
+- ✅ No redundant data fetching
+
+**Check:** User logs in → Dashboard loads once → Chat queries are fast + cheap ✅
+
+---
+
+# IMPROVEMENT 8: FRONTEND RESPONSE FILTER (Fix UI Parity) 🔧
+
+**Bug Fix → MEDIUM priority**
+
+**Owner:** ARP  
+**Duration:** 1 hour (Day 3)  
+**Impact:** 🟡 MEDIUM (fixes UI inconsistency)
+
+## 8.1: Problem
+
+Backend is returning different responses based on vessel type (decision tree working correctly), but frontend shows all responses similar-looking.
+
+**Example:**
+- Small boat response: "Zone too far, try Zone B nearby (12km)"
+- Large boat response: "Primary zone feasible (65km). Secondary for crew training."
+- But both render identically on UI
+
+## 8.2: Root Cause
+
+Likely: Frontend response is not extracting/displaying the `recommendation_text` or `vessel_strategy` field differently.
+
+**Hypothesis:** All responses use same message bubble styling → lose differentiation
+
+## 8.3: Solution
+
+**File:** Modified — `mobile/src/screens/ChatScreen.tsx`
+
+```typescript
+// Extract recommendation type from response
+const getRecommendationType = (response: any): string => {
+  if (response.recommendation_text.includes("too far")) return "NOT_FEASIBLE"
+  if (response.crew_strategy) return "UNION_STRATEGY"
+  if (response.nearshore_suggestions) return "NEARBY_ALTERNATIVE"
+  return "FEASIBLE"
+}
+
+// Render response with different styling per type
+const renderResponse = (response: any) => {
+  const type = getRecommendationType(response)
+  
+  switch (type) {
+    case "NOT_FEASIBLE":
+      return (
+        <View style={{ backgroundColor: "#FFE6E6", borderLeftColor: "#FF0000" }}>
+          <Text style={{ color: "#CC0000", fontWeight: "bold" }}>
+            🚤 For small boats:
+          </Text>
+          <Text>{response.response}</Text>
+        </View>
+      )
+    
+    case "FEASIBLE":
+      return (
+        <View style={{ backgroundColor: "#E6F3FF", borderLeftColor: "#0066CC" }}>
+          <Text style={{ color: "#0066CC", fontWeight: "bold" }}>
+            ✅ Zone feasible:
+          </Text>
+          <Text>{response.response}</Text>
+        </View>
+      )
+    
+    case "UNION_STRATEGY":
+      return (
+        <View style={{ backgroundColor: "#E6F9F0", borderLeftColor: "#10B981" }}>
+          <Text style={{ color: "#10B981", fontWeight: "bold" }}>
+            ⚓ For union leader (crew coordination):
+          </Text>
+          <Text>{response.response}</Text>
+          <Text style={{ fontSize: 12, marginTop: 8 }}>
+            Strategy: {response.crew_strategy}
+          </Text>
+        </View>
+      )
+    
+    case "NEARBY_ALTERNATIVE":
+      return (
+        <View style={{ backgroundColor: "#FFF9E6", borderLeftColor: "#F59E0B" }}>
+          <Text style={{ color: "#F59E0B", fontWeight: "bold" }}>
+            💡 Alternative nearby:
+          </Text>
+          <Text>{response.response}</Text>
+        </View>
+      )
+  }
 }
 ```
 
-**Screen Changes:** ChatScreen.tsx (call updateWidget() after `/chat` response)
-
-**Check:** Widget appears on home screen, shows risk level + zone + distance ✅
+**Check:** Small boat response now shows red background + "For small boats:", large boat shows blue + "Zone feasible" ✅
 
 ---
 
-## Task 3.3: ML Models (Synthetic Data + Training) — OPTIONAL
-**Owner:** MNV  
-**Duration:** 4–6 hours (if time allows)
+# IMPROVEMENT 9: TTS-STT (VOICE I/O) 🎙️
 
-### 3.3A: Synthetic Data Generation — 2 hours
-**File:** NEW — `backend/scripts/generate_training_data.py`
+**Core Feature → Already planned, keeping as-is**
+
+**Owner:** MNV (TTS) + ARP (UI)  
+**Duration:** 2 hours (Day 3)  
+**Implementation:** Same as UPGRADE.md Task 2.5
+
+**Additions:**
+- STT: Voice input in ChatScreen (fisherman asks question verbally)
+- TTS: Sarvam generates audio response
+- Language: Auto-detect + respect user's profile language
+
+**Check:** Fisherman asks "Can I fish?" via voice → Gets response in Malayalam audio ✅
+
+---
+
+# IMPROVEMENT 10: MULTI-LANGUAGE UI 🌐
+
+**UX Feature → CRITICAL for Indian fishermen**
+
+**Owner:** ARP + MNV  
+**Duration:** 2 hours (Day 4)  
+**Impact:** 🔥 HIGH (accessibility)
+
+## 10.1: Current State
+
+Backend generates responses in user's language (via prompt injection).  
+But frontend UI strings are still in English only.
+
+## 10.2: Solution
+
+**Backend change:**
+
+Inject language into Claude prompt:
 
 ```python
-import pandas as pd
-import numpy as np
+system_prompt = f"""
+...existing prompt...
 
-def generate_synthetic_data(n_samples=1000):
-    """
-    Generate training data: (SST, Chlorophyll, Wind, Month, Distance) → Catch Outcome
-    """
-    np.random.seed(42)
-    
-    # Seasonal patterns
-    months = np.random.randint(1, 13, n_samples)
-    
-    # Physical features (with realistic constraints)
-    sst = np.random.normal(26, 3, n_samples)  # 20-32°C typical
-    sst = np.clip(sst, 18, 35)
-    
-    chlorophyll = np.random.exponential(0.3, n_samples)  # Log-normal dist
-    chlorophyll = np.clip(chlorophyll, 0.05, 2.0)
-    
-    wind_speed = np.random.gamma(2, 2, n_samples)  # 0-25 knots
-    wind_speed = np.clip(wind_speed, 0, 25)
-    
-    distance_from_shore = np.random.uniform(0, 100, n_samples)
-    
-    # Target: High catch if (high chlorophyll + warm SST + low wind + nearshore)
-    catch_score = (
-        chlorophyll * 0.5 +  # High productivity matters most
-        (sst - 20) * 0.1 +   # Warm water is good
-        (15 - wind_speed) * 0.1 +  # Calm water is good
-        (50 - distance_from_shore) * 0.001  # Nearshore better
-    )
-    
-    # Add noise
-    catch_score += np.random.normal(0, 0.5, n_samples)
-    
-    # Discretize to catch outcome (low, medium, high)
-    catch_outcome = np.where(catch_score < -1, 0, 
-                            np.where(catch_score < 1, 1, 2))
-    
-    # Create dataframe
-    df = pd.DataFrame({
-        "sst": sst,
-        "chlorophyll": chlorophyll,
-        "wind_speed": wind_speed,
-        "month": months,
-        "distance_from_shore": distance_from_shore,
-        "catch_outcome": catch_outcome
-    })
-    
-    df.to_csv("backend/data/synthetic_training_data.csv", index=False)
-    print(f"Generated {n_samples} synthetic samples")
-    return df
+LANGUAGE INSTRUCTION:
+Respond ONLY in {profile['language']}.
+- en: English
+- ml: Malayalam (മലയാളം)
+- ta: Tamil (தமிழ்)
+- te: Telugu (తెలుగు)
+
+Use simple, accessible language suitable for fishermen.
+Avoid jargon. Explain technical terms.
+"""
 ```
 
-### 3.3B: Model Training — 2 hours
-**File:** NEW — `backend/scripts/train_confidence_model.py`
+**Frontend change:**
 
-```python
-import pandas as pd
-import joblib
-from sklearn.linear_model import LogisticRegression
-from sklearn.preprocessing import StandardScaler
+**File:** NEW — `mobile/src/i18n/translations.json`
 
-# Load data
-df = pd.read_csv("backend/data/synthetic_training_data.csv")
-
-X = df[["sst", "chlorophyll", "wind_speed", "month", "distance_from_shore"]]
-y = df["catch_outcome"]
-
-# Scale features
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
-
-# Train logistic regression (lightweight, fast inference)
-model = LogisticRegression(max_iter=1000, multi_class='multinomial')
-model.fit(X_scaled, y)
-
-# Save
-joblib.dump(model, "backend/models/confidence_model.pkl")
-joblib.dump(scaler, "backend/models/scaler.pkl")
-
-print("Model trained and saved")
+```json
+{
+  "en": {
+    "dashboard": "Dashboard",
+    "chat": "Chat",
+    "alerts": "Alerts",
+    "profile": "Profile",
+    "high_tide": "High tide",
+    "low_tide": "Low tide",
+    "wind": "Wind",
+    "waves": "Waves",
+    "sst": "Water temperature",
+    "fishing_feasible": "✅ Safe to fish",
+    "not_feasible": "❌ Not safe",
+    "zone_distance": "Zone distance",
+    "catch_probability": "Catch probability",
+    "alert_cyclone": "🔴 Cyclone warning",
+    "alert_boundary": "🔴 Boundary warning"
+  },
+  "ml": {
+    "dashboard": "നിലവിലെ സ്ഥിതി",
+    "chat": "സംസാരം",
+    "alerts": "മുന്നറിപ്പ്",
+    "profile": "പ്രോഫൈൽ",
+    "high_tide": "ഉയർന്ന വേലി",
+    "low_tide": "താഴ്ന്ന വേലി",
+    "wind": "കാറ്റ്",
+    "waves": "തരംഗങ്ങൾ",
+    "sst": "ജല താപനില",
+    "fishing_feasible": "✅ തീൻ പിടിക്കാൻ സുരക്ഷിതം",
+    "not_feasible": "❌ സുരക്ഷിതമല്ല",
+    "zone_distance": "മേഖലയുടെ ദൂരം",
+    "catch_probability": "തീൻ പിടിക്കാനുള്ള സാധ്യത",
+    "alert_cyclone": "🔴 ചുഴലിക്കാറ്റ് മുന്നറിപ്പ്",
+    "alert_boundary": "🔴 അതിരിന്റെ മുന്നറിപ്പ്"
+  },
+  "ta": {
+    "dashboard": "தற்போதைய நிலை",
+    "chat": "உரையாடல்",
+    "alerts": "எச்சரிக்கைகள்",
+    // ... Tamil translations
+  },
+  "te": {
+    "dashboard": "ప్రస్తుత స్థితి",
+    "chat": "సంభాషణ",
+    "alerts": "హెచ్చరికలు",
+    // ... Telugu translations
+  }
+}
 ```
 
-### 3.3C: Integration — 1.5 hours
-**File:** Modified — `backend/src/agents/chat_agent.py`
+**Frontend Usage:**
 
-```python
-def get_ml_confidence(current_data: dict) -> float:
-    """
-    Use ML model to predict confidence (0-100%)
-    """
-    import joblib
-    import numpy as np
-    
-    model = joblib.load("backend/models/confidence_model.pkl")
-    scaler = joblib.load("backend/models/scaler.pkl")
-    
-    features = np.array([[
-        current_data["sst"],
-        current_data["chlorophyll"],
-        current_data["wind_speed"],
-        current_data["month"],
-        current_data["distance"]
-    ]])
-    
-    features_scaled = scaler.transform(features)
-    proba = model.predict_proba(features_scaled)[0]
-    
-    # Return probability of high catch (class 2)
-    return proba[2] * 100.0
+```typescript
+import translations from "../i18n/translations.json"
+
+const t = (key: string, language: string) => {
+  return translations[language][key] || translations["en"][key]
+}
+
+// In components:
+<Text>{t("dashboard", profile.language)}</Text>
+<Text>{t("high_tide", profile.language)}</Text>
+<Text>{t("fishing_feasible", profile.language)}</Text>
 ```
 
-**Result:** Responses now show dynamic confidence (e.g., "Confidence: 87%") instead of static 50%
-
-**Check:** Confidence score varies based on conditions ✅
+**Check:** Fisherman selects Tamil → UI shows in Tamil ✅
 
 ---
 
-## Task 3.4: Map/PFZ/Alerts UI Polish
-**Owner:** ARP  
-**Duration:** 3 hours
+# 📊 REVISED EXECUTION PLAN
 
-**MapScreen:** Layer toggles (PFZ zones, SST heatmap, landing centers), geofence visualization  
-**PFZScreen:** Color-coded zones (green=feasible, red=too far), expandable details  
-**AlertsScreen:** Stacked cards sorted by severity (🔴→🟡→🔵)
+## Time Allocation (New)
 
-**Check:** All screens polished and functional ✅
-
----
-
-# PHASE 4: INTEGRATION & DEMO (DAY 5 — 8 HOURS)
-
-## Task 4.1: End-to-End Testing
-**Owner:** Both  
-**Duration:** 2 hours
-
-**Checklist:**
-- [ ] Mobile connects to backend
-- [ ] Profile persists across app restart
-- [ ] `/chat` returns personalized response (boat size aware)
-- [ ] Response includes data block + confidence + source
-- [ ] Audio playback works in selected language
-- [ ] GPS tracks in background
-- [ ] Geofence alert triggers at boundary
-- [ ] Widget updates every 5 minutes
-- [ ] No crashes on any screen
-
----
-
-## Task 4.2: Demo Rehearsal
-**Owner:** Both  
-**Duration:** 1.5 hours
-
-**Demo Flow (6 minutes):**
-
-1. **Onboarding (30 sec)** — Profile setup (boat size, port, language)
-2. **Chat (60 sec)** — "Can I fish?" → Response + data + audio
-3. **Map (60 sec)** — Toggle layers, show geofence
-4. **PFZ (60 sec)** — Ranked zones (green=feasible, red=too far)
-5. **Alerts (60 sec)** — Stacked color-coded alerts
-6. **Safety (60 sec)** — GPS near boundary → Alert
-
----
-
-## Task 4.3: Docker Setup (OPTIONAL)
-**Owner:** MNV  
-**Duration:** 1 hour
-
-**Dockerfile:**
-```dockerfile
-FROM python:3.11-slim
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
-EXPOSE 8000
-CMD ["uvicorn", "src.main:app", "--host", "0.0.0.0"]
-```
-
----
-
-# 🚀 CRITICAL PATH & DEPENDENCIES
-
-```
-DAY 1 (8h):
-  ├─ Profile Store (Zustand) [1h] ──────┐
-  ├─ Onboarding Screen [1.5h] ──────────┤
-  ├─ Navigation [0.5h] ──────────────────┼→ REQUIRED FOR ALL
-  └─ Prompt Injection [1h] ──────────────┘
-
-DAY 2 (10h):
-  ├─ Decision Tree [2h]
-  ├─ Chat UI + Badge [2h]
-  ├─ Fallback + Caching [1h]
-  ├─ Location Service [1.5h]
-  ├─ Geofence Monitoring [1h]
-  └─ Location Store [0.5h]
-
-DAY 3 (10h):
-  ├─ TTS Integration [2h]
-  ├─ Anomaly Detection [1.5h]
-  ├─ Android Widget [3h]
-  ├─ Widget Bridge [1h]
-  └─ ML Training [4–6h] (if time)
-
-DAY 4 (6h):
-  ├─ Map/PFZ/Alerts Polish [3h]
-  ├─ Widget Automation [0.5h]
-  └─ ML Integration [1h]
-
-DAY 5 (8h):
-  ├─ E2E Testing [2h]
-  ├─ Demo Rehearsal [1.5h]
-  ├─ Bug fixes [2h]
-  └─ Docker [1h]
-```
-
----
-
-# 📋 SKIP IF TIME IS SHORT
-
-**Priority for cuts:**
-
-1. **❌ Android Widget (4.5h)** — Bonus feature
-2. **❌ ML Training (4–6h)** — Use hardcoded 75% confidence
-3. **❌ Anomaly Detection (1.5h)** — Still have decision tree
-4. **❌ Docker (1h)** — Run locally
-
-**NEVER SKIP:**
-- Profile Building
-- Prompt Injection
-- Decision Tree
-- Live Location Tracking
-- TTS
-- Chat UI
-
----
-
-# 📊 EFFORT SUMMARY
-
-| Phase | Task | Owner | Hours | Status |
-|-------|------|-------|-------|--------|
-| 1 | Profile Store | MNV | 1 | 🟢 Ready |
-| 1 | Onboarding Screen | ARP | 1.5 | 🟢 Ready |
-| 1 | Navigation | ARP | 0.5 | 🟢 Ready |
-| 1 | Prompt Injection | MNV | 1 | 🟢 Ready |
-| 2 | Decision Tree | MNV | 2 | 🟢 Ready |
-| 2 | Fallback Logic | MNV | 1 | 🟢 Ready |
-| 2 | Chat UI + Badge | ARP | 2 | 🟢 Ready |
-| 2 | Location Service | ARP | 1.5 | 🟢 Ready |
-| 2 | Geofence Monitoring | MNV+ARP | 1 | 🟢 Ready |
-| 2 | Location Store | ARP | 0.5 | 🟢 Ready |
-| 3 | TTS Backend | MNV | 1 | 🟢 Ready |
-| 3 | TTS Mobile | ARP | 1 | 🟢 Ready |
-| 3 | Anomaly Detection | MNV | 1.5 | 🟡 If Time |
-| 3 | ML Training | MNV | 4–6 | 🟡 If Time |
-| 3 | Android Widget | ARP | 4 | 🟡 If Time |
-| 3 | UI Polish | ARP | 3 | 🟢 Ready |
-| 4 | E2E Testing | Both | 2 | 🟢 Ready |
-| 4 | Demo Rehearsal | Both | 1.5 | 🟢 Ready |
-| 4 | Docker | MNV | 1 | 🟡 Bonus |
-| | **TOTAL (Core)** | | **~32h** | |
-| | **TOTAL (With Widget)** | | **~40h** | |
+| Phase | Component | Hours | Owner | Status |
+|-------|-----------|-------|-------|--------|
+| **DROP** | Android Widget | -4 | - | ✂️ REMOVED |
+| 1 | Foundation (Profile+Prompt) | 2 | Both | 🟢 Keep |
+| 2 | Fish Dataset | 4 | MNV | 🔥 NEW |
+| 2 | Deep Sea Offline | 3 | Both | 🔥 NEW |
+| 2 | Multi-Day Forecast | 2 | MNV | 🔥 NEW |
+| 2 | Tides | 2 | MNV | 🔥 NEW |
+| 2 | Maritime Bulletins | 2 | MNV | 🔥 NEW |
+| 3 | Dashboard Refactor | 3 | ARP | 🔥 NEW |
+| 3 | Response Filter Fix | 1 | ARP | 🔥 NEW |
+| 3 | TTS-STT | 2 | Both | 🟢 Keep |
+| 3 | Multi-Lang UI | 2 | ARP | 🔥 NEW |
+| 4-5 | Polish + Integration | 2 | Both | 🟢 Keep |
+| | **TOTAL** | **~27h new** | | |
+| | **NET TOTAL** | **~55h** | | |
 
 **Distribution:**
-- MNV: 16–18 hours
-- ARP: 16–18 hours
+- MNV: 22–24 hours (core data engines)
+- ARP: 20–22 hours (UI refactor + languages)
+
+## New Critical Path
+
+```
+Day 1: Profile + Prompt (2h) → Foundation
+           ↓
+Day 2: Fish Dataset (4h) + Offline (3h) + Forecasts (2h) + Tides (2h) + Bulletins (2h) → Core data
+           ↓
+Day 3: Dashboard Refactor (3h) + Filter Fix (1h) + TTS (2h) + Lang UI (2h) → UX + Voice
+           ↓
+Day 4: Integration + Polish (2h) → Quality
+           ↓
+Day 5: Testing + Demo (2h) → Ship it
+```
 
 ---
 
-# ✅ SUCCESS CHECKLIST (Day 5 EOD)
+# ✅ SUCCESS CHECKLIST (Revised)
 
-- [ ] Profile onboarding works (Zustand + AsyncStorage persist)
-- [ ] Prompt injection active (Claude responds in user's language)
-- [ ] Decision tree filtering (boat size → max range)
-- [ ] Real-time GPS tracking (background, updates every 30s)
-- [ ] Geofence alerts (yellow at 5km, red on cross)
-- [ ] TTS audio playback (responses in local language)
-- [ ] Android widget (if implemented)
-- [ ] All 5 screens functional (Chat, Map, PFZ, Alerts, Profile)
+- [ ] Fish dataset working (catchable species by lat-long)
+- [ ] Offline bundle downloads before sailing (5-day forecast cached)
+- [ ] Deep sea queries work without signal (offline mode)
+- [ ] Multi-day forecast shows (Day 1-5 with daily recommendations)
+- [ ] Tides displayed (high/low times, boat accessibility)
+- [ ] Maritime alerts appear (oil spills, dead fish, incidents)
+- [ ] Dashboard loads once per session (cheap, efficient)
+- [ ] Chat responses are differentiated by vessel type (UI shows differences)
+- [ ] TTS-STT working (voice in/out)
+- [ ] Multi-language UI (English, Malayalam, Tamil, Telugu)
 - [ ] Live demo with zero crashes
-- [ ] Judges presentation ready
 
 ---
 
-# 🎯 NEXT STEPS
+# 🎯 Key Improvements Summary
 
-1. **MNV:** Start Task 1.1 (Zustand store) + Task 1.4 (prompt injection)
-2. **ARP:** Start Task 1.2 (Onboarding) + Task 1.3 (navigation)
-3. **Both:** Daily 9 AM standup (15 min)
+**Original:** Generic chat-based marine app  
+**Improved:** Specialized fishing-intelligence platform with offline-first architecture
+
+**Gains:**
+- ✅ Fishery-specific data (catch probabilities, species availability)
+- ✅ Offline-first (works 80km offshore, no signal)
+- ✅ Deep sea planning (5-day forecasts for multi-day trips)
+- ✅ Port operations (tides determine dock access)
+- ✅ Holistic safety (maritime bulletins + cyclone + boundaries)
+- ✅ Better UX (dashboard + chat split, 60% cheaper)
+- ✅ Accessible (voice + multi-language)
+
+**Result:** Platform shifts from "advisory app" → "essential tool for fishermen"
 
 ---
 
 **Document Last Updated:** September 2026  
-**Prepared For:** Marine Intelligence Hackathon  
-**Team:** MNV + ARP  
-**Mission:** Empower Indian coastal fishermen with AI-powered marine intelligence
+**Status:** Ready for implementation  
+**Next Step:** Update UPGRADE.md with these improvements + begin Phase 1
+
+ENDOFFILE
