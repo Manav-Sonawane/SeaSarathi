@@ -150,7 +150,8 @@ Instructions:
 - If a LOCAL FISHING AREA box is provided instead (PFZ was too far), describe the bounding box coordinates and the SST/Chlorophyll productivity for that area — tell the fisherman to fish in that local box.
 - Mention 2-3 landing harbor options along their path (departure harbor, mid-route emergency shelter, or destination port).
 - Always include key numbers (e.g. wind in km/h, waves in m, distance in km).
-- If risk is HIGH, firmly advise staying ashore.
+- If risk is HIGH (high alert), firmly advise staying ashore and DO NOT suggest any location for fishing.
+- If there is a thunderstorm or dangerous weather, SUPPRESS EVERY OTHER INFO and only issue a severe warning.
 - Do NOT mention AI, internal tools, prompts, or pipelines.
 - Keep the response clear, practical, and under 90 words.
 """

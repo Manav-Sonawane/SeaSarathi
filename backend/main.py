@@ -60,6 +60,27 @@ class ChatRequest(BaseModel):
     language: str = "en"        # en | hi | ta
 
 
+class ProfileRequest(BaseModel):
+    device_id: str
+    vessel_type: str            # "small" | "medium" | "large" | "union"
+    risk_tolerance: str         # "conservative" | "moderate" | "aggressive"
+    operating_port: str
+    role: str                   # "fisherman" | "union_leader"
+    language: str
+
+
+class ProfileResponse(BaseModel):
+    device_id: str
+    vessel_type: str
+    risk_tolerance: str
+    operating_port: str
+    role: str
+    language: str
+    extra: dict
+    created_at: str
+    updated_at: str
+
+
 class ChatResponse(BaseModel):
     risk_level: str             # "LOW" | "MODERATE" | "HIGH"
     wind_speed_10m: float
@@ -163,6 +184,51 @@ async def chat(request: ChatRequest):
             confidence=50,
             sources=["stub-mock"],
         )
+
+
+# ─── Profile Endpoints (UPDATE.md Task 1.1 — backend half) ────────────────────
+
+@app.post("/profile", response_model=ProfileResponse, summary="Create or Update Fisherman Profile")
+async def upsert_profile(request: ProfileRequest):
+    """
+    Upserts a fisherman profile keyed by device_id (client-generated, persisted
+    on-device — there is no auth layer in this build). Backs the mobile
+    onboarding/profile form so a profile survives reinstalls and is available
+    to the agent pipeline (prompt injection, vessel-range decision tree) server-side.
+    """
+    from src.db.profile_db import upsert_profile as db_upsert_profile
+    try:
+        profile = db_upsert_profile(
+            device_id=request.device_id,
+            vessel_type=request.vessel_type,
+            risk_tolerance=request.risk_tolerance,
+            operating_port=request.operating_port,
+            role=request.role,
+            language=request.language,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    return ProfileResponse(**profile)
+
+
+@app.get("/profile/{device_id}", response_model=ProfileResponse, summary="Fetch Fisherman Profile")
+async def fetch_profile(device_id: str):
+    """Returns the stored profile for device_id, or 404 if none exists yet."""
+    from src.db.profile_db import get_profile
+    profile = get_profile(device_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail=f"No profile found for device_id={device_id}")
+    return ProfileResponse(**profile)
+
+
+@app.delete("/profile/{device_id}", summary="Delete Fisherman Profile")
+async def remove_profile(device_id: str):
+    """Deletes the stored profile for device_id (e.g. app 'reset profile' action)."""
+    from src.db.profile_db import delete_profile
+    deleted = delete_profile(device_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"No profile found for device_id={device_id}")
+    return {"deleted": True, "device_id": device_id}
 
 
 # ─── GeoJSON Endpoints ─────────────────────────────────────────────────────────
