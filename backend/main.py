@@ -36,15 +36,20 @@ app = FastAPI(
 )
 
 # CORS: allow React Native and local dev origins
+_cors_origins = [
+    "http://localhost:3000",
+    "http://localhost:8081",   # Expo Metro bundler
+    "http://localhost:19006",  # Expo web
+    "http://10.0.2.2:8000",   # Android emulator → host
+    "*",                       # Allow all for hackathon dev (restrict in prod)
+]
+_client_url = os.getenv("CLIENT_URL")
+if _client_url and _client_url not in _cors_origins:
+    _cors_origins.insert(0, _client_url)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://localhost:8081",   # Expo Metro bundler
-        "http://localhost:19006",  # Expo web
-        "http://10.0.2.2:8000",   # Android emulator → host
-        "*",                       # Allow all for hackathon dev (restrict in prod)
-    ],
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

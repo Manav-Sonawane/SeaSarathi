@@ -151,10 +151,15 @@ source venv/bin/activate
 pip install fastapi uvicorn httpx python-dotenv langgraph langchain pydantic geopandas shapely
 
 # Start FastAPI server in development mode
-python -m uvicorn main:app --reload --port 8000
+# --host 0.0.0.0 is required for the mobile app to reach this from an Android
+# emulator (10.0.2.2) or a physical device on the same Wi-Fi (your LAN IP) —
+# the uvicorn default (127.0.0.1) only accepts connections from this machine.
+python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 - API Health Check: Visit `http://localhost:8000/health` (Returns `{"status": "ok"}`)
 - Swagger Documentation: Visit `http://localhost:8000/docs`
+- Mobile app connectivity: see `mobile/.env.example` — Android emulator works out of the box,
+  a physical device needs `EXPO_PUBLIC_API_URL` set to this machine's LAN IP in `mobile/.env`.
 
 ---
 
@@ -189,7 +194,7 @@ Ensure static GeoJSON data files are placed in `/data/static/`:
 | `npm install` | `/mobile` | Install mobile app Node packages |
 | `npm start` | `/mobile` | Launch Expo dev server |
 | `npm run android` / `npm run ios` | `/mobile` | Launch on Android/iOS |
-| `python -m uvicorn main:app --reload` | `/backend` | Launch FastAPI backend server (:8000) |
+| `python -m uvicorn main:app --reload --host 0.0.0.0 --port 8000` | `/backend` | Launch FastAPI backend server (:8000) |
 | `pytest` | `/backend` | Run backend unit & integration tests |
 
 ---

@@ -1,6 +1,15 @@
 import axios from 'axios';
+import { Platform } from 'react-native';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
+// 'localhost' means "this device", not your dev machine — that resolves fine
+// on iOS simulator / web, but on Android (emulator or physical device) every
+// request silently fails as a generic Network Error. 10.0.2.2 is the Android
+// emulator's alias for the host machine's localhost.
+// For a PHYSICAL Android/iOS device (Expo Go over Wi-Fi), 10.0.2.2 does NOT
+// work either — set EXPO_PUBLIC_API_URL in mobile/.env to your dev machine's
+// LAN IP instead, e.g. EXPO_PUBLIC_API_URL=http://192.168.1.23:8000
+const DEFAULT_API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? DEFAULT_API_URL;
 
 export const api = axios.create({
   baseURL: API_URL,
