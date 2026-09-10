@@ -15,6 +15,12 @@ import { colors } from '../theme/colors';
 import { useUserStore, VesselType, RiskTolerance, UserRole } from '../store/userStore';
 import { INDIAN_PORTS, INDIAN_LANGUAGES } from '../constants/portsAndLanguages';
 import { profileAPI } from '../services/api';
+import {
+  downloadOfflineBundle,
+  getBundleMeta,
+  clearOfflineBundle,
+  BundleMeta,
+} from '../services/offlineService';
 
 export function ProfileScreen() {
   const {
@@ -42,9 +48,35 @@ export function ProfileScreen() {
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  const [bundleMeta, setBundleMeta] = useState<BundleMeta | null>(null);
+  const [downloadingBundle, setDownloadingBundle] = useState(false);
+  const [bundleError, setBundleError] = useState('');
+
   useEffect(() => {
     loadFromBackend();
+    getBundleMeta().then(setBundleMeta);
   }, []);
+
+  const handleDownloadBundle = async () => {
+    setDownloadingBundle(true);
+    setBundleError('');
+    try {
+      const meta = await downloadOfflineBundle(portInfo.latitude, portInfo.longitude, 5);
+      setBundleMeta(meta);
+      setToastMessage(`Offline bundle ready (${meta.sizeMb} MB, valid ${new Date(meta.validUntil).toLocaleDateString()}).`);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3500);
+    } catch {
+      setBundleError('Could not download — check your connection and try again before sailing.');
+    } finally {
+      setDownloadingBundle(false);
+    }
+  };
+
+  const handleClearBundle = async () => {
+    await clearOfflineBundle();
+    setBundleMeta(null);
+  };
 
   const statesList = ['All', 'Kerala', 'Tamil Nadu', 'Gujarat', 'Maharashtra', 'Karnataka', 'Andhra Pradesh', 'Odisha', 'West Bengal', 'Goa', 'Islands'];
 
@@ -351,6 +383,68 @@ export function ProfileScreen() {
           </View>
         </View>
 
+        {/* Section 6: Deep Sea Offline Bundle */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <MaterialCommunityIcons name="cloud-download-outline" size={20} color={colors.primary} />
+            <Text style={styles.cardTitle}>Deep Sea Offline Bundle</Text>
+          </View>
+          <Text style={styles.cardDesc}>
+            50+ km offshore there is usually no signal. Download a bundle before sailing so chat and
+            fishing zones still work with cached data — live answers are always used first whenever
+            there's a connection; this only kicks in if a live request fails.
+          </Text>
+
+          {bundleMeta ? (
+            <View style={styles.bundleStatusBox}>
+              <Ionicons name="checkmark-circle" size={16} color={colors.secondary} />
+              <View style={{ flex: 1 }}>
+                <Text style={styles.bundleStatusTitle}>
+                  {bundleMeta.sizeMb} MB cached • {bundleMeta.tripDays}-day forecast
+                </Text>
+                <Text style={styles.bundleStatusSub}>
+                  Downloaded {new Date(bundleMeta.createdAt).toLocaleString()} • Valid until{' '}
+                  {new Date(bundleMeta.validUntil).toLocaleDateString()}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View style={styles.bundleStatusBox}>
+              <Ionicons name="alert-circle-outline" size={16} color={colors.onSurfaceVariant} />
+              <Text style={styles.bundleStatusSub}>No offline bundle downloaded yet.</Text>
+            </View>
+          )}
+
+          {bundleError ? <Text style={styles.bundleErrorText}>{bundleError}</Text> : null}
+
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
+            <TouchableOpacity
+              style={[styles.btnPrimarySmall, downloadingBundle && { opacity: 0.8 }]}
+              onPress={handleDownloadBundle}
+              disabled={downloadingBundle}
+            >
+              {downloadingBundle ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Ionicons name="cloud-download-outline" size={16} color={colors.white} />
+              )}
+              <Text style={styles.btnPrimarySmallText}>
+                {downloadingBundle
+                  ? 'Downloading (can take ~30s)...'
+                  : bundleMeta
+                  ? 'Refresh Bundle'
+                  : 'Download Offline Bundle'}
+              </Text>
+            </TouchableOpacity>
+
+            {bundleMeta && (
+              <TouchableOpacity style={styles.btnSecondarySmall} onPress={handleClearBundle}>
+                <Ionicons name="trash-outline" size={16} color={colors.primary} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+
         {/* Save Preferences Button */}
         <TouchableOpacity
           style={[styles.saveBtn, saving && { opacity: 0.8 }]}
@@ -637,6 +731,53 @@ const styles = StyleSheet.create({
     color: colors.onPrimaryContainer,
     marginTop: 4,
     opacity: 0.9,
+  },
+  bundleStatusBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: 10,
+    padding: 10,
+  },
+  bundleStatusTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.onSurface,
+  },
+  bundleStatusSub: {
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+    marginTop: 2,
+  },
+  bundleErrorText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.error,
+    marginTop: 8,
+  },
+  btnPrimarySmall: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: colors.primary,
+    height: 42,
+    borderRadius: 8,
+  },
+  btnPrimarySmallText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.white,
+  },
+  btnSecondarySmall: {
+    width: 42,
+    height: 42,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceContainerHigh,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   saveBtn: {
     backgroundColor: colors.secondary,

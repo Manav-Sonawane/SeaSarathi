@@ -14,13 +14,14 @@ import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-ic
 import { colors } from '../theme/colors';
 import { chatAPI, ChatResponse } from '../services/api';
 import { useUserStore } from '../store/userStore';
+import { getCachedBundleForOffline, buildOfflineChatAnswer } from '../services/offlineService';
 
 interface Message {
   id: string;
   sender: 'user' | 'system';
   text?: string;
   time: string;
-  data?: ChatResponse;
+  data?: ChatResponse & { offline?: boolean };
 }
 
 export function ChatScreen({ navigation }: any) {
@@ -98,19 +99,41 @@ export function ChatScreen({ navigation }: any) {
         },
       };
       setMessages((prev) => [...prev, sysMsg]);
-    } catch {
-      const fallbackAdv = langInfo.getAdvisory(portInfo.name, 'LOW', 16, 1.1, vesselRange);
-      const fallbackData: ChatResponse = {
-        risk_level: 'LOW',
-        wind_kmh: 16,
-        wave_m: 1.1,
-        rainfall_mm: 0.0,
-        lightning: false,
-        cyclone: false,
-        recommendation: fallbackAdv,
-        confidence: 85,
-        sources: [],
-      };
+    } catch (err) {
+      console.error('[ChatScreen] Live /chat call failed, trying offline cache:', err);
+
+      // Live backend call failed — only now do we reach for the cached bundle.
+      // A successful backend response is never touched or replaced by this path.
+      let fallbackData: ChatResponse & { offline?: boolean };
+      try {
+        const bundle = await getCachedBundleForOffline();
+        if (bundle) {
+          const offlineAnswer = buildOfflineChatAnswer(
+            bundle,
+            portInfo.latitude,
+            portInfo.longitude,
+            portInfo.name
+          );
+          fallbackData = offlineAnswer;
+        } else {
+          throw new Error('No offline bundle cached');
+        }
+      } catch {
+        // No cached bundle either — last resort is the old static template,
+        // clearly not real data.
+        fallbackData = {
+          risk_level: 'LOW',
+          wind_kmh: 16,
+          wave_m: 1.1,
+          rainfall_mm: 0.0,
+          lightning: false,
+          cyclone: false,
+          recommendation: langInfo.getAdvisory(portInfo.name, 'LOW', 16, 1.1, vesselRange),
+          confidence: 85,
+          sources: [],
+        };
+      }
+
       const sysMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'system',
@@ -242,6 +265,15 @@ export function ChatScreen({ navigation }: any) {
                 </View>
 
                 <View style={styles.cardContainer}>
+                  {data.offline && (
+                    <View style={styles.offlineBanner}>
+                      <Ionicons name="cloud-offline-outline" size={14} color={colors.tertiary} />
+                      <Text style={styles.offlineBannerText}>
+                        OFFLINE — showing last downloaded data, not a live answer
+                      </Text>
+                    </View>
+                  )}
+
                   {renderRiskBadge(data.risk_level)}
 
                   {/* Fisherman-Friendly High-Visibility Advisory Card */}
@@ -546,6 +578,24 @@ const styles = StyleSheet.create({
   statusBadgeText: {
     fontSize: 10,
     fontWeight: '800',
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF7E6',
+    borderWidth: 1,
+    borderColor: colors.tertiaryContainer,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  offlineBannerText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.tertiary,
+    flex: 1,
   },
   recBox: {
     backgroundColor: '#F0FDF4',

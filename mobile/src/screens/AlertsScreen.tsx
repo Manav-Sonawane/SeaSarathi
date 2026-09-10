@@ -11,72 +11,64 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import { alertsAPI } from '../services/api';
+import { alertsAPI, Alert } from '../services/api';
 
 import { useUserStore } from '../store/userStore';
+import { getCachedBundleForOffline, buildOfflineAlerts } from '../services/offlineService';
+
+// Static example cards shown only until the first /alerts response (live or
+// cached) arrives, so the screen isn't empty on first paint.
+const PLACEHOLDER_ALERTS = (portInfo: any, operatingPort: string) => [
+  {
+    id: '1',
+    category: 'navigational' as const,
+    type: 'INFO',
+    title: 'Fetching Live Safety Alerts…',
+    sub: `MONITORING ${operatingPort.toUpperCase()} (${portInfo.state.toUpperCase()})`,
+    distText: '—',
+    vector: '—',
+    breachTime: '—',
+    body: 'Checking maritime boundaries, wind, waves and rainfall for your operating area.',
+    coords: `${portInfo.latitude.toFixed(2)}° N, ${portInfo.longitude.toFixed(2)}° E`,
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
+  },
+];
+
+function severityToCategory(severity: string): 'critical' | 'advisory' | 'navigational' {
+  if (severity === 'HIGH') return 'critical';
+  if (severity === 'MODERATE') return 'advisory';
+  return 'navigational';
+}
+
+function alertToCard(a: Alert, idx: number, portInfo: any) {
+  const category = severityToCategory(a.severity);
+  const meta = a.metadata || {};
+  const distance = meta.distance_km != null ? `${meta.distance_km} km` : '—';
+  return {
+    id: `${a.type}-${idx}`,
+    category,
+    type: a.type.replace(/_/g, ' '),
+    title: a.type.replace(/_/g, ' '),
+    sub: a.source === 'geofence' || a.source === 'geofence-cache' ? `BOUNDARY: ${meta.boundary || 'Unknown'}` : 'WEATHER ADVISORY',
+    distText: distance,
+    vector: meta.wind_speed_10m != null ? `${Math.round(Number(meta.wind_speed_10m))} km/h` : '—',
+    breachTime: meta.wave_height_m != null ? `Hs ${Number(meta.wave_height_m).toFixed(1)} m` : '—',
+    body: a.message,
+    coords: `${portInfo.latitude.toFixed(2)}° N, ${portInfo.longitude.toFixed(2)}° E`,
+    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
+  };
+}
 
 export function AlertsScreen({ navigation }: any) {
   const { operatingPort, portInfo, getLanguageInfo } = useUserStore();
   const langInfo = getLanguageInfo();
 
   const [loading, setLoading] = useState(false);
+  const [isOfflineData, setIsOfflineData] = useState(false);
   const [filter, setFilter] = useState<'all' | 'critical' | 'advisory' | 'navigational'>('all');
   const [acknowledged, setAcknowledged] = useState(false);
 
-  const [alertsList, setAlertsList] = useState<any[]>([
-    {
-      id: '1',
-      category: 'critical',
-      type: 'CRITICAL GEOFENCE WARNING',
-      title: 'EEZ Maritime Boundary Approaching',
-      sub: `TARGET BUFFER: 12.4 NM TO BORDER OFF ${portInfo.state.toUpperCase()}`,
-      distText: '12.4 NM OUT',
-      vector: '285° NW @ 8.4 kts',
-      breachTime: '~35 Minutes',
-      body: `Vessel heading 285° off ${operatingPort} brings craft within 4.2 NM of restricted international patrol corridor and contiguous border buffer in approx 35 mins. Immediate steerage alteration advised.`,
-      coords: `${portInfo.latitude.toFixed(2)}° N, ${portInfo.longitude.toFixed(2)}° E`,
-      time: '18:40 IST',
-    },
-    {
-      id: '2',
-      category: 'advisory',
-      type: 'WEATHER WARNING',
-      title: 'High Wave & Squall Advisory',
-      sub: 'VALID TILL 10:00 IST',
-      distText: `${portInfo.sea.toUpperCase()}`,
-      vector: '32 km/h WSW',
-      breachTime: 'Hs 3.2 meters',
-      body: `High wave warning issued for ${portInfo.state} coast. Significant wave height reaching up to 3.2m during night swells. Small artisanal crafts off ${operatingPort} advised to stay within 15 NM.`,
-      coords: `Off ${operatingPort} Coast`,
-      time: '17:15 IST',
-    },
-    {
-      id: '3',
-      category: 'navigational',
-      type: 'NAVIGATIONAL NOTICE',
-      title: `${operatingPort} Harbor Channel Notice`,
-      sub: 'MAIN FAIRWAY CLEARANCE MANDATORY',
-      distText: '2.1 NM OUT',
-      vector: 'Channel Approach',
-      breachTime: '500m Clearance',
-      body: `Suction dredger operating near ${operatingPort} fairway channel entrance. Maintain minimum 500m clearance from anchor buoys.`,
-      coords: `${portInfo.latitude.toFixed(2)}° N, ${portInfo.longitude.toFixed(2)}° E`,
-      time: '12:30 IST',
-    },
-    {
-      id: '4',
-      category: 'advisory',
-      type: 'SAFETY CHECKPOINT',
-      title: 'Nocturnal Fishing Return Threshold',
-      sub: 'RECOMMENDED DOCK TIME: 05:30 IST',
-      distText: 'PORT LOCK',
-      vector: 'Harbor Return',
-      breachTime: 'On Schedule',
-      body: `Ensure navigation lights are operational for night fishing. Report landing counts at ${operatingPort} harbor gate.`,
-      coords: `${operatingPort} Harbor Gate`,
-      time: '08:00 IST',
-    },
-  ]);
+  const [alertsList, setAlertsList] = useState<any[]>(PLACEHOLDER_ALERTS(portInfo, operatingPort));
 
   useEffect(() => {
     loadAlerts();
@@ -86,11 +78,22 @@ export function AlertsScreen({ navigation }: any) {
     setLoading(true);
     try {
       const data = await alertsAPI.getAlerts(portInfo.latitude, portInfo.longitude);
-      if (data && data.length > 0) {
-        // Integrate backend alert records
+      // Show the backend's real alert list as-is (empty list = no active alerts,
+      // which is a valid, meaningful result — not treated as a failure).
+      setAlertsList(data.map((a, idx) => alertToCard(a, idx, portInfo)));
+      setIsOfflineData(false);
+    } catch (err) {
+      console.error('[AlertsScreen] Live /alerts call failed, trying offline cache:', err);
+      try {
+        const bundle = await getCachedBundleForOffline();
+        if (bundle) {
+          const offlineAlerts = buildOfflineAlerts(bundle, portInfo.latitude, portInfo.longitude);
+          setAlertsList(offlineAlerts.map((a, idx) => alertToCard(a as unknown as Alert, idx, portInfo)));
+          setIsOfflineData(true);
+        }
+      } catch {
+        // No cached bundle either — leave the placeholder cards showing.
       }
-    } catch {
-      // Fallback
     } finally {
       setLoading(false);
     }
@@ -149,7 +152,7 @@ export function AlertsScreen({ navigation }: any) {
             >
               <View style={[styles.filterDot, { backgroundColor: colors.error }]} />
               <Text style={[styles.tabText, filter === 'critical' && styles.tabTextActive]}>
-                Critical (1)
+                Critical ({alertsList.filter((a) => a.category === 'critical').length})
               </Text>
             </TouchableOpacity>
 
@@ -159,7 +162,7 @@ export function AlertsScreen({ navigation }: any) {
             >
               <View style={[styles.filterDot, { backgroundColor: colors.riskModerate }]} />
               <Text style={[styles.tabText, filter === 'advisory' && styles.tabTextActive]}>
-                Advisories (2)
+                Advisories ({alertsList.filter((a) => a.category === 'advisory').length})
               </Text>
             </TouchableOpacity>
 
@@ -169,7 +172,7 @@ export function AlertsScreen({ navigation }: any) {
             >
               <View style={[styles.filterDot, { backgroundColor: colors.primaryContainer }]} />
               <Text style={[styles.tabText, filter === 'navigational' && styles.tabTextActive]}>
-                Navigational (1)
+                Navigational ({alertsList.filter((a) => a.category === 'navigational').length})
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -179,6 +182,22 @@ export function AlertsScreen({ navigation }: any) {
           <View style={styles.loadingBox}>
             <ActivityIndicator size="small" color={colors.primaryContainer} />
             <Text style={styles.loadingText}>Fetching ocean safety alerts...</Text>
+          </View>
+        )}
+
+        {!loading && isOfflineData && (
+          <View style={styles.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={14} color={colors.tertiary} />
+            <Text style={styles.offlineBannerText}>
+              OFFLINE — alerts recomputed from your last downloaded forecast, not live data
+            </Text>
+          </View>
+        )}
+
+        {!loading && !isOfflineData && filteredAlerts.length === 0 && (
+          <View style={styles.emptyBox}>
+            <Ionicons name="checkmark-done-circle-outline" size={20} color={colors.secondary} />
+            <Text style={styles.emptyText}>No active alerts for your operating area right now.</Text>
           </View>
         )}
 
@@ -426,6 +445,39 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 12,
     color: colors.onSurfaceVariant,
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF7E6',
+    borderWidth: 1,
+    borderColor: colors.tertiaryContainer,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+  },
+  offlineBannerText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.tertiary,
+    flex: 1,
+  },
+  emptyBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.secondaryContainer,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.onSecondaryContainer,
+    flex: 1,
   },
   alertCard: {
     backgroundColor: colors.surfaceContainerLowest,

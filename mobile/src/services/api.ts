@@ -4,7 +4,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000';
 
 export const api = axios.create({
   baseURL: API_URL,
-  timeout: 10000,
+  timeout: 60000,
 });
 
 export interface ChatResponse {
@@ -72,8 +72,11 @@ export const pfzAPI = {
 };
 
 export interface Alert {
-  type: 'CYCLONE' | 'GEOFENCE' | 'WIND' | 'WAVE' | 'LIGHTNING' | 'INFO';
+  type: string; // e.g. HIGH_WIND, DANGEROUS_WAVES, GEOFENCE_DANGER, THUNDERSTORM, ...
+  severity: 'HIGH' | 'MODERATE' | 'INFO';
   message: string;
+  source?: string;
+  metadata?: Record<string, unknown>;
   [key: string]: unknown;
 }
 
@@ -119,5 +122,68 @@ export const profileAPI = {
 
   deleteProfile: (deviceId: string) =>
     api.delete<{ deleted: boolean; device_id: string }>(`/profile/${deviceId}`).then((res) => res.data),
+};
+
+// ── Offline bundle (Deep Sea Connectivity — UPDATE.md Improvement 3) ────────
+// Matches backend/src/services/offline_cache.py's prepare_offline_bundle() shape.
+// `static`/`dynamic`/`historical` are left loosely typed here (raw GeoJSON +
+// forecast rows) — offlineService.ts is the only place that reads into them.
+
+export interface OfflineForecastHour {
+  time: string;
+  wind_speed_10m: number | null;
+  wind_gusts_10m: number | null;
+  precipitation: number | null;
+  visibility: number | null;
+  weather_code: number | null;
+  wave_height: number | null;
+}
+
+export interface OfflineBundle {
+  metadata: {
+    created: string;
+    valid_until: string;
+    latitude: number;
+    longitude: number;
+    trip_days: number;
+  };
+  static: {
+    pfz_zones: { type: string; features: any[] };
+    maritime_boundaries: { type: string; features: any[] };
+    landing_centers: { type: string; features: any[] };
+  };
+  dynamic: {
+    forecast: { hourly: OfflineForecastHour[]; days: number; source: string; note?: string };
+    sst_chlorophyll_current: any;
+    cyclone_alerts: any[];
+    cyclone_alerts_note: string;
+    geofence_alerts: any[];
+    in_indian_waters: boolean;
+  };
+  historical: {
+    sst_30day_mean_c: number | null;
+    chlorophyll_30day_mean_mg_m3: number | null;
+    note: string | null;
+  };
+}
+
+export interface OfflineSyncResponse {
+  bundle: OfflineBundle;
+  size_mb: number;
+  valid_until: string;
+}
+
+export const offlineAPI = {
+  // This does real, sometimes-slow upstream fetches server-side (Open-Meteo +
+  // Copernicus, ~20-30s observed) — give it more room than the default
+  // timeout; this is a rare "before sailing" action, not a hot path.
+  syncBundle: (latitude: number, longitude: number, tripDays = 5) =>
+    api
+      .post<OfflineSyncResponse>(
+        '/offline/sync-bundle',
+        { latitude, longitude, trip_days: tripDays },
+        { timeout: 90000 }
+      )
+      .then((res) => res.data),
 };
 

@@ -49,11 +49,8 @@ async def data_agent(state: AgentState) -> AgentState:
     sources = []
 
     # ── 1. Nearest Potential Fishing Zone (PFZ) ────────────────────────────────
-    # Rule: if the nearest PFZ centroid is >50 km away it is impractical for
-    # small-boat fishermen. In that case we discard it and instead compute a
-    # "local fishing area" bounding box enriched with SST/CHL values from the
-    # Copernicus grid directly around the user's current position.
-    PFZ_MAX_DISTANCE_KM = 50.0
+    # Rule: Always return the nearest PFZ, ignoring distance limits as per user request.
+    PFZ_MAX_DISTANCE_KM = 99999.0
 
     nearest_pfz = None
     local_fishing_area = None

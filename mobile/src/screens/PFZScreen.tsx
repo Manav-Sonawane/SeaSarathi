@@ -14,6 +14,7 @@ import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-ic
 import { colors } from '../theme/colors';
 import { pfzAPI } from '../services/api';
 import { useUserStore } from '../store/userStore';
+import { getCachedBundleForOffline, findNearestZonesOffline } from '../services/offlineService';
 
 export function PFZScreen({ navigation }: any) {
   const { vesselType, getVesselRangeKm, operatingPort, portInfo, getLanguageInfo } = useUserStore();
@@ -21,6 +22,7 @@ export function PFZScreen({ navigation }: any) {
   const maxRangeKm = getVesselRangeKm();
 
   const [loading, setLoading] = useState(false);
+  const [isOfflineData, setIsOfflineData] = useState(false);
   const [selectedInspectZone, setSelectedInspectZone] = useState<any>(null);
 
   const [zones, setZones] = useState<any[]>([
@@ -102,9 +104,38 @@ export function PFZScreen({ navigation }: any) {
           ],
         }));
         setZones(formatted);
+        setIsOfflineData(false);
       }
-    } catch {
-      // Static fallback
+    } catch (err) {
+      console.error('[PFZScreen] Live /pfz/nearest call failed, trying offline cache:', err);
+      // Live call failed — only now fall back to the cached bundle's nearest
+      // zones (real PFZ geometry, just no live SST/chlorophyll refresh).
+      try {
+        const bundle = await getCachedBundleForOffline();
+        if (bundle) {
+          const nearest = findNearestZonesOffline(bundle, portInfo.latitude, portInfo.longitude, 5);
+          if (nearest.length > 0) {
+            const formatted = nearest.map((z, idx) => ({
+              id: (idx + 1).toString(),
+              name: z.name,
+              subtitle: `${portInfo.name} Sector #${idx + 1} (cached)`,
+              distance: z.distance_km,
+              bearing: '—',
+              estArrival: `${Math.round((z.distance_km / 11) * 60)}m @ 11 kts`,
+              sst: null,
+              chl: null,
+              depth: null,
+              confidence: null,
+              targetSpecies: 'Not available offline',
+              evidence: ['SST/Chlorophyll require a live connection — last downloaded zone geometry only.'],
+            }));
+            setZones(formatted);
+            setIsOfflineData(true);
+          }
+        }
+      } catch {
+        // No cached bundle either — leave the existing (static placeholder) zones.
+      }
     } finally {
       setLoading(false);
     }
@@ -168,6 +199,15 @@ export function PFZScreen({ navigation }: any) {
           </View>
         )}
 
+        {!loading && isOfflineData && (
+          <View style={styles.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={14} color={colors.tertiary} />
+            <Text style={styles.offlineBannerText}>
+              OFFLINE — zone locations from your last download; SST/chlorophyll need a live connection
+            </Text>
+          </View>
+        )}
+
         {/* Ranked PFZ List */}
         {zones.map((zone, index) => {
           const isFeasible = zone.distance <= maxRangeKm;
@@ -184,7 +224,9 @@ export function PFZScreen({ navigation }: any) {
                 </View>
                 <View style={styles.confBadge}>
                   <MaterialIcons name="verified" size={16} color={colors.secondary} />
-                  <Text style={styles.confText}>{zone.confidence}%</Text>
+                  <Text style={styles.confText}>
+                    {zone.confidence != null ? `${zone.confidence}%` : 'N/A'}
+                  </Text>
                 </View>
               </View>
 
@@ -236,18 +278,18 @@ export function PFZScreen({ navigation }: any) {
               <View style={styles.telemetryRow}>
                 <View style={styles.telemetryCard}>
                   <Text style={styles.telLabel}>SST TEMP</Text>
-                  <Text style={styles.telValue}>{zone.sst}°C</Text>
-                  <Text style={styles.telStatus}>Optimal</Text>
+                  <Text style={styles.telValue}>{zone.sst != null ? `${zone.sst}°C` : 'N/A'}</Text>
+                  <Text style={styles.telStatus}>{zone.sst != null ? 'Optimal' : 'Offline'}</Text>
                 </View>
                 <View style={styles.telemetryCard}>
                   <Text style={styles.telLabel}>CHLOROPHYLL</Text>
-                  <Text style={styles.telValue}>{zone.chl}mg</Text>
-                  <Text style={styles.telStatus}>Rich Bloom</Text>
+                  <Text style={styles.telValue}>{zone.chl != null ? `${zone.chl}mg` : 'N/A'}</Text>
+                  <Text style={styles.telStatus}>{zone.chl != null ? 'Rich Bloom' : 'Offline'}</Text>
                 </View>
                 <View style={styles.telemetryCard}>
                   <Text style={styles.telLabel}>BATHYMETRY</Text>
-                  <Text style={styles.telValue}>{zone.depth}m</Text>
-                  <Text style={styles.telStatus}>Swell Shelf</Text>
+                  <Text style={styles.telValue}>{zone.depth != null ? `${zone.depth}m` : 'N/A'}</Text>
+                  <Text style={styles.telStatus}>{zone.depth != null ? 'Swell Shelf' : 'Offline'}</Text>
                 </View>
               </View>
 
@@ -476,6 +518,24 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 12,
     color: colors.onSurfaceVariant,
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF7E6',
+    borderWidth: 1,
+    borderColor: colors.tertiaryContainer,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+  },
+  offlineBannerText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.tertiary,
+    flex: 1,
   },
   zoneCard: {
     backgroundColor: colors.surfaceContainerLowest,

@@ -149,6 +149,7 @@ Alerts: {active_alerts_text}
 User query: "{query}"
 
 Understand what the user is actually asking, then answer only that, using whatever data above is relevant to it. Leave out data that isn't relevant to the question. Answer in 2 lines. 
+If the Risk Level is HIGH, you MUST start your response by explicitly stating the reason why it is high (e.g. dangerous wind speed, high waves, or alerts) before answering their question.
 If the user's profile specifies a language other than English, make sure to output the response in that language.
 Ensure recommendations respect the user's {profile.get('risk_tolerance', 'Unknown')} risk tolerance and {profile.get('vessel_type', 'Unknown')} vessel capabilities.
 """
