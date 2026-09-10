@@ -83,9 +83,9 @@ def generate_grid_point_id(lat: float, lon: float) -> str:
     """Generate a stable internal identifier for a grid point."""
     return f"grid_{lat:.4f}_{lon:.4f}".replace(".", "_").replace("-", "n")
 
-def fetch_weather_for_grid(lats: np.ndarray, lons: np.ndarray) -> dict:
+def fetch_weather_for_grid(lats: np.ndarray, lons: np.ndarray, forecast_days: int = FORECAST_DAYS) -> dict:
     """
-    Fetch 3-day hourly general weather for multiple EEZ-filtered marine points.
+    Fetch hourly general weather (default 3-day) for multiple EEZ-filtered marine points.
     Returns a dict mapping grid_point_id to the forecast DataFrame.
     """
     if len(lats) != len(lons):
@@ -96,7 +96,7 @@ def fetch_weather_for_grid(lats: np.ndarray, lons: np.ndarray) -> dict:
         "longitude": lons.tolist(),
         "hourly":    WEATHER_VARIABLES,
         "models":    WEATHER_MODEL,
-        "forecast_days": FORECAST_DAYS,
+        "forecast_days": forecast_days,
         "cell_selection": CELL_SELECTION,
     }
 
@@ -131,9 +131,9 @@ def fetch_weather_for_grid(lats: np.ndarray, lons: np.ndarray) -> dict:
     return results
 
 
-def fetch_marine_for_grid(lats: np.ndarray, lons: np.ndarray) -> dict:
+def fetch_marine_for_grid(lats: np.ndarray, lons: np.ndarray, forecast_days: int = FORECAST_DAYS) -> dict:
     """
-    Fetch 3-day hourly marine forecast for multiple EEZ-filtered marine points.
+    Fetch hourly marine forecast (default 3-day) for multiple EEZ-filtered marine points.
     Returns a dict mapping grid_point_id to the forecast DataFrame.
     """
     if len(lats) != len(lons):
@@ -143,7 +143,7 @@ def fetch_marine_for_grid(lats: np.ndarray, lons: np.ndarray) -> dict:
         "latitude":  lats.tolist(),
         "longitude": lons.tolist(),
         "hourly":    MARINE_VARIABLES,
-        "forecast_days": FORECAST_DAYS,
+        "forecast_days": forecast_days,
     }
 
     print(f"[weather_service] Requesting marine forecast for {len(lats)} EEZ points...")
@@ -176,13 +176,13 @@ def fetch_marine_for_grid(lats: np.ndarray, lons: np.ndarray) -> dict:
 
     return results
 
-def fetch_combined_forecasts_for_grid(lats: np.ndarray, lons: np.ndarray) -> dict:
+def fetch_combined_forecasts_for_grid(lats: np.ndarray, lons: np.ndarray, forecast_days: int = FORECAST_DAYS) -> dict:
     """
     Fetches both general weather and marine forecasts for the given grid,
     and returns a nested dictionary keyed by grid_point_id.
     """
-    weather_results = fetch_weather_for_grid(lats, lons)
-    marine_results = fetch_marine_for_grid(lats, lons)
+    weather_results = fetch_weather_for_grid(lats, lons, forecast_days=forecast_days)
+    marine_results = fetch_marine_for_grid(lats, lons, forecast_days=forecast_days)
     
     combined = {}
     for idx in range(len(lats)):
