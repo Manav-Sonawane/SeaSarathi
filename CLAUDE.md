@@ -6,11 +6,6 @@ You must always read, respect, and apply the principles defined in the following
 - **Engineering Standards:** Adhere strictly to the architecture, constraints, and instructions inside `EXECUTION.md`.
 - **Design Decisions:** Adhere strictly to the SCREENS, STYLES, and COLOR_PALETTE inside `DESIGN.md`.
 
-## Development Commands
-- **Install dependencies:** `npm install`
-- **Run dev server:** `npm run dev`
-- **Run test suite:** `npm test`
-
 ## Rules of Engagement
 1. Do not ask for user confirmation to read `prd.md` or `exec.md`; they are your permanent anchor points.
 2. If an explicit feature request contradicts `prd.md`, point out the discrepancy to the user before generating code.
