@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Image, Animated } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useIsFocused } from '@react-navigation/native';
 import { PortInfo } from '../constants/portsAndLanguages';
 import { colors } from '../theme/colors';
 import { IndiaMapCanvas } from './IndiaMapCanvas';
@@ -16,6 +17,7 @@ interface GoogleMapContainerProps {
   onSelectZone: (zone: any) => void;
   zoom?: number;
   panOffset?: { x: number; y: number };
+  isMapHovered?: boolean;
 }
 
 const GOOGLE_MAPS_KEY =
@@ -27,8 +29,26 @@ export function GoogleMapContainer({
   onSelectZone,
   zoom = 11,
   panOffset = { x: 0, y: 0 },
+  isMapHovered = false,
 }: GoogleMapContainerProps) {
   const [mapMode, setMapMode] = useState<'satellite' | 'vector'>('satellite');
+  const isFocused = useIsFocused();
+  const alertAnim = React.useRef(new Animated.Value(1)).current;
+
+  // Re-trigger alert visibility and slow fade-out transition every time the Marine Map tab is focused
+  React.useEffect(() => {
+    if (isFocused) {
+      alertAnim.setValue(1);
+      Animated.sequence([
+        Animated.delay(1500),
+        Animated.timing(alertAnim, {
+          toValue: 0,
+          duration: 2500,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [isFocused]);
 
   // Compute dynamic center latitude and longitude based on drag pan offset
   const latDelta = -panOffset.y * (0.005 / Math.pow(1.5, zoom - 11));
@@ -57,45 +77,47 @@ export function GoogleMapContainer({
 
   return (
     <View style={styles.container}>
-      {/* Map Switcher Header Strip */}
-      <View style={styles.switcherHeader}>
-        <View style={styles.portLabelGroup}>
-          <MaterialCommunityIcons name="google-maps" size={18} color="#EA4335" />
-          <Text style={styles.portLabelText}>
-            PORT: <Text style={styles.boldText}>{activePort.name.toUpperCase()}</Text> ({centerLat}° N, {centerLon}° E)
-          </Text>
-        </View>
-
-        <View style={styles.btnRow}>
-          <TouchableOpacity
-            style={[styles.modeBtn, mapMode === 'satellite' && styles.modeBtnActive]}
-            onPress={() => setMapMode('satellite')}
-          >
-            <Ionicons
-              name="earth"
-              size={13}
-              color={mapMode === 'satellite' ? colors.white : colors.onSurfaceVariant}
-            />
-            <Text style={[styles.modeBtnText, mapMode === 'satellite' && styles.modeBtnTextActive]}>
-              Satellite
+      {/* Map Switcher Header Strip (Hides during map hover/drag) */}
+      {!isMapHovered && (
+        <View style={styles.switcherHeader}>
+          <View style={styles.portLabelGroup}>
+            <MaterialCommunityIcons name="google-maps" size={18} color="#EA4335" />
+            <Text style={styles.portLabelText}>
+              PORT: <Text style={styles.boldText}>{activePort.name.toUpperCase()}</Text> ({centerLat}° N, {centerLon}° E)
             </Text>
-          </TouchableOpacity>
+          </View>
 
-          <TouchableOpacity
-            style={[styles.modeBtn, mapMode === 'vector' && styles.modeBtnActive]}
-            onPress={() => setMapMode('vector')}
-          >
-            <Ionicons
-              name="map"
-              size={13}
-              color={mapMode === 'vector' ? colors.white : colors.onSurfaceVariant}
-            />
-            <Text style={[styles.modeBtnText, mapMode === 'vector' && styles.modeBtnTextActive]}>
-              India Map
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.btnRow}>
+            <TouchableOpacity
+              style={[styles.modeBtn, mapMode === 'satellite' && styles.modeBtnActive]}
+              onPress={() => setMapMode('satellite')}
+            >
+              <Ionicons
+                name="earth"
+                size={13}
+                color={mapMode === 'satellite' ? colors.white : colors.onSurfaceVariant}
+              />
+              <Text style={[styles.modeBtnText, mapMode === 'satellite' && styles.modeBtnTextActive]}>
+                Satellite
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.modeBtn, mapMode === 'vector' && styles.modeBtnActive]}
+              onPress={() => setMapMode('vector')}
+            >
+              <Ionicons
+                name="map"
+                size={13}
+                color={mapMode === 'vector' ? colors.white : colors.onSurfaceVariant}
+              />
+              <Text style={[styles.modeBtnText, mapMode === 'vector' && styles.modeBtnTextActive]}>
+                India Map
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      )}
 
       {/* Main Map Content Area */}
       <View style={styles.mapViewport}>
@@ -120,62 +142,66 @@ export function GoogleMapContainer({
               src={embedUrl}
             />
 
-            {/* Tactical Floating Reticle & Port Highlight Card Over Google Maps */}
-            <View style={styles.overlayOverlay}>
-              <View style={styles.gpsBanner}>
-                <Ionicons name="location-sharp" size={16} color="#EA4335" />
-                <View>
-                  <Text style={styles.gpsBannerTitle}>
-                    {activePort.name} Harbor Reticle ({centerLat}° N, {centerLon}° E)
-                  </Text>
-                  <Text style={styles.gpsBannerSub}>
-                    Google Satellite Stream • Zoom: {zoom}x • {activePort.sea}
-                  </Text>
+            {/* Tactical Floating Reticle & Port Highlight Card Over Google Maps (Hides during map hover/drag) */}
+            {!isMapHovered && (
+              <View style={styles.overlayOverlay}>
+                <View style={styles.gpsBanner}>
+                  <Ionicons name="location-sharp" size={16} color="#EA4335" />
+                  <View>
+                    <Text style={styles.gpsBannerTitle}>
+                      📍 PINNED PORT: {activePort.name.toUpperCase()} ({centerLat}° N, {centerLon}° E)
+                    </Text>
+                    <Text style={styles.gpsBannerSub}>
+                      Google Satellite Stream • Zoom: {zoom}x • {activePort.sea}
+                    </Text>
+                  </View>
                 </View>
+
+                {/* Geofence Overlay Warning with Slow Fade Transition */}
+                {layers.geofence && (
+                  <Animated.View style={[styles.geofenceBadge, { opacity: alertAnim }]}>
+                    <Text style={styles.geofenceBadgeText}>
+                      ⚠️ 12 NM TERRITORIAL BORDER WATCH ACTIVE ({activePort.state.toUpperCase()})
+                    </Text>
+                  </Animated.View>
+                )}
+
+                {/* PFZ Zone Hotspots */}
+                {layers.pfz && (
+                  <TouchableOpacity
+                    style={styles.pfzHotspot}
+                    onPress={() =>
+                      onSelectZone({
+                        name: `PFZ-${activePort.name.substring(0, 3).toUpperCase()}-14`,
+                        title: `${activePort.name} Deep Swell`,
+                        distance: '14.2 NM',
+                        bearing: '280° WNW',
+                        confidence: 92,
+                        sst: '28.4°C',
+                        chl: '1.84 mg/m³',
+                      })
+                    }
+                  >
+                    <MaterialCommunityIcons name="fish" size={14} color="#00E676" />
+                    <Text style={styles.pfzHotspotText}>
+                      PFZ-{activePort.name.substring(0, 3).toUpperCase()}-14 (92% CONF)
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
-
-              {/* Geofence Overlay Warning */}
-              {layers.geofence && (
-                <View style={styles.geofenceBadge}>
-                  <Text style={styles.geofenceBadgeText}>
-                    ⚠️ 12 NM TERRITORIAL BORDER WATCH ACTIVE ({activePort.state.toUpperCase()})
-                  </Text>
-                </View>
-              )}
-
-              {/* PFZ Zone Hotspots */}
-              {layers.pfz && (
-                <TouchableOpacity
-                  style={styles.pfzHotspot}
-                  onPress={() =>
-                    onSelectZone({
-                      name: `PFZ-${activePort.name.substring(0, 3).toUpperCase()}-14`,
-                      title: `${activePort.name} Deep Swell`,
-                      distance: '14.2 NM',
-                      bearing: '280° WNW',
-                      confidence: 92,
-                      sst: '28.4°C',
-                      chl: '1.84 mg/m³',
-                    })
-                  }
-                >
-                  <MaterialCommunityIcons name="fish" size={14} color="#00E676" />
-                  <Text style={styles.pfzHotspotText}>
-                    PFZ-{activePort.name.substring(0, 3).toUpperCase()}-14 (92% CONF)
-                  </Text>
-                </TouchableOpacity>
-              )}
-            </View>
+            )}
           </View>
         ) : (
           <View style={styles.nativeImageContainer}>
             <Image source={{ uri: staticMapUrl }} style={styles.staticImage} resizeMode="cover" />
-            <View style={styles.gpsBanner}>
-              <Ionicons name="location-sharp" size={16} color="#EA4335" />
-              <Text style={styles.gpsBannerTitle}>
-                {activePort.name} ({centerLat}° N, {centerLon}° E) • Zoom: {zoom}x
-              </Text>
-            </View>
+            {!isMapHovered && (
+              <View style={styles.gpsBanner}>
+                <Ionicons name="location-sharp" size={16} color="#EA4335" />
+                <Text style={styles.gpsBannerTitle}>
+                  {activePort.name} ({centerLat}° N, {centerLon}° E) • Zoom: {zoom}x
+                </Text>
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -311,5 +337,18 @@ const styles = StyleSheet.create({
   staticImage: {
     width: '100%',
     height: '100%',
+  },
+  simplePortPinWrapper: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    zIndex: 888,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.5,
+    shadowRadius: 4,
+    elevation: 8,
   },
 });

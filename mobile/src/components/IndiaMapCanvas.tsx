@@ -240,25 +240,51 @@ export function IndiaMapCanvas({
             </G>
           )}
 
-          {/* All Coastal Ports Dots */}
+          {/* ALL COASTAL PORTS PINNED LOCATIONS */}
           {INDIAN_PORTS.map((p) => {
             const pt = projectCoord(p.latitude, p.longitude, MAP_W, MAP_H);
-            if (p.name === activePort.name) return null;
-            return <Circle key={p.id} cx={pt.x} cy={pt.y} r="3" fill="#38BDF8" opacity="0.75" />;
+            const isActive = p.name.toLowerCase() === activePort.name.toLowerCase();
+
+            return (
+              <G key={p.id}>
+                {/* Pin Circle Marker */}
+                <Circle
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={isActive ? 5 : 3.5}
+                  fill={isActive ? '#22C55E' : '#38BDF8'}
+                  stroke="#FFFFFF"
+                  strokeWidth={isActive ? 1.8 : 1}
+                />
+                {/* Location Pin Badge Pill */}
+                <G x={Math.min(Math.max(pt.x - 32, 4), MAP_W - 68)} y={pt.y - 15}>
+                  <Rect
+                    width="64"
+                    height="13"
+                    rx="3"
+                    fill={isActive ? '#0F172A' : 'rgba(15, 23, 42, 0.88)'}
+                    stroke={isActive ? '#22C55E' : '#38BDF8'}
+                    strokeWidth={isActive ? 1.2 : 0.6}
+                  />
+                  <SvgText
+                    x="32"
+                    y="9"
+                    fill={isActive ? '#4ADE80' : '#E2E8F0'}
+                    fontSize="7"
+                    fontWeight="bold"
+                    textAnchor="middle"
+                  >
+                    📍 {p.name}
+                  </SvgText>
+                </G>
+              </G>
+            );
           })}
 
-          {/* HIGHLIGHTED ACTIVE OPERATING PORT */}
+          {/* HIGHLIGHTED ACTIVE OPERATING PORT HALO */}
           <G>
-            <Circle cx={activePos.x} cy={activePos.y} r="14" fill="none" stroke="#4ADE80" strokeWidth="1.5" opacity="0.4" />
-            <Circle cx={activePos.x} cy={activePos.y} r="8" fill="none" stroke="#4ADE80" strokeWidth="2" opacity="0.7" />
-            <Circle cx={activePos.x} cy={activePos.y} r="4" fill="#22C55E" stroke="#FFFFFF" strokeWidth="1.5" />
-
-            <G x={Math.min(Math.max(activePos.x - 65, 10), MAP_W - 130)} y={Math.max(activePos.y - 35, 10)}>
-              <Rect width="130" height="24" rx="6" fill="#0F172A" stroke="#22C55E" strokeWidth="1.5" />
-              <SvgText x="65" y="16" fill="#FFFFFF" fontSize="10" fontWeight="bold" textAnchor="middle">
-                📍 {activePort.name} ({activePort.state})
-              </SvgText>
-            </G>
+            <Circle cx={activePos.x} cy={activePos.y} r="16" fill="none" stroke="#4ADE80" strokeWidth="1.5" opacity="0.4" />
+            <Circle cx={activePos.x} cy={activePos.y} r="10" fill="none" stroke="#4ADE80" strokeWidth="2" opacity="0.7" />
           </G>
         </G>
       </Svg>

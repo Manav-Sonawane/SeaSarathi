@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -29,6 +29,16 @@ export function DashboardScreen({ navigation }: any) {
   const { portInfo, getLanguageInfo, getVesselRangeKm, language } = useUserStore();
   const langInfo = getLanguageInfo();
   const vesselRange = getVesselRangeKm();
+
+  // State to manage collapsible accordion for fish species cards (default 1st fish expanded)
+  const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({ '1': true });
+
+  const toggleFishExpand = (id: string) => {
+    setExpandedMap((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }));
+  };
 
   // Dynamic daily telemetry metrics
   const telemetry = {
@@ -106,7 +116,7 @@ export function DashboardScreen({ navigation }: any) {
         ml: 'ചൂള / സൂത (Choora)',
         ta: 'சூரை (Soorai)',
         te: 'తున్నా (Tunna)',
-        bn: 'টুনা (Tuna)',
+        bn: 'টুના (Tuna)',
         gu: 'ટુના (Tuna)',
         mr: 'कुप्पा (Kuppa)',
         or: 'ଟୁନା (Tuna)',
@@ -159,9 +169,6 @@ export function DashboardScreen({ navigation }: any) {
             </View>
             <View style={styles.headerTextCol}>
               <Text style={styles.headerTitle}>DAILY MARINE DASHBOARD</Text>
-              <Text style={styles.headerSub}>
-                Realtime Updates for {portInfo.name} ({portInfo.state})
-              </Text>
             </View>
             <View style={styles.liveChip}>
               <View style={styles.greenPulse} />
@@ -192,7 +199,6 @@ export function DashboardScreen({ navigation }: any) {
             <MaterialCommunityIcons name="speedometer" size={20} color={colors.primary} />
             <Text style={styles.sectionTitle}>{langInfo.uiText.oceanConditions}</Text>
           </View>
-          <Text style={styles.sectionSub}>{langInfo.uiText.liveSensors}</Text>
         </View>
 
         {/* 2x3 Metric Cards with Color-Coded Condition Badges */}
@@ -305,12 +311,13 @@ export function DashboardScreen({ navigation }: any) {
               FISH AVAILABLE FOR FISHING IN THIS ZONE ({portInfo.name.toUpperCase()})
             </Text>
           </View>
-          <Text style={styles.sectionSub}>Satellite Ocean Fronts & PFZ Data</Text>
         </View>
 
+        {/* Collapsible Accordion List for Fish Species */}
         <View style={styles.fishCardsList}>
           {availableFishList.map((fish) => {
             const speciesName = fish.localNames[language] || fish.localNames['en'] || fish.name;
+            const isExpanded = !!expandedMap[fish.id];
             const abundanceColor =
               fish.abundance === 'VERY HIGH'
                 ? '#15803D'
@@ -320,44 +327,63 @@ export function DashboardScreen({ navigation }: any) {
 
             return (
               <View key={fish.id} style={styles.fishCard}>
-                <View style={styles.fishCardHeader}>
+                {/* Clickable Header for Collapsible Accordion */}
+                <TouchableOpacity
+                  style={[
+                    styles.fishCardHeader,
+                    !isExpanded && { borderBottomWidth: 0, paddingBottom: 0, marginBottom: 0 },
+                  ]}
+                  onPress={() => toggleFishExpand(fish.id)}
+                  activeOpacity={0.7}
+                >
                   <View style={styles.fishTitleGroup}>
                     <Text style={styles.fishNameText}>{speciesName}</Text>
                     <Text style={styles.fishEngSub}>{fish.name}</Text>
                   </View>
-                  <View style={[styles.abundanceBadge, { backgroundColor: abundanceColor + '20' }]}>
-                    <Text style={[styles.abundanceText, { color: abundanceColor }]}>
-                      🟢 {fish.abundance} ABUNDANCE
-                    </Text>
-                  </View>
-                </View>
 
-                {/* Species Metrics Details Grid */}
-                <View style={styles.fishDetailsGrid}>
-                  <View style={styles.fishDetailItem}>
-                    <Text style={styles.fishDetailLabel}>TARGET ZONE & DEPTH</Text>
-                    <Text style={styles.fishDetailValue}>
-                      📍 {fish.distance} | 🌊 {fish.depth}
-                    </Text>
-                  </View>
+                  <View style={styles.headerRightRow}>
+                    <View style={[styles.abundanceBadge, { backgroundColor: abundanceColor + '20' }]}>
+                      <Text style={[styles.abundanceText, { color: abundanceColor }]}>
+                        🟢 {fish.abundance} ABUNDANCE
+                      </Text>
+                    </View>
 
-                  <View style={styles.fishDetailItem}>
-                    <Text style={styles.fishDetailLabel}>PEAK CATCH TIME</Text>
-                    <Text style={styles.fishDetailValue}>⏰ {fish.peakTime}</Text>
+                    <Ionicons
+                      name={isExpanded ? 'chevron-up-circle' : 'chevron-down-circle'}
+                      size={24}
+                      color={colors.primaryContainer}
+                    />
                   </View>
+                </TouchableOpacity>
 
-                  <View style={styles.fishDetailItem}>
-                    <Text style={styles.fishDetailLabel}>RECOMMENDED GEAR</Text>
-                    <Text style={styles.fishDetailValue}>🕸️ {fish.gear}</Text>
-                  </View>
+                {/* Collapsible Details Container */}
+                {isExpanded && (
+                  <View style={styles.fishDetailsGrid}>
+                    <View style={styles.fishDetailItem}>
+                      <Text style={styles.fishDetailLabel}>TARGET ZONE & DEPTH</Text>
+                      <Text style={styles.fishDetailValue}>
+                        📍 {fish.distance} | 🌊 {fish.depth}
+                      </Text>
+                    </View>
 
-                  <View style={styles.fishDetailItem}>
-                    <Text style={styles.fishDetailLabel}>SST & CHLOROPHYLL</Text>
-                    <Text style={styles.fishDetailValue}>
-                      🌡️ {fish.sst} SST | 🧪 {fish.chl} Chl-a
-                    </Text>
+                    <View style={styles.fishDetailItem}>
+                      <Text style={styles.fishDetailLabel}>PEAK CATCH TIME</Text>
+                      <Text style={styles.fishDetailValue}>⏰ {fish.peakTime}</Text>
+                    </View>
+
+                    <View style={styles.fishDetailItem}>
+                      <Text style={styles.fishDetailLabel}>RECOMMENDED GEAR</Text>
+                      <Text style={styles.fishDetailValue}>🕸️ {fish.gear}</Text>
+                    </View>
+
+                    <View style={styles.fishDetailItem}>
+                      <Text style={styles.fishDetailLabel}>SST & CHLOROPHYLL</Text>
+                      <Text style={styles.fishDetailValue}>
+                        🌡️ {fish.sst} SST | 🧪 {fish.chl} Chl-a
+                      </Text>
+                    </View>
                   </View>
-                </View>
+                )}
               </View>
             );
           })}
@@ -632,6 +658,11 @@ const styles = StyleSheet.create({
     color: colors.primaryContainer,
     marginTop: 1,
   },
+  headerRightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   abundanceBadge: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -643,10 +674,11 @@ const styles = StyleSheet.create({
   },
   fishDetailsGrid: {
     gap: 8,
+    marginTop: 6,
   },
   fishDetailItem: {
     backgroundColor: colors.surfaceContainerLow,
-    padding: 8,
+    padding: 10,
     borderRadius: 8,
   },
   fishDetailLabel: {

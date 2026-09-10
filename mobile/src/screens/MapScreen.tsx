@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -11,10 +11,9 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-
 import { useUserStore } from '../store/userStore';
-
 import { GoogleMapContainer } from '../components/GoogleMapContainer';
+import { INDIAN_PORTS } from '../constants/portsAndLanguages';
 
 let MapView: any = null;
 let Polygon: any = null;
@@ -41,9 +40,27 @@ export function MapScreen({ navigation }: any) {
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [bearing, setBearing] = useState(285);
 
-  const panOffsetRef = React.useRef(panOffset);
+  // Hover / Drag map interaction state
+  const [isMapHovered, setIsMapHovered] = useState(false);
+  // Collapsible bottom zone card state
+  const [isZoneCardCollapsed, setIsZoneCardCollapsed] = useState(false);
+
+  const panOffsetRef = useRef(panOffset);
   panOffsetRef.current = panOffset;
-  const panStartRef = React.useRef({ x: 0, y: 0 });
+  const panStartRef = useRef({ x: 0, y: 0 });
+  const hoverTimerRef = useRef<any>(null);
+
+  const handleMapTouchStart = () => {
+    setIsMapHovered(true);
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+  };
+
+  const handleMapTouchEnd = () => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      setIsMapHovered(false);
+    }, 2000);
+  };
 
   const [layers, setLayers] = useState({
     risk: true,
@@ -71,19 +88,25 @@ export function MapScreen({ navigation }: any) {
         onMoveShouldSetPanResponder: (_, gestureState) =>
           Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3,
         onPanResponderGrant: () => {
+          setIsMapHovered(true);
           panStartRef.current = {
             x: panOffsetRef.current.x,
             y: panOffsetRef.current.y,
           };
         },
         onPanResponderMove: (_, gestureState) => {
+          setIsMapHovered(true);
           setPanOffset({
             x: panStartRef.current.x + gestureState.dx,
             y: panStartRef.current.y + gestureState.dy,
           });
         },
-        onPanResponderRelease: () => {},
-        onPanResponderTerminate: () => {},
+        onPanResponderRelease: () => {
+          handleMapTouchEnd();
+        },
+        onPanResponderTerminate: () => {
+          handleMapTouchEnd();
+        },
       }),
     []
   );
@@ -91,6 +114,8 @@ export function MapScreen({ navigation }: any) {
   const handleZoomIn = () => setZoom((z) => Math.min(z + 1, 18));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 1, 5));
   const handleRecenter = () => {
+    setIsMapHovered(false);
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     setZoom(11);
     setPanOffset({ x: 0, y: 0 });
     panStartRef.current = { x: 0, y: 0 };
@@ -136,19 +161,16 @@ export function MapScreen({ navigation }: any) {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Offline Tactical Banner */}
-      <View style={styles.offlineBanner}>
-        <View style={styles.offlineBannerLeft}>
-          <Ionicons name="cloud-download-outline" size={16} color={colors.secondary} />
-          <Text style={styles.offlineBannerText}>
-            OFFLINE CACHE: 100% ({operatingPort.toUpperCase()} / {portInfo.sea.toUpperCase()})
-          </Text>
-        </View>
-        <Text style={styles.bathyText}>BATHYMETRY V4.2</Text>
-      </View>
-
-      {/* Map Viewport with PanResponder for Drag / Pan Gestures */}
-      <View style={styles.mapContainer} {...panResponder.panHandlers}>
+      {/* Map Viewport with Hover & PanResponder Drag Handlers */}
+      <View
+        style={styles.mapContainer}
+        {...panResponder.panHandlers}
+        // Web hover listeners
+        {...({
+          onMouseEnter: handleMapTouchStart,
+          onMouseLeave: handleMapTouchEnd,
+        } as any)}
+      >
         {Platform.OS !== 'web' && MapView ? (
           <MapView
             style={styles.map}
@@ -204,15 +226,38 @@ export function MapScreen({ navigation }: any) {
               </>
             )}
             {Marker && (
-              <Marker
-                coordinate={{ latitude: portInfo.latitude, longitude: portInfo.longitude }}
-                title={`MY VESSEL (${operatingPort})`}
-                description="8.4 KTS • 285° WNW"
-              >
-                <View style={styles.vesselMarker}>
-                  <MaterialCommunityIcons name="navigation" size={24} color={colors.primaryContainer} />
-                </View>
-              </Marker>
+              <>
+                {INDIAN_PORTS.map((port) => (
+                  <Marker
+                    key={port.id}
+                    coordinate={{ latitude: port.latitude, longitude: port.longitude }}
+                    title={`📍 ${port.name} Port (${port.state})`}
+                    description={`${port.region} • ${port.sea}`}
+                  >
+                    <View
+                      style={[
+                        styles.portPin,
+                        port.name === portInfo.name && styles.activePortPin,
+                      ]}
+                    >
+                      <Ionicons
+                        name="location"
+                        size={port.name === portInfo.name ? 26 : 18}
+                        color={port.name === portInfo.name ? colors.error : colors.primaryContainer}
+                      />
+                    </View>
+                  </Marker>
+                ))}
+                <Marker
+                  coordinate={{ latitude: portInfo.latitude, longitude: portInfo.longitude }}
+                  title={`MY VESSEL (${operatingPort})`}
+                  description="8.4 KTS • 285° WNW"
+                >
+                  <View style={styles.vesselMarker}>
+                    <MaterialCommunityIcons name="navigation" size={24} color={colors.primaryContainer} />
+                  </View>
+                </Marker>
+              </>
             )}
           </MapView>
         ) : (
@@ -222,26 +267,31 @@ export function MapScreen({ navigation }: any) {
             onSelectZone={setSelectedZone}
             zoom={zoom}
             panOffset={panOffset}
+            isMapHovered={isMapHovered}
           />
         )}
 
-        {/* Floating Compass Rose & Controls (Top Left) */}
+        {/* Floating Controls (Top Left) */}
         <View style={styles.topLeftControls} pointerEvents="auto">
-          <TouchableOpacity
-            style={styles.compassBox}
-            onPress={handleCompassPress}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.compassN}>N</Text>
-            <MaterialCommunityIcons
-              name="compass-outline"
-              size={24}
-              color={colors.inversePrimary}
-              style={{ transform: [{ rotate: `${bearing}deg` }] }}
-            />
-            <Text style={styles.compassBearing}>{bearing}°</Text>
-          </TouchableOpacity>
+          {/* Compass hides when hovering map */}
+          {!isMapHovered && (
+            <TouchableOpacity
+              style={styles.compassBox}
+              onPress={handleCompassPress}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.compassN}>N</Text>
+              <MaterialCommunityIcons
+                name="compass-outline"
+                size={24}
+                color={colors.inversePrimary}
+                style={{ transform: [{ rotate: `${bearing}deg` }] }}
+              />
+              <Text style={styles.compassBearing}>{bearing}°</Text>
+            </TouchableOpacity>
+          )}
 
+          {/* Zoom In (+), Zoom Out (-), and Recenter (locate) ALWAYS remain visible! */}
           <TouchableOpacity style={styles.iconBtn} onPress={handleZoomIn} activeOpacity={0.7}>
             <Ionicons name="add" size={24} color={colors.onSurface} />
           </TouchableOpacity>
@@ -257,131 +307,152 @@ export function MapScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {/* Floating Layer Controls Drawer (Top Right) */}
-        <View style={styles.topRightControls}>
-          <TouchableOpacity
-            style={styles.hudTriggerBtn}
-            onPress={() => setHudOpen(!hudOpen)}
-          >
-            <Ionicons name="layers-outline" size={18} color={colors.secondaryContainer} />
-            <Text style={styles.hudTriggerText}>Layers</Text>
-            <Ionicons
-              name={hudOpen ? 'chevron-up' : 'chevron-down'}
-              size={16}
-              color={colors.white}
-            />
-          </TouchableOpacity>
+        {/* Floating Layer Controls Drawer (Top Right) - Hides when hovering map */}
+        {!isMapHovered && (
+          <View style={styles.topRightControls}>
+            <TouchableOpacity
+              style={styles.hudTriggerBtn}
+              onPress={() => setHudOpen(!hudOpen)}
+            >
+              <Ionicons name="layers-outline" size={18} color={colors.secondaryContainer} />
+              <Text style={styles.hudTriggerText}>Layers</Text>
+              <Ionicons
+                name={hudOpen ? 'chevron-up' : 'chevron-down'}
+                size={16}
+                color={colors.white}
+              />
+            </TouchableOpacity>
 
-          {hudOpen && (
-            <View style={styles.hudMenu}>
-              <Text style={styles.hudTitle}>TACTICAL OVERLAYS</Text>
+            {hudOpen && (
+              <View style={styles.hudMenu}>
+                <Text style={styles.hudTitle}>TACTICAL OVERLAYS</Text>
 
-              <TouchableOpacity
-                style={styles.layerOption}
-                onPress={() => toggleLayer('pfz')}
-              >
-                <MaterialCommunityIcons
-                  name="fish"
-                  size={16}
-                  color={layers.pfz ? colors.secondary : colors.gray}
-                />
-                <Text style={styles.layerText}>PFZ Fishing Zones</Text>
-                <Ionicons
-                  name={layers.pfz ? 'checkbox' : 'square-outline'}
-                  size={18}
-                  color={layers.pfz ? colors.primaryContainer : colors.gray}
-                />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.layerOption}
+                  onPress={() => toggleLayer('pfz')}
+                >
+                  <MaterialCommunityIcons
+                    name="fish"
+                    size={16}
+                    color={layers.pfz ? colors.secondary : colors.gray}
+                  />
+                  <Text style={styles.layerText}>PFZ Fishing Zones</Text>
+                  <Ionicons
+                    name={layers.pfz ? 'checkbox' : 'square-outline'}
+                    size={18}
+                    color={layers.pfz ? colors.primaryContainer : colors.gray}
+                  />
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.layerOption}
-                onPress={() => toggleLayer('risk')}
-              >
-                <MaterialIcons
-                  name="gradient"
-                  size={16}
-                  color={layers.risk ? colors.riskModerate : colors.gray}
-                />
-                <Text style={styles.layerText}>Risk Heatmap</Text>
-                <Ionicons
-                  name={layers.risk ? 'checkbox' : 'square-outline'}
-                  size={18}
-                  color={layers.risk ? colors.primaryContainer : colors.gray}
-                />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.layerOption}
+                  onPress={() => toggleLayer('risk')}
+                >
+                  <MaterialIcons
+                    name="gradient"
+                    size={16}
+                    color={layers.risk ? colors.riskModerate : colors.gray}
+                  />
+                  <Text style={styles.layerText}>Risk Heatmap</Text>
+                  <Ionicons
+                    name={layers.risk ? 'checkbox' : 'square-outline'}
+                    size={18}
+                    color={layers.risk ? colors.primaryContainer : colors.gray}
+                  />
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.layerOption}
-                onPress={() => toggleLayer('geofence')}
-              >
-                <MaterialIcons
-                  name="border-clear"
-                  size={16}
-                  color={layers.geofence ? colors.riskHigh : colors.gray}
-                />
-                <Text style={styles.layerText}>12 NM Geofence</Text>
-                <Ionicons
-                  name={layers.geofence ? 'checkbox' : 'square-outline'}
-                  size={18}
-                  color={layers.geofence ? colors.primaryContainer : colors.gray}
-                />
-              </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.layerOption}
+                  onPress={() => toggleLayer('geofence')}
+                >
+                  <MaterialIcons
+                    name="border-clear"
+                    size={16}
+                    color={layers.geofence ? colors.riskHigh : colors.gray}
+                  />
+                  <Text style={styles.layerText}>12 NM Geofence</Text>
+                  <Ionicons
+                    name={layers.geofence ? 'checkbox' : 'square-outline'}
+                    size={18}
+                    color={layers.geofence ? colors.primaryContainer : colors.gray}
+                  />
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.layerOption}
-                onPress={() => toggleLayer('wind')}
-              >
-                <MaterialCommunityIcons
-                  name="weather-windy"
-                  size={16}
-                  color={layers.wind ? colors.primaryContainer : colors.gray}
-                />
-                <Text style={styles.layerText}>Wind Flow Streamlines</Text>
-                <Ionicons
-                  name={layers.wind ? 'checkbox' : 'square-outline'}
-                  size={18}
-                  color={layers.wind ? colors.primaryContainer : colors.gray}
-                />
-              </TouchableOpacity>
-            </View>
-          )}
-        </View>
+                <TouchableOpacity
+                  style={styles.layerOption}
+                  onPress={() => toggleLayer('wind')}
+                >
+                  <MaterialCommunityIcons
+                    name="weather-windy"
+                    size={16}
+                    color={layers.wind ? colors.primaryContainer : colors.gray}
+                  />
+                  <Text style={styles.layerText}>Wind Flow Streamlines</Text>
+                  <Ionicons
+                    name={layers.wind ? 'checkbox' : 'square-outline'}
+                    size={18}
+                    color={layers.wind ? colors.primaryContainer : colors.gray}
+                  />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
 
-        {/* Selected Zone Bottom Card */}
-        {selectedZone && (
+        {/* Selected Zone Bottom Card - Collapsible and hides when hovering map */}
+        {!isMapHovered && selectedZone && (
           <View style={styles.selectedZoneCard}>
-            <View style={styles.zoneCardHeader}>
+            <TouchableOpacity
+              style={[
+                styles.zoneCardHeader,
+                isZoneCardCollapsed && { marginBottom: 0 },
+              ]}
+              onPress={() => setIsZoneCardCollapsed(!isZoneCardCollapsed)}
+              activeOpacity={0.8}
+            >
               <View style={styles.zoneTitleGroup}>
                 <Text style={styles.zoneTag}>{selectedZone.name}</Text>
                 <Text style={styles.zoneTitle}>{selectedZone.title}</Text>
               </View>
-              <View style={styles.zoneConfBadge}>
-                <Text style={styles.zoneConfText}>{selectedZone.confidence}% CONF</Text>
-              </View>
-            </View>
 
-            <View style={styles.zoneMetricsRow}>
-              <View style={styles.zoneMetricItem}>
-                <Text style={styles.metricLabelText}>DISTANCE</Text>
-                <Text style={styles.metricValueText}>{selectedZone.distance}</Text>
+              <View style={styles.headerRightRow}>
+                <View style={styles.zoneConfBadge}>
+                  <Text style={styles.zoneConfText}>{selectedZone.confidence}% CONF</Text>
+                </View>
+                <Ionicons
+                  name={isZoneCardCollapsed ? 'chevron-up-circle' : 'chevron-down-circle'}
+                  size={22}
+                  color={colors.primaryContainer}
+                />
               </View>
-              <View style={styles.zoneMetricItem}>
-                <Text style={styles.metricLabelText}>SST TEMP</Text>
-                <Text style={styles.metricValueText}>{selectedZone.sst}</Text>
-              </View>
-              <View style={styles.zoneMetricItem}>
-                <Text style={styles.metricLabelText}>CHLOROPHYLL</Text>
-                <Text style={styles.metricValueText}>{selectedZone.chl}</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.zoneNavBtn}
-              onPress={() => navigation.navigate('PFZ')}
-            >
-              <Ionicons name="navigate" size={16} color={colors.white} />
-              <Text style={styles.zoneNavBtnText}>Inspect Fishing Zone Details</Text>
             </TouchableOpacity>
+
+            {!isZoneCardCollapsed && (
+              <>
+                <View style={styles.zoneMetricsRow}>
+                  <View style={styles.zoneMetricItem}>
+                    <Text style={styles.metricLabelText}>DISTANCE</Text>
+                    <Text style={styles.metricValueText}>{selectedZone.distance}</Text>
+                  </View>
+                  <View style={styles.zoneMetricItem}>
+                    <Text style={styles.metricLabelText}>SST TEMP</Text>
+                    <Text style={styles.metricValueText}>{selectedZone.sst}</Text>
+                  </View>
+                  <View style={styles.zoneMetricItem}>
+                    <Text style={styles.metricLabelText}>CHLOROPHYLL</Text>
+                    <Text style={styles.metricValueText}>{selectedZone.chl}</Text>
+                  </View>
+                </View>
+
+                <TouchableOpacity
+                  style={styles.zoneNavBtn}
+                  onPress={() => navigation.navigate('PFZ')}
+                >
+                  <Ionicons name="navigate" size={16} color={colors.white} />
+                  <Text style={styles.zoneNavBtnText}>Inspect Fishing Zone Details</Text>
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         )}
       </View>
@@ -394,29 +465,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  offlineBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surfaceContainerHigh,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  offlineBannerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  offlineBannerText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  bathyText: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.onSurfaceVariant,
-  },
   mapContainer: {
     flex: 1,
     position: 'relative',
@@ -425,112 +473,27 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
   },
-  webMapCanvas: {
-    flex: 1,
-    backgroundColor: colors.inverseSurface,
-    position: 'relative',
-    overflow: 'hidden',
-  },
-  gridOverlay: {
-    ...StyleSheet.absoluteFill,
-    padding: 16,
-    justifyContent: 'space-around',
-    opacity: 0.5,
-  },
-  isobath20: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.inversePrimary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inversePrimary,
-    paddingBottom: 4,
-  },
-  isobath50: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.inversePrimary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inversePrimary,
-    paddingBottom: 4,
-  },
-  isobath100: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.inversePrimary,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.inversePrimary,
-    paddingBottom: 4,
-  },
-  webGeofenceLine: {
-    position: 'absolute',
-    bottom: 120,
-    left: 20,
-    right: 20,
-    borderBottomWidth: 2,
-    borderBottomColor: colors.riskHigh,
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    paddingBottom: 4,
-  },
-  webGeofenceText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.errorContainer,
-    letterSpacing: 1,
-  },
-  webPfzZone1: {
-    position: 'absolute',
-    top: 60,
-    left: 40,
-    width: 220,
-    height: 110,
-    backgroundColor: 'rgba(0, 200, 100, 0.25)',
-    borderWidth: 2,
-    borderColor: colors.secondaryContainer,
-    borderRadius: 16,
-    padding: 10,
-  },
-  webPfzZone2: {
-    position: 'absolute',
-    top: 200,
-    right: 30,
-    width: 200,
-    height: 90,
-    backgroundColor: 'rgba(0, 100, 255, 0.25)',
-    borderWidth: 2,
-    borderColor: colors.onPrimaryContainer,
-    borderRadius: 16,
-    padding: 10,
-  },
-  webZoneLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.white,
-  },
-  webVesselPoint: {
-    position: 'absolute',
-    top: 140,
-    left: 160,
-    alignItems: 'center',
-  },
-  webVesselTag: {
-    backgroundColor: colors.primaryContainer,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    marginTop: 4,
-  },
-  webVesselTagText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.white,
-  },
   vesselMarker: {
     backgroundColor: colors.surfaceContainerLowest,
     padding: 6,
     borderRadius: 20,
     borderWidth: 2,
     borderColor: colors.primaryContainer,
+  },
+  portPin: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    padding: 4,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: colors.primaryContainer,
+  },
+  activePortPin: {
+    backgroundColor: '#FFFFFF',
+    padding: 6,
+    borderRadius: 20,
+    borderWidth: 2,
+    borderColor: colors.error,
+    elevation: 4,
   },
   topLeftControls: {
     position: 'absolute',
@@ -642,6 +605,11 @@ const styles = StyleSheet.create({
   },
   zoneTitleGroup: {
     flex: 1,
+  },
+  headerRightRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   zoneTag: {
     fontSize: 11,

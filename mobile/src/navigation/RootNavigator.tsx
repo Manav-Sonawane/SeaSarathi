@@ -33,18 +33,15 @@ export function RootNavigator() {
           headerTitleStyle: {
             fontWeight: '800',
           },
+          tabBarShowLabel: false,
           tabBarActiveTintColor: colors.primaryContainer,
           tabBarInactiveTintColor: colors.onSurfaceVariant,
           tabBarStyle: {
             backgroundColor: colors.surfaceContainerLowest,
             borderTopColor: colors.surfaceContainerHigh,
-            height: 64,
-            paddingBottom: 8,
-            paddingTop: 6,
-          },
-          tabBarLabelStyle: {
-            fontSize: 11,
-            fontWeight: '700',
+            height: 56,
+            paddingBottom: 0,
+            paddingTop: 0,
           },
         }}
       >
@@ -52,6 +49,7 @@ export function RootNavigator() {
           name="Dashboard"
           component={DashboardScreen}
           options={{
+            headerShown: false,
             title: 'Dashboard',
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons name="view-dashboard-outline" size={size} color={color} />

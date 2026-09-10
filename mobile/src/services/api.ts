@@ -89,3 +89,35 @@ export const geojsonAPI = {
   getRisk: () => api.get('/geojson/risk').then((res) => res.data),
 };
 
+export interface ProfilePayload {
+  device_id: string;
+  vessel_type: string;
+  risk_tolerance: string;
+  operating_port: string;
+  role: string;
+  language: string;
+}
+
+export interface ProfileResponseData {
+  device_id: string;
+  vessel_type: string;
+  risk_tolerance: string;
+  operating_port: string;
+  role: string;
+  language: string;
+  extra: Record<string, any>;
+  created_at: string;
+  updated_at: string;
+}
+
+export const profileAPI = {
+  upsertProfile: (payload: ProfilePayload) =>
+    api.post<ProfileResponseData>('/profile', payload).then((res) => res.data),
+
+  getProfile: (deviceId: string) =>
+    api.get<ProfileResponseData>(`/profile/${deviceId}`).then((res) => res.data),
+
+  deleteProfile: (deviceId: string) =>
+    api.delete<{ deleted: boolean; device_id: string }>(`/profile/${deviceId}`).then((res) => res.data),
+};
+

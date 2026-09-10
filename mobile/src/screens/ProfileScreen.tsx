@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,31 +8,43 @@ import {
   SafeAreaView,
   StatusBar,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useUserStore, VesselType, RiskTolerance, UserRole } from '../store/userStore';
 import { INDIAN_PORTS, INDIAN_LANGUAGES } from '../constants/portsAndLanguages';
+import { profileAPI } from '../services/api';
 
 export function ProfileScreen() {
   const {
+    deviceId,
     vesselType,
     riskTolerance,
     operatingPort,
     portInfo,
     role,
     language,
+    isBackendSynced,
     setVesselType,
     setRiskTolerance,
     setOperatingPort,
     setRole,
     setLanguage,
     getVesselRangeKm,
+    syncWithBackend,
+    loadFromBackend,
   } = useUserStore();
 
+  const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
+
+  useEffect(() => {
+    loadFromBackend();
+  }, []);
 
   const statesList = ['All', 'Kerala', 'Tamil Nadu', 'Gujarat', 'Maharashtra', 'Karnataka', 'Andhra Pradesh', 'Odisha', 'West Bengal', 'Goa', 'Islands'];
 
@@ -51,9 +63,24 @@ export function ProfileScreen() {
     return matchesState && matchesSearch;
   });
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    setSaving(true);
+    await syncWithBackend();
+    setSaving(false);
+    setToastMessage('Profile preferences saved successfully!');
     setSavedSuccess(true);
-    setTimeout(() => setSavedSuccess(false), 2500);
+    setTimeout(() => setSavedSuccess(false), 3500);
+  };
+
+  const handleResetProfile = async () => {
+    try {
+      await profileAPI.deleteProfile(deviceId);
+      setToastMessage('Profile preferences reset successfully.');
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 3500);
+    } catch {
+      // Already cleared or offline
+    }
   };
 
   return (
@@ -71,6 +98,9 @@ export function ProfileScreen() {
             <Text style={styles.profileSub}>
               Active Port: {portInfo.name} ({portInfo.state}) • Range: {getVesselRangeKm()} km
             </Text>
+            <Text style={styles.deviceIdText}>
+              ID: <Text style={{ fontFamily: 'monospace' }}>{deviceId}</Text>
+            </Text>
           </View>
         </View>
 
@@ -78,7 +108,7 @@ export function ProfileScreen() {
         {savedSuccess && (
           <View style={styles.toast}>
             <Ionicons name="checkmark-circle" size={18} color={colors.white} />
-            <Text style={styles.toastText}>Profile preferences saved successfully across all prototype tabs!</Text>
+            <Text style={styles.toastText}>{toastMessage}</Text>
           </View>
         )}
 
@@ -321,10 +351,26 @@ export function ProfileScreen() {
           </View>
         </View>
 
-        {/* Save Button */}
-        <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
-          <Ionicons name="save-outline" size={18} color={colors.white} />
-          <Text style={styles.saveBtnText}>Save Preferences</Text>
+        {/* Save Preferences Button */}
+        <TouchableOpacity
+          style={[styles.saveBtn, saving && { opacity: 0.8 }]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Ionicons name="checkmark-done-circle-outline" size={18} color={colors.white} />
+          )}
+          <Text style={styles.saveBtnText}>
+            {saving ? 'Saving Preferences...' : 'Save Preferences'}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Reset Profile */}
+        <TouchableOpacity style={styles.resetBtn} onPress={handleResetProfile}>
+          <Ionicons name="trash-outline" size={16} color={colors.error} />
+          <Text style={styles.resetBtnText}>Reset Profile Preferences</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
@@ -586,6 +632,12 @@ const styles = StyleSheet.create({
   langSubTextActive: {
     color: colors.onPrimaryContainer,
   },
+  deviceIdText: {
+    fontSize: 10,
+    color: colors.onPrimaryContainer,
+    marginTop: 4,
+    opacity: 0.9,
+  },
   saveBtn: {
     backgroundColor: colors.secondary,
     height: 48,
@@ -600,5 +652,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: colors.white,
+  },
+  resetBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    marginTop: 8,
+  },
+  resetBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.error,
   },
 });
