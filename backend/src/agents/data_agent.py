@@ -5,6 +5,7 @@ import pandas as pd
 from src.agents.state import AgentState
 from src.services.weather_service import fetch_combined_forecasts_for_grid, generate_grid_point_id
 from src.services.copernicus_service import lookup_nearest as lookup_sst_chl
+from src.services.fishing_zone_estimator import estimate_local_fishing_zones
 
 # Mock data fallback (used when APIs are unavailable)
 MOCK_DATA = {
@@ -91,41 +92,39 @@ async def data_agent(state: AgentState) -> AgentState:
                     }
                     sources.append("pfz-incois")
                 else:
-                    # ── Fallback: PFZ too far → compute local bounding box ─────
-                    # Build a ±0.15° box (~16.5 km radius) around user coords
-                    # enriched with SST/CHL from the nearest Copernicus grid cell.
+                    # ── Fallback: PFZ too far → estimate best local patch ──────
+                    # Rank real SST/CHL grid points within the vessel's practical
+                    # range instead of just re-reporting the user's own coordinate.
+                    # See fishing_zone_estimator.py for the scoring + honesty notes.
                     print(f"[DataAgent] PFZ too far ({dist_km:.1f} km > {PFZ_MAX_DISTANCE_KM} km). "
-                          f"Switching to local area box.")
-                    local_sst_chl = lookup_sst_chl(lat, lon)
-                    _deg_offset = 0.15   # ≈ 16-17 km at Indian latitudes
-                    sst_val = local_sst_chl["sst_c"] if local_sst_chl else None
-                    chl_val = round(local_sst_chl["chl_mg_m3"], 2) if local_sst_chl else None
-                    # Determine area quality based on chlorophyll productivity
-                    if chl_val is not None:
-                        if chl_val >= 1.0:
-                            area_quality = "High productivity"
-                        elif chl_val >= 0.3:
-                            area_quality = "Moderate productivity"
-                        else:
-                            area_quality = "Low productivity"
-                    else:
-                        area_quality = "Unknown productivity"
+                          f"Estimating local fishing zones within {PFZ_MAX_DISTANCE_KM} km.")
+                    estimate = estimate_local_fishing_zones(lat, lon, radius_km=PFZ_MAX_DISTANCE_KM, top_n=3)
+                    zones = estimate.get("zones", [])
+                    best = zones[0] if zones else None
+
+                    _deg_offset = 0.05  # ≈ 5-6 km display box around the recommended patch
+                    center_lat = best["latitude"] if best else lat
+                    center_lon = best["longitude"] if best else lon
+
                     local_fishing_area = {
                         "type": "local_area_box",
+                        "method": estimate.get("method", "unavailable"),
                         "reason": f"Nearest PFZ is {round(dist_km, 1)} km away — beyond practical reach for small vessels.",
-                        "sst_c": sst_val,
-                        "chlorophyll_mg_m3": chl_val,
-                        "productivity": area_quality,
+                        "note": estimate.get("note"),
+                        "sst_c": best["sst_c"] if best else None,
+                        "chlorophyll_mg_m3": best["chlorophyll_mg_m3"] if best else None,
+                        "productivity": best["productivity"] if best else "Unknown productivity",
                         "bounding_box": {
-                            "north": round(lat + _deg_offset, 4),
-                            "south": round(lat - _deg_offset, 4),
-                            "east": round(lon + _deg_offset, 4),
-                            "west": round(lon - _deg_offset, 4),
+                            "north": round(center_lat + _deg_offset, 4),
+                            "south": round(center_lat - _deg_offset, 4),
+                            "east": round(center_lon + _deg_offset, 4),
+                            "west": round(center_lon - _deg_offset, 4),
                         },
-                        "center": {"latitude": round(lat, 4), "longitude": round(lon, 4)},
-                        "radius_km": round(_deg_offset * 111.0, 1),
+                        "center": {"latitude": round(center_lat, 4), "longitude": round(center_lon, 4)},
+                        "radius_km": PFZ_MAX_DISTANCE_KM,
+                        "candidate_zones": zones,
                     }
-                    sources.append("copernicus-local-area")
+                    sources.append("copernicus-local-grid" if estimate.get("method") == "grid" else "copernicus-local-area")
     except Exception as e:
         print(f"[DataAgent] PFZ lookup error: {e}")
 

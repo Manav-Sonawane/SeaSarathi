@@ -17,6 +17,9 @@ export interface ChatResponse {
   recommendation: string;
   confidence: number;
   sources: string[];
+  sst_c: number | null;
+  chlorophyll_mg_m3: number | null;
+  alerts: Alert[];
 }
 
 export const chatAPI = {
@@ -40,6 +43,9 @@ export const chatAPI = {
           recommendation: raw.recommendation ?? '',
           confidence: typeof rawConf === 'number' ? Math.round(rawConf) : 85,
           sources: raw.sources ?? [],
+          sst_c: typeof raw.sst_c === 'number' ? raw.sst_c : null,
+          chlorophyll_mg_m3: typeof raw.chlorophyll_mg_m3 === 'number' ? raw.chlorophyll_mg_m3 : null,
+          alerts: Array.isArray(raw.alerts) ? raw.alerts : [],
         } as ChatResponse;
       }),
 };

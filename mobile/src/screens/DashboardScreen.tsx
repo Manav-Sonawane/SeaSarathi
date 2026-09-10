@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -7,10 +7,13 @@ import {
   TouchableOpacity,
   SafeAreaView,
   StatusBar,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/userStore';
+import { chatAPI, ChatResponse, Alert } from '../services/api';
+import { getCachedBundleForOffline, buildOfflineChatAnswer } from '../services/offlineService';
 
 interface FishAvailability {
   id: string;
@@ -26,7 +29,8 @@ interface FishAvailability {
 }
 
 export function DashboardScreen({ navigation }: any) {
-  const { portInfo, getLanguageInfo, getVesselRangeKm, language } = useUserStore();
+  const { portInfo, getLanguageInfo, getVesselRangeKm, language, vesselType, riskTolerance, role } =
+    useUserStore();
   const langInfo = getLanguageInfo();
   const vesselRange = getVesselRangeKm();
 
@@ -40,25 +44,67 @@ export function DashboardScreen({ navigation }: any) {
     }));
   };
 
-  // Dynamic daily telemetry metrics
-  const telemetry = {
-    windSpeed: 16,
-    waveHeight: 1.1,
-    rainfall: 0,
-    lightning: false,
-    cyclone: false,
-    confidence: 89,
-    riskLevel: 'LOW' as const,
+  const [loading, setLoading] = useState(false);
+  const [isOfflineData, setIsOfflineData] = useState(false);
+  const [conditions, setConditions] = useState<ChatResponse | null>(null);
+
+  useEffect(() => {
+    loadConditions();
+  }, [portInfo.name]);
+
+  const loadConditions = async () => {
+    setLoading(true);
+    try {
+      const profile = { vessel_type: vesselType, risk_tolerance: riskTolerance, role, language };
+      const res = await chatAPI.sendMessage(
+        `${langInfo.presets.safety} (${portInfo.name})`,
+        portInfo.latitude,
+        portInfo.longitude,
+        profile
+      );
+      setConditions(res);
+      setIsOfflineData(false);
+    } catch (err) {
+      console.error('[DashboardScreen] Live /chat call failed, trying offline cache:', err);
+      try {
+        const bundle = await getCachedBundleForOffline();
+        if (bundle) {
+          const offlineAnswer = buildOfflineChatAnswer(
+            bundle,
+            portInfo.latitude,
+            portInfo.longitude,
+            portInfo.name
+          );
+          setConditions(offlineAnswer);
+          setIsOfflineData(true);
+        }
+      } catch {
+        // No cached bundle either — leave whatever was last shown (or null on first load).
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // Get localized fisherman safety advisory
-  const safetyAdvisory = langInfo.getAdvisory(
-    portInfo.name,
-    telemetry.riskLevel,
-    telemetry.windSpeed,
-    telemetry.waveHeight,
-    vesselRange
-  );
+  // Real values once fetched; sensible neutral placeholders while first loading.
+  const telemetry = {
+    windSpeed: conditions?.wind_kmh ?? 0,
+    waveHeight: conditions?.wave_m ?? 0,
+    rainfall: conditions?.rainfall_mm ?? 0,
+    lightning: conditions?.lightning ?? false,
+    cyclone: conditions?.cyclone ?? false,
+    confidence: conditions?.confidence ?? 0,
+    riskLevel: conditions?.risk_level ?? 'LOW',
+  };
+  const isWindGood = telemetry.windSpeed < 25;
+  const isWaveGood = telemetry.waveHeight <= 1.5;
+  const isRainGood = telemetry.rainfall === 0;
+  const warnings: Alert[] = conditions?.alerts ?? [];
+
+  // Get localized fisherman safety advisory — only used while conditions
+  // haven't loaded yet; once loaded, the real backend recommendation is shown.
+  const safetyAdvisory = conditions?.recommendation
+    || langInfo.getAdvisory(portInfo.name, telemetry.riskLevel, telemetry.windSpeed, telemetry.waveHeight, vesselRange);
 
   // Region-specific fish species dataset
   const availableFishList: FishAvailability[] = [
@@ -170,12 +216,32 @@ export function DashboardScreen({ navigation }: any) {
             <View style={styles.headerTextCol}>
               <Text style={styles.headerTitle}>DAILY MARINE DASHBOARD</Text>
             </View>
-            <View style={styles.liveChip}>
-              <View style={styles.greenPulse} />
-              <Text style={styles.liveChipText}>LIVE</Text>
+            <View
+              style={[
+                styles.liveChip,
+                isOfflineData && { backgroundColor: 'rgba(180,83,9,0.35)' },
+              ]}
+            >
+              {loading ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <View style={[styles.greenPulse, isOfflineData && { backgroundColor: '#FCD34D' }]} />
+              )}
+              <Text style={styles.liveChipText}>
+                {loading ? 'SYNCING' : isOfflineData ? 'OFFLINE (CACHED)' : 'LIVE'}
+              </Text>
             </View>
           </View>
         </View>
+
+        {isOfflineData && (
+          <View style={styles.offlineBanner}>
+            <Ionicons name="cloud-offline-outline" size={14} color={colors.tertiary} />
+            <Text style={styles.offlineBannerText}>
+              Showing last downloaded data, not a live reading — reconnect to refresh.
+            </Text>
+          </View>
+        )}
 
         {/* GPS Location & Sea Fix Strip */}
         <View style={styles.gpsStrip}>
@@ -212,9 +278,9 @@ export function DashboardScreen({ navigation }: any) {
             <Text style={styles.metricValue}>
               {telemetry.windSpeed} <Text style={styles.metricUnit}>km/h</Text>
             </Text>
-            <View style={[styles.statusBadge, { backgroundColor: '#DCFCE7' }]}>
-              <Text style={[styles.statusBadgeText, { color: '#15803D' }]}>
-                🟢 {langInfo.uiText.metricStatuses.gentleBreeze}
+            <View style={[styles.statusBadge, { backgroundColor: isWindGood ? '#DCFCE7' : '#FEE2E2' }]}>
+              <Text style={[styles.statusBadgeText, { color: isWindGood ? '#15803D' : '#B91C1C' }]}>
+                {isWindGood ? `🟢 ${langInfo.uiText.metricStatuses.gentleBreeze}` : '🔴 Strong Wind Warning'}
               </Text>
             </View>
           </View>
@@ -228,9 +294,9 @@ export function DashboardScreen({ navigation }: any) {
             <Text style={styles.metricValue}>
               {telemetry.waveHeight} <Text style={styles.metricUnit}>m</Text>
             </Text>
-            <View style={[styles.statusBadge, { backgroundColor: '#DCFCE7' }]}>
-              <Text style={[styles.statusBadgeText, { color: '#15803D' }]}>
-                🟢 {langInfo.uiText.metricStatuses.normalSwell}
+            <View style={[styles.statusBadge, { backgroundColor: isWaveGood ? '#DCFCE7' : '#FEE2E2' }]}>
+              <Text style={[styles.statusBadgeText, { color: isWaveGood ? '#15803D' : '#B91C1C' }]}>
+                {isWaveGood ? `🟢 ${langInfo.uiText.metricStatuses.normalSwell}` : '🔴 Rough Sea (>1.5m)'}
               </Text>
             </View>
           </View>
@@ -244,9 +310,9 @@ export function DashboardScreen({ navigation }: any) {
             <Text style={styles.metricValue}>
               {telemetry.rainfall} <Text style={styles.metricUnit}>mm/h</Text>
             </Text>
-            <View style={[styles.statusBadge, { backgroundColor: '#DCFCE7' }]}>
-              <Text style={[styles.statusBadgeText, { color: '#15803D' }]}>
-                🟢 {langInfo.uiText.metricStatuses.clearSky}
+            <View style={[styles.statusBadge, { backgroundColor: isRainGood ? '#DCFCE7' : '#FEF3C7' }]}>
+              <Text style={[styles.statusBadgeText, { color: isRainGood ? '#15803D' : '#B45309' }]}>
+                {isRainGood ? `🟢 ${langInfo.uiText.metricStatuses.clearSky}` : '🟠 Rain Detected'}
               </Text>
             </View>
           </View>
@@ -257,10 +323,12 @@ export function DashboardScreen({ navigation }: any) {
               <Text style={styles.metricLabel}>{langInfo.uiText.metrics.lightning}</Text>
               <Ionicons name="flash-outline" size={18} color={colors.primary} />
             </View>
-            <Text style={[styles.metricValue, { color: '#16A34A' }]}>NONE</Text>
-            <View style={[styles.statusBadge, { backgroundColor: '#DCFCE7' }]}>
-              <Text style={[styles.statusBadgeText, { color: '#15803D' }]}>
-                🟢 {langInfo.uiText.metricStatuses.noLightning}
+            <Text style={[styles.metricValue, { color: telemetry.lightning ? '#DC2626' : '#16A34A' }]}>
+              {telemetry.lightning ? 'ACTIVE' : 'NONE'}
+            </Text>
+            <View style={[styles.statusBadge, { backgroundColor: !telemetry.lightning ? '#DCFCE7' : '#FEE2E2' }]}>
+              <Text style={[styles.statusBadgeText, { color: !telemetry.lightning ? '#15803D' : '#B91C1C' }]}>
+                {!telemetry.lightning ? `🟢 ${langInfo.uiText.metricStatuses.noLightning}` : '🔴 Lightning Alert'}
               </Text>
             </View>
           </View>
@@ -271,10 +339,12 @@ export function DashboardScreen({ navigation }: any) {
               <Text style={styles.metricLabel}>{langInfo.uiText.metrics.cycloneWatch}</Text>
               <MaterialCommunityIcons name="weather-hurricane" size={18} color={colors.primary} />
             </View>
-            <Text style={[styles.metricValue, { color: '#16A34A' }]}>SAFE</Text>
-            <View style={[styles.statusBadge, { backgroundColor: '#DCFCE7' }]}>
-              <Text style={[styles.statusBadgeText, { color: '#15803D' }]}>
-                🟢 {langInfo.uiText.metricStatuses.noCyclone}
+            <Text style={[styles.metricValue, { color: telemetry.cyclone ? '#DC2626' : '#16A34A' }]}>
+              {telemetry.cyclone ? 'WARNING' : 'SAFE'}
+            </Text>
+            <View style={[styles.statusBadge, { backgroundColor: !telemetry.cyclone ? '#DCFCE7' : '#FEE2E2' }]}>
+              <Text style={[styles.statusBadgeText, { color: !telemetry.cyclone ? '#15803D' : '#B91C1C' }]}>
+                {!telemetry.cyclone ? `🟢 ${langInfo.uiText.metricStatuses.noCyclone}` : '🔴 Cyclone Threat'}
               </Text>
             </View>
           </View>
@@ -286,21 +356,63 @@ export function DashboardScreen({ navigation }: any) {
               <MaterialIcons name="security" size={18} color={colors.primary} />
             </View>
             <Text style={styles.metricValue}>{telemetry.confidence}%</Text>
-            <View style={[styles.statusBadge, { backgroundColor: '#DCFCE7' }]}>
-              <Text style={[styles.statusBadgeText, { color: '#15803D' }]}>
-                🟢 {langInfo.uiText.metricStatuses.highCertainty}
+            <View style={[styles.statusBadge, { backgroundColor: telemetry.confidence >= 60 ? '#DCFCE7' : '#FEF3C7' }]}>
+              <Text style={[styles.statusBadgeText, { color: telemetry.confidence >= 60 ? '#15803D' : '#B45309' }]}>
+                {telemetry.confidence >= 60 ? `🟢 ${langInfo.uiText.metricStatuses.highCertainty}` : '🟠 Lower Certainty'}
               </Text>
             </View>
           </View>
         </View>
 
-        {/* Fisherman Safety Advisory Card */}
-        <View style={styles.recBox}>
-          <View style={styles.recHeaderRow}>
-            <Ionicons name="shield-checkmark" size={20} color="#15803D" />
-            <Text style={styles.recLabel}>{langInfo.uiText.safetyAdvisoryHeader}</Text>
+        {/* Active Warnings — real backend/cached alerts, not decorative */}
+        <View style={styles.warningsSection}>
+          <View style={styles.sectionTitleRow}>
+            <Ionicons name="warning-outline" size={20} color={colors.error} />
+            <Text style={styles.sectionTitle}>SAFETY WARNINGS</Text>
           </View>
-          <Text style={styles.recText}>{safetyAdvisory}</Text>
+          {warnings.length === 0 ? (
+            <View style={styles.noWarningsBox}>
+              <Ionicons name="checkmark-done-circle-outline" size={18} color={colors.secondary} />
+              <Text style={styles.noWarningsText}>No active warnings for {portInfo.name} right now.</Text>
+            </View>
+          ) : (
+            warnings.map((w, idx) => {
+              const sevColor = w.severity === 'HIGH' ? colors.error : w.severity === 'MODERATE' ? colors.riskModerate : colors.primaryContainer;
+              return (
+                <View key={idx} style={[styles.warningCard, { borderLeftColor: sevColor }]}>
+                  <Text style={[styles.warningType, { color: sevColor }]}>{w.type.replace(/_/g, ' ')}</Text>
+                  <Text style={styles.warningMessage}>{w.message}</Text>
+                </View>
+              );
+            })
+          )}
+        </View>
+
+        {/* Fisherman Safety Advisory Card */}
+        <View
+          style={[
+            styles.recBox,
+            telemetry.riskLevel === 'HIGH' && styles.recBoxHigh,
+            telemetry.riskLevel === 'MODERATE' && styles.recBoxModerate,
+          ]}
+        >
+          <View style={styles.recHeaderRow}>
+            <Ionicons
+              name="shield-checkmark"
+              size={20}
+              color={telemetry.riskLevel === 'HIGH' ? '#B91C1C' : telemetry.riskLevel === 'MODERATE' ? '#B45309' : '#15803D'}
+            />
+            <Text
+              style={[
+                styles.recLabel,
+                telemetry.riskLevel === 'HIGH' && { color: '#B91C1C' },
+                telemetry.riskLevel === 'MODERATE' && { color: '#B45309' },
+              ]}
+            >
+              {langInfo.uiText.safetyAdvisoryHeader}
+            </Text>
+          </View>
+          <Text style={styles.recText}>{loading ? 'Fetching current conditions…' : safetyAdvisory}</Text>
         </View>
 
         {/* Fish Species Available in this Zone Section */}
@@ -308,10 +420,20 @@ export function DashboardScreen({ navigation }: any) {
           <View style={styles.sectionTitleRow}>
             <MaterialCommunityIcons name="fish" size={22} color={colors.primary} />
             <Text style={styles.sectionTitle}>
-              FISH AVAILABLE FOR FISHING IN THIS ZONE ({portInfo.name.toUpperCase()})
+              REGIONAL SPECIES GUIDE ({portInfo.name.toUpperCase()})
             </Text>
           </View>
         </View>
+        <Text style={styles.fishSectionNote}>
+          Typical species, gear, and season for this coast — general reference, not a live catch feed.
+          {conditions && (conditions.sst_c != null || conditions.chlorophyll_mg_m3 != null) ? (
+            <Text style={styles.fishSectionNoteBold}>
+              {'  '}Current water: {conditions.sst_c != null ? `${conditions.sst_c.toFixed(1)}°C SST` : ''}
+              {conditions.sst_c != null && conditions.chlorophyll_mg_m3 != null ? ' · ' : ''}
+              {conditions.chlorophyll_mg_m3 != null ? `${conditions.chlorophyll_mg_m3.toFixed(2)} mg/m³ Chl-a` : ''}
+            </Text>
+          ) : null}
+        </Text>
 
         {/* Collapsible Accordion List for Fish Species */}
         <View style={styles.fishCardsList}>
@@ -344,7 +466,7 @@ export function DashboardScreen({ navigation }: any) {
                   <View style={styles.headerRightRow}>
                     <View style={[styles.abundanceBadge, { backgroundColor: abundanceColor + '20' }]}>
                       <Text style={[styles.abundanceText, { color: abundanceColor }]}>
-                        🟢 {fish.abundance} ABUNDANCE
+                        TYPICAL: {fish.abundance}
                       </Text>
                     </View>
 
@@ -374,13 +496,6 @@ export function DashboardScreen({ navigation }: any) {
                     <View style={styles.fishDetailItem}>
                       <Text style={styles.fishDetailLabel}>RECOMMENDED GEAR</Text>
                       <Text style={styles.fishDetailValue}>🕸️ {fish.gear}</Text>
-                    </View>
-
-                    <View style={styles.fishDetailItem}>
-                      <Text style={styles.fishDetailLabel}>SST & CHLOROPHYLL</Text>
-                      <Text style={styles.fishDetailValue}>
-                        🌡️ {fish.sst} SST | 🧪 {fish.chl} Chl-a
-                      </Text>
                     </View>
                   </View>
                 )}
@@ -479,6 +594,72 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '900',
     color: colors.white,
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF7E6',
+    borderWidth: 1,
+    borderColor: colors.tertiaryContainer,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+  },
+  offlineBannerText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.tertiary,
+    flex: 1,
+  },
+  warningsSection: {
+    marginBottom: 16,
+  },
+  noWarningsBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.secondaryContainer,
+    borderRadius: 10,
+    padding: 12,
+    marginTop: 8,
+  },
+  noWarningsText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.onSecondaryContainer,
+    flex: 1,
+  },
+  warningCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 10,
+    borderLeftWidth: 4,
+    padding: 10,
+    marginTop: 8,
+    elevation: 2,
+  },
+  warningType: {
+    fontSize: 11,
+    fontWeight: '900',
+    letterSpacing: 0.5,
+    marginBottom: 2,
+  },
+  warningMessage: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    lineHeight: 17,
+  },
+  fishSectionNote: {
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+    marginBottom: 12,
+    lineHeight: 16,
+  },
+  fishSectionNoteBold: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary,
   },
   gpsStrip: {
     backgroundColor: colors.surfaceContainerHigh,
@@ -594,6 +775,14 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     marginBottom: 20,
+  },
+  recBoxModerate: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FCD34D',
+  },
+  recBoxHigh: {
+    backgroundColor: '#FEF2F2',
+    borderColor: '#FCA5A5',
   },
   recHeaderRow: {
     flexDirection: 'row',

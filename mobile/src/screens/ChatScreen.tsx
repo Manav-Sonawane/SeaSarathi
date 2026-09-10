@@ -58,6 +58,9 @@ export function ChatScreen({ navigation }: any) {
           recommendation: initialAdv,
           confidence: 89,
           sources: [],
+          sst_c: null,
+          chlorophyll_mg_m3: null,
+          alerts: [],
         },
       },
     ];
@@ -131,6 +134,9 @@ export function ChatScreen({ navigation }: any) {
           recommendation: langInfo.getAdvisory(portInfo.name, 'LOW', 16, 1.1, vesselRange),
           confidence: 85,
           sources: [],
+          sst_c: null,
+          chlorophyll_mg_m3: null,
+          alerts: [],
         };
       }
 

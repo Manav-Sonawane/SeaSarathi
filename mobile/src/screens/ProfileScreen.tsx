@@ -165,10 +165,10 @@ export function ProfileScreen() {
                 color={vesselType === 'small' ? colors.white : colors.primary}
               />
               <Text style={[styles.vesselTitle, vesselType === 'small' && styles.vesselTitleActive]}>
-                Small Boat
+                Small Boat (Non-Mechanised)
               </Text>
               <Text style={[styles.vesselSub, vesselType === 'small' && styles.vesselSubActive]}>
-                15 km limit
+                9 km limit
               </Text>
             </TouchableOpacity>
 
@@ -182,10 +182,10 @@ export function ProfileScreen() {
                 color={vesselType === 'medium' ? colors.white : colors.primary}
               />
               <Text style={[styles.vesselTitle, vesselType === 'medium' && styles.vesselTitleActive]}>
-                Medium Boat
+                Medium Boat (Mechanised)
               </Text>
               <Text style={[styles.vesselSub, vesselType === 'medium' && styles.vesselSubActive]}>
-                35 km limit
+                22 km limit
               </Text>
             </TouchableOpacity>
 
@@ -199,10 +199,10 @@ export function ProfileScreen() {
                 color={vesselType === 'large' ? colors.white : colors.primary}
               />
               <Text style={[styles.vesselTitle, vesselType === 'large' && styles.vesselTitleActive]}>
-                Large Trawler
+                Large Trawler (Indiviual or Crew)
               </Text>
               <Text style={[styles.vesselSub, vesselType === 'large' && styles.vesselSubActive]}>
-                75 km limit
+                370 km limit
               </Text>
             </TouchableOpacity>
 
@@ -216,10 +216,10 @@ export function ProfileScreen() {
                 color={vesselType === 'union' ? colors.white : colors.primary}
               />
               <Text style={[styles.vesselTitle, vesselType === 'union' && styles.vesselTitleActive]}>
-                Union Fleet
+                Union Fleet (Multiple vessels)
               </Text>
               <Text style={[styles.vesselSub, vesselType === 'union' && styles.vesselSubActive]}>
-                100 km limit
+                500 km limit
               </Text>
             </TouchableOpacity>
           </View>
@@ -432,8 +432,8 @@ export function ProfileScreen() {
                 {downloadingBundle
                   ? 'Downloading (can take ~30s)...'
                   : bundleMeta
-                  ? 'Refresh Bundle'
-                  : 'Download Offline Bundle'}
+                    ? 'Refresh Bundle'
+                    : 'Download Offline Bundle'}
               </Text>
             </TouchableOpacity>
 

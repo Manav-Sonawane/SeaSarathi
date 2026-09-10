@@ -12,7 +12,15 @@ Strategy (per Section 10, Method A — remote Xarray access for large gridded da
   3. Take the latest available time slice and do ONE vectorized nearest-neighbor
      selection at every grid point (not a per-point API call).
   4. Save the result as data/dynamic/sst_chl_grid.json for fast local lookups
-     (see src/services/copernicus_service.py).
+     (see src/services/copernicus_service.py and src/services/fishing_zone_estimator.py).
+
+Grid resolution: 0.08° (~8-9 km) — dense enough for the small-boat local fishing
+zone estimator to compare several candidate points within a ~9 km radius.
+Honesty note: this resolution is genuinely resolved for SST (source product is
+0.05°/~5.5km), but the configured chlorophyll product is a 0.25°/~27km model
+field — points closer together than ~27km will often nearest-neighbor to the
+same source CHL cell. See fishing_zone_estimator.py for how this is handled
+(CHL used as an area-level productivity floor, SST as the fine local signal).
 
 Run manually / on a daily schedule:
     backend/venv/Scripts/python.exe backend/scripts/fetch_copernicus_grid.py
@@ -78,8 +86,9 @@ def main():
             "COPERNICUS_CHLOROPHYLL_DATASET_ID)"
         )
 
-    print("[fetch_copernicus_grid] Building India-EEZ grid (0.5 deg)...")
-    lats, lons = generate_eez_grid(resolution_deg=0.5)
+    resolution_deg = 0.08
+    print(f"[fetch_copernicus_grid] Building India-EEZ grid ({resolution_deg} deg)...")
+    lats, lons = generate_eez_grid(resolution_deg=resolution_deg)
     print(f"[fetch_copernicus_grid] Grid has {len(lats)} points.")
 
     lat_da = xr.DataArray(lats, dims="points")
@@ -110,7 +119,7 @@ def main():
         "chl_time": str(chl_time),
         "sst_dataset_id": sst_dataset_id,
         "chl_dataset_id": chl_dataset_id,
-        "resolution_deg": 0.5,
+        "resolution_deg": resolution_deg,
         "point_count": len(points),
         "points": points,
     }

@@ -63,3 +63,46 @@ def lookup_nearest(lat: float, lon: float) -> Optional[dict]:
         "sst_time": grid.get("sst_time"),
         "chl_time": grid.get("chl_time"),
     }
+
+
+def find_within_radius(lat: float, lon: float, radius_km: float) -> list[dict]:
+    """
+    Returns every precomputed grid point within radius_km of (lat, lon), sorted
+    nearest-first. Grid is generated at 0.08° (~8-9km) spacing (see
+    scripts/fetch_copernicus_grid.py), so a ~9km radius typically yields a
+    handful of candidate points — enough to compare, not a dense mesh.
+    Returns [] (not None) if the grid file is missing or nothing is in range,
+    so callers can treat "no candidates" as a normal, gracefully-handled case.
+    """
+    grid = _load_grid()
+    if not grid or not grid.get("points"):
+        return []
+
+    hits = []
+    for point in grid["points"]:
+        dist = haversine(lat, lon, point["lat"], point["lon"])
+        if dist <= radius_km:
+            hits.append({
+                "lat": point["lat"],
+                "lon": point["lon"],
+                "sst_c": point["sst_c"],
+                "chl_mg_m3": point["chl_mg_m3"],
+                "distance_km": round(dist, 2),
+            })
+
+    hits.sort(key=lambda h: h["distance_km"])
+    return hits
+
+
+def grid_metadata() -> Optional[dict]:
+    """Returns the grid's generation/resolution metadata, or None if not built yet."""
+    grid = _load_grid()
+    if not grid:
+        return None
+    return {
+        "generated_at": grid.get("generated_at"),
+        "sst_time": grid.get("sst_time"),
+        "chl_time": grid.get("chl_time"),
+        "resolution_deg": grid.get("resolution_deg"),
+        "point_count": grid.get("point_count"),
+    }

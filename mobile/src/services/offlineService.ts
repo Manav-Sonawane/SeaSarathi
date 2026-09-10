@@ -272,6 +272,9 @@ export interface OfflineChatAnswer {
   recommendation: string;
   confidence: number;
   sources: string[];
+  sst_c: number | null;
+  chlorophyll_mg_m3: number | null;
+  alerts: OfflineAlert[];
   offline: true;
   cached_forecast_time: string | null;
   bundle_created_at: string;
@@ -313,6 +316,8 @@ export function buildOfflineChatAnswer(
       `Reconnect for a live, personalized answer.`;
   }
 
+  const sstChl = bundle.dynamic?.sst_chlorophyll_current;
+
   return {
     risk_level: riskLevel,
     wind_kmh: Math.round(w.windSpeed10m),
@@ -323,6 +328,9 @@ export function buildOfflineChatAnswer(
     recommendation,
     confidence,
     sources: ['offline-cache'],
+    sst_c: typeof sstChl?.sst_c === 'number' ? sstChl.sst_c : null,
+    chlorophyll_mg_m3: typeof sstChl?.chl_mg_m3 === 'number' ? sstChl.chl_mg_m3 : null,
+    alerts: buildOfflineAlerts(bundle, lat, lon),
     offline: true,
     cached_forecast_time: w.forecastTime,
     bundle_created_at: bundle.metadata.created,
@@ -337,6 +345,7 @@ export interface OfflineAlert {
   message: string;
   source: string;
   metadata: Record<string, unknown>;
+  [key: string]: unknown;
 }
 
 /**

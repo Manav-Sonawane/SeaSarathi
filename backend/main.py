@@ -345,6 +345,23 @@ async def get_nearest_pfz(latitude: float = 8.5, longitude: float = 76.2, limit:
     return {"zones": nearest, "count": len(nearest), "query_lat": latitude, "query_lon": longitude}
 
 
+@app.get("/pfz/local-grid", summary="Estimated Local Fishing Zones (small-boat range)")
+async def get_local_fishing_grid(latitude: float = 8.5, longitude: float = 76.2, radius_km: float = 9.0):
+    """
+    For when the nearest official INCOIS PFZ is too far to be practical (small
+    boats especially): ranks real cached SST/Chlorophyll grid points within
+    radius_km, using local SST variation as a thermal-front proxy and
+    chlorophyll as an area-level productivity floor. See
+    src/services/fishing_zone_estimator.py for the scoring and its honesty
+    notes on data resolution. Degrades gracefully — always returns a usable
+    result, never a 500, even if the grid can't support a fine comparison
+    at this exact spot.
+    """
+    from src.services.fishing_zone_estimator import estimate_local_fishing_zones
+    result = estimate_local_fishing_zones(latitude, longitude, radius_km=radius_km, top_n=5)
+    return {**result, "query_lat": latitude, "query_lon": longitude}
+
+
 # ─── Landing Locations Endpoint ─────────────────────────────────────────────────────────────
 
 @app.get("/landing/nearest", summary="Nearest Landing Locations")
