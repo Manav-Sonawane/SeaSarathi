@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -13,7 +13,6 @@ import {
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { chatAPI, ChatResponse } from '../services/api';
-
 import { useUserStore } from '../store/userStore';
 
 interface Message {
@@ -25,36 +24,45 @@ interface Message {
 }
 
 export function ChatScreen({ navigation }: any) {
-  const { operatingPort, portInfo, getLanguageInfo } = useUserStore();
+  const { operatingPort, portInfo, getLanguageInfo, getVesselRangeKm, language } = useUserStore();
   const langInfo = getLanguageInfo();
+  const vesselRange = getVesselRangeKm();
 
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      sender: 'user',
-      text: `Can we safely sail out 28 nautical miles WNW towards ${operatingPort} shelf tonight?`,
-      time: '18:42 IST',
-    },
-    {
-      id: '2',
-      sender: 'system',
-      time: '18:43 IST',
-      data: {
-        risk_level: 'LOW',
-        wind_kmh: 18,
-        wave_m: 1.2,
-        rainfall_mm: 0.0,
-        lightning: false,
-        cyclone: false,
-        recommendation:
-          `Safe voyage permitted off ${operatingPort} harbor (${portInfo.state}). Sea condition is favorable with gentle breeze (18 km/h NW) and normal swell (1.2m). Avoid going beyond 35 NM due to deep-shelf currents.`,
-        confidence: 87,
-        sources: [],
+  const [messages, setMessages] = useState<Message[]>([]);
+
+  // Generate localized initial welcome message whenever language or port changes
+  useEffect(() => {
+    const initialAdv = langInfo.getAdvisory(portInfo.name, 'LOW', 16, 1.1, vesselRange);
+
+    const initialMsgs: Message[] = [
+      {
+        id: '1',
+        sender: 'user',
+        text: `${langInfo.presets.safety} (${portInfo.name})`,
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
       },
-    },
-  ]);
+      {
+        id: '2',
+        sender: 'system',
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
+        data: {
+          risk_level: 'LOW',
+          wind_kmh: 16,
+          wave_m: 1.1,
+          rainfall_mm: 0.0,
+          lightning: false,
+          cyclone: false,
+          recommendation: initialAdv,
+          confidence: 89,
+          sources: [],
+        },
+      },
+    ];
+
+    setMessages(initialMsgs);
+  }, [language, portInfo.name, vesselRange]);
 
   const handleSend = async (userText?: string) => {
     const textToSend = userText || query;
@@ -73,14 +81,27 @@ export function ChatScreen({ navigation }: any) {
 
     try {
       const res = await chatAPI.sendMessage(textToSend, portInfo.latitude, portInfo.longitude);
+      // Enhance backend response with localized advisory text in the selected language
+      const localizedAdv = langInfo.getAdvisory(
+        portInfo.name,
+        res.risk_level,
+        res.wind_kmh,
+        res.wave_m,
+        vesselRange
+      );
+
       const sysMsg: Message = {
         id: (Date.now() + 1).toString(),
         sender: 'system',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
-        data: res,
+        data: {
+          ...res,
+          recommendation: localizedAdv || res.recommendation,
+        },
       };
       setMessages((prev) => [...prev, sysMsg]);
     } catch {
+      const fallbackAdv = langInfo.getAdvisory(portInfo.name, 'LOW', 16, 1.1, vesselRange);
       const fallbackData: ChatResponse = {
         risk_level: 'LOW',
         wind_kmh: 16,
@@ -88,8 +109,8 @@ export function ChatScreen({ navigation }: any) {
         rainfall_mm: 0.0,
         lightning: false,
         cyclone: false,
-        recommendation: `Evaluated safety for "${textToSend}": Conditions are favorable off ${operatingPort} coast (${portInfo.state}). Wind is 16 km/h, wave height is 1.1m. Safe for fishing up to 25 NM.`,
-        confidence: 82,
+        recommendation: fallbackAdv,
+        confidence: 85,
         sources: [],
       };
       const sysMsg: Message = {
@@ -105,27 +126,30 @@ export function ChatScreen({ navigation }: any) {
   };
 
   const renderRiskBadge = (riskLevel: string) => {
-    let bgColor = colors.secondary;
+    let bgColor = '#16A34A'; // Green for LOW risk
     let title = 'LOW RISK';
-    let sub = langInfo.uiText.safeVoyage || 'SAFE VOYAGE PERMITTED';
-    let score = '78/100 SAFETY INDEX';
+    let sub = langInfo.uiText.safeVoyage;
+    let score = '92/100 SAFETY INDEX';
+    let iconName = 'verified';
 
     if (riskLevel === 'MODERATE') {
-      bgColor = colors.riskModerate;
+      bgColor = '#D97706'; // Amber for MODERATE
       title = 'MODERATE RISK';
-      sub = 'EXERCISE CAUTION OFFSHORE';
-      score = '55/100 SAFETY INDEX';
+      sub = langInfo.uiText.moderateRisk;
+      score = '60/100 SAFETY INDEX';
+      iconName = 'warning';
     } else if (riskLevel === 'HIGH') {
-      bgColor = colors.riskHigh;
+      bgColor = '#DC2626'; // Red for HIGH risk
       title = 'HIGH RISK';
-      sub = 'DO NOT VENTURE INTO SEA';
+      sub = langInfo.uiText.highRisk;
       score = '25/100 SAFETY INDEX';
+      iconName = 'error';
     }
 
     return (
       <View style={[styles.riskBanner, { backgroundColor: bgColor }]}>
         <View style={styles.riskLeft}>
-          <MaterialIcons name="verified" size={26} color={colors.white} />
+          <MaterialIcons name={iconName as any} size={28} color={colors.white} />
           <View>
             <View style={styles.riskTitleRow}>
               <Text style={styles.riskTitle}>{title}</Text>
@@ -136,7 +160,7 @@ export function ChatScreen({ navigation }: any) {
             <Text style={styles.riskSub}>{sub}</Text>
           </View>
         </View>
-        <MaterialCommunityIcons name="waves" size={20} color={colors.secondaryContainer} />
+        <MaterialCommunityIcons name="waves" size={24} color="rgba(255,255,255,0.8)" />
       </View>
     );
   };
@@ -151,7 +175,9 @@ export function ChatScreen({ navigation }: any) {
           <View style={styles.gpsStripRow}>
             <View style={styles.gpsIconRow}>
               <MaterialCommunityIcons name="satellite-variant" size={18} color={colors.primaryContainer} />
-              <Text style={styles.gpsStripTitle}>LIVE GPS FIX • {portInfo.state.toUpperCase()}</Text>
+              <Text style={styles.gpsStripTitle}>
+                {langInfo.uiText.liveGps} • {portInfo.state.toUpperCase()}
+              </Text>
             </View>
             <View style={styles.offlineChip}>
               <Ionicons name="checkmark-circle" size={12} color={colors.white} />
@@ -160,9 +186,9 @@ export function ChatScreen({ navigation }: any) {
           </View>
           <View style={styles.gpsStripRow}>
             <Text style={styles.gpsCoords}>
-              {portInfo.latitude.toFixed(4)}° N, {portInfo.longitude.toFixed(4)}° E
+              📍 {portInfo.name} ({portInfo.latitude.toFixed(4)}° N, {portInfo.longitude.toFixed(4)}° E)
             </Text>
-            <Text style={styles.gpsSource}>Off {operatingPort} Harbor ({portInfo.sea})</Text>
+            <Text style={styles.gpsSource}>{portInfo.sea}</Text>
           </View>
         </View>
 
@@ -171,19 +197,21 @@ export function ChatScreen({ navigation }: any) {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <TouchableOpacity
               style={styles.presetChip}
-              onPress={() => handleSend(`Can I fish near ${operatingPort} tomorrow morning?`)}
+              onPress={() => handleSend(`${langInfo.presets.safety} (${portInfo.name})`)}
             >
               <Text style={styles.presetChipText}>{langInfo.presets.safety}</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.presetChip}
-              onPress={() => handleSend(`Show wind and wave conditions 20 NM out off ${operatingPort}`)}
+              onPress={() => handleSend(`${langInfo.presets.wind} (${portInfo.name})`)}
             >
               <Text style={styles.presetChipText}>{langInfo.presets.wind}</Text>
             </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.presetChip}
-              onPress={() => handleSend('Any cyclone warning active in Indian waters?')}
+              onPress={() => handleSend(langInfo.presets.cyclone)}
             >
               <Text style={styles.presetChipText}>{langInfo.presets.cyclone}</Text>
             </TouchableOpacity>
@@ -224,107 +252,202 @@ export function ChatScreen({ navigation }: any) {
                       <MaterialCommunityIcons name="speedometer" size={18} color={colors.primary} />
                       <Text style={styles.telemetryTitle}>{langInfo.uiText.oceanConditions}</Text>
                     </View>
-                    <Text style={styles.telemetrySub}>Live Sensors</Text>
+                    <Text style={styles.telemetrySub}>{langInfo.uiText.liveSensors}</Text>
                   </View>
 
-                  {/* 2x3 Metric Cards */}
+                  {/* 2x3 Metric Cards with Color-Coded Condition Badges */}
                   {(() => {
-                    const rawWind = data.wind_kmh ?? (data as any).wind_speed_10m ?? 18;
-                    const rawWave = data.wave_m ?? (data as any).wave_height ?? 1.2;
-                    const rawRain = data.rainfall_mm ?? (data as any).precipitation ?? 0;
-                    const rawConf = data.confidence ?? 87;
+                    const rawWind = data.wind_kmh ?? 16;
+                    const rawWave = data.wave_m ?? 1.1;
+                    const rawRain = data.rainfall_mm ?? 0;
+                    const rawConf = data.confidence ?? 89;
 
-                    const windDisp = Math.round(Number(rawWind) || 18);
-                    const waveDisp = (Number(rawWave) || 1.2).toFixed(1);
+                    const windDisp = Math.round(Number(rawWind) || 16);
+                    const waveDisp = (Number(rawWave) || 1.1).toFixed(1);
                     const rainDisp = Number(rawRain) > 0 ? (Number(rawRain) || 0).toFixed(1) : '0';
-                    const confDisp = Math.round(Number(rawConf) || 87);
+                    const confDisp = Math.round(Number(rawConf) || 89);
+
+                    // Condition Badge Color Helpers
+                    const isWindGood = windDisp < 25;
+                    const isWaveGood = Number(waveDisp) <= 1.5;
+                    const isRainGood = Number(rainDisp) === 0;
 
                     return (
                       <View style={styles.metricsGrid}>
+                        {/* Wind Metric */}
                         <View style={styles.metricCard}>
                           <View style={styles.metricCardHead}>
-                            <Text style={styles.metricLabel}>WIND SPEED</Text>
+                            <Text style={styles.metricLabel}>{langInfo.uiText.metrics.windSpeed}</Text>
                             <MaterialCommunityIcons name="weather-windy" size={16} color={colors.primary} />
                           </View>
                           <Text style={styles.metricValue}>
-                            {windDisp}{' '}
-                            <Text style={styles.metricUnit}>km/h NW</Text>
+                            {windDisp} <Text style={styles.metricUnit}>km/h</Text>
                           </Text>
-                          <Text style={styles.metricStatus}>Gentle Breeze</Text>
+                          <View
+                            style={[
+                              styles.statusBadge,
+                              { backgroundColor: isWindGood ? '#DCFCE7' : '#FEE2E2' },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.statusBadgeText,
+                                { color: isWindGood ? '#15803D' : '#B91C1C' },
+                              ]}
+                            >
+                              {isWindGood
+                                ? `🟢 ${langInfo.uiText.metricStatuses.gentleBreeze}`
+                                : '🔴 Strong Wind Warning'}
+                            </Text>
+                          </View>
                         </View>
 
+                        {/* Wave Metric */}
                         <View style={styles.metricCard}>
                           <View style={styles.metricCardHead}>
-                            <Text style={styles.metricLabel}>WAVE (Hs)</Text>
+                            <Text style={styles.metricLabel}>{langInfo.uiText.metrics.waveHeight}</Text>
                             <MaterialCommunityIcons name="wave" size={16} color={colors.primary} />
                           </View>
                           <Text style={styles.metricValue}>
-                            {waveDisp}{' '}
-                            <Text style={styles.metricUnit}>m</Text>
+                            {waveDisp} <Text style={styles.metricUnit}>m</Text>
                           </Text>
-                          <Text style={styles.metricStatus}>Normal Swell</Text>
+                          <View
+                            style={[
+                              styles.statusBadge,
+                              { backgroundColor: isWaveGood ? '#DCFCE7' : '#FEE2E2' },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.statusBadgeText,
+                                { color: isWaveGood ? '#15803D' : '#B91C1C' },
+                              ]}
+                            >
+                              {isWaveGood
+                                ? `🟢 ${langInfo.uiText.metricStatuses.normalSwell}`
+                                : '🔴 Rough Sea (>1.5m)'}
+                            </Text>
+                          </View>
                         </View>
 
+                        {/* Rainfall Metric */}
                         <View style={styles.metricCard}>
                           <View style={styles.metricCardHead}>
-                            <Text style={styles.metricLabel}>RAINFALL</Text>
+                            <Text style={styles.metricLabel}>{langInfo.uiText.metrics.rainfall}</Text>
                             <Ionicons name="rainy-outline" size={16} color={colors.primary} />
                           </View>
                           <Text style={styles.metricValue}>
-                            {rainDisp}{' '}
-                            <Text style={styles.metricUnit}>mm/h</Text>
+                            {rainDisp} <Text style={styles.metricUnit}>mm/h</Text>
                           </Text>
-                          <Text style={styles.metricStatus}>Clear Sky</Text>
+                          <View
+                            style={[
+                              styles.statusBadge,
+                              { backgroundColor: isRainGood ? '#DCFCE7' : '#FEF3C7' },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.statusBadgeText,
+                                { color: isRainGood ? '#15803D' : '#B45309' },
+                              ]}
+                            >
+                              {isRainGood
+                                ? `🟢 ${langInfo.uiText.metricStatuses.clearSky}`
+                                : '🟠 Moderate Rain'}
+                            </Text>
+                          </View>
                         </View>
 
+                        {/* Lightning Metric */}
                         <View style={styles.metricCard}>
                           <View style={styles.metricCardHead}>
-                            <Text style={styles.metricLabel}>LIGHTNING</Text>
+                            <Text style={styles.metricLabel}>{langInfo.uiText.metrics.lightning}</Text>
                             <Ionicons name="flash-outline" size={16} color={colors.primary} />
                           </View>
-                          <Text style={[styles.metricValue, { color: colors.secondary }]}>
+                          <Text style={[styles.metricValue, { color: data.lightning ? '#DC2626' : '#16A34A' }]}>
                             {data.lightning ? 'ACTIVE' : 'NONE'}
                           </Text>
-                          <Text style={styles.metricStatus}>Clear 50km</Text>
+                          <View
+                            style={[
+                              styles.statusBadge,
+                              { backgroundColor: !data.lightning ? '#DCFCE7' : '#FEE2E2' },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.statusBadgeText,
+                                { color: !data.lightning ? '#15803D' : '#B91C1C' },
+                              ]}
+                            >
+                              {!data.lightning
+                                ? `🟢 ${langInfo.uiText.metricStatuses.noLightning}`
+                                : '🔴 Lightning Alert'}
+                            </Text>
+                          </View>
                         </View>
 
+                        {/* Cyclone Watch Metric */}
                         <View style={styles.metricCard}>
                           <View style={styles.metricCardHead}>
-                            <Text style={styles.metricLabel}>CYCLONE WATCH</Text>
+                            <Text style={styles.metricLabel}>{langInfo.uiText.metrics.cycloneWatch}</Text>
                             <MaterialCommunityIcons name="weather-hurricane" size={16} color={colors.primary} />
                           </View>
-                          <Text style={[styles.metricValue, { color: colors.secondary }]}>
-                            {data.cyclone ? 'WARNING' : 'DORMANT'}
+                          <Text style={[styles.metricValue, { color: data.cyclone ? '#DC2626' : '#16A34A' }]}>
+                            {data.cyclone ? 'WARNING' : 'SAFE'}
                           </Text>
-                          <Text style={styles.metricStatus}>No Threat</Text>
+                          <View
+                            style={[
+                              styles.statusBadge,
+                              { backgroundColor: !data.cyclone ? '#DCFCE7' : '#FEE2E2' },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.statusBadgeText,
+                                { color: !data.cyclone ? '#15803D' : '#B91C1C' },
+                              ]}
+                            >
+                              {!data.cyclone
+                                ? `🟢 ${langInfo.uiText.metricStatuses.noCyclone}`
+                                : '🔴 Cyclone Threat'}
+                            </Text>
+                          </View>
                         </View>
 
+                        {/* Catch Confidence Metric */}
                         <View style={styles.metricCard}>
                           <View style={styles.metricCardHead}>
-                            <Text style={styles.metricLabel}>CONFIDENCE</Text>
+                            <Text style={styles.metricLabel}>{langInfo.uiText.metrics.confidence}</Text>
                             <MaterialIcons name="security" size={16} color={colors.primary} />
                           </View>
                           <Text style={styles.metricValue}>{confDisp}%</Text>
-                          <Text style={styles.metricStatus}>High Certainty</Text>
+                          <View style={[styles.statusBadge, { backgroundColor: '#DCFCE7' }]}>
+                            <Text style={[styles.statusBadgeText, { color: '#15803D' }]}>
+                              🟢 {langInfo.uiText.metricStatuses.highCertainty}
+                            </Text>
+                          </View>
                         </View>
                       </View>
                     );
                   })()}
 
-                  {/* Recommendation Box */}
+                  {/* Fisherman-Friendly High-Visibility Advisory Card */}
                   <View style={styles.recBox}>
-                    <Text style={styles.recLabel}>SAFETY ADVISORY</Text>
+                    <View style={styles.recHeaderRow}>
+                      <Ionicons name="shield-checkmark" size={18} color={colors.primary} />
+                      <Text style={styles.recLabel}>{langInfo.uiText.safetyAdvisoryHeader}</Text>
+                    </View>
                     <Text style={styles.recText}>{data.recommendation}</Text>
                   </View>
 
-                  {/* Quick Action Buttons */}
+                  {/* Quick Action Navigation Buttons */}
                   <View style={styles.actionRow}>
                     <TouchableOpacity
                       style={styles.actionBtnPrimary}
                       onPress={() => navigation.navigate('Map')}
                     >
                       <Ionicons name="map-outline" size={16} color={colors.white} />
-                      <Text style={styles.actionBtnTextPrimary}>View Risk Map</Text>
+                      <Text style={styles.actionBtnTextPrimary}>{langInfo.uiText.viewMap}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity
@@ -332,7 +455,7 @@ export function ChatScreen({ navigation }: any) {
                       onPress={() => navigation.navigate('PFZ')}
                     >
                       <MaterialCommunityIcons name="fish" size={16} color={colors.primary} />
-                      <Text style={styles.actionBtnTextSecondary}>Fishing Zones</Text>
+                      <Text style={styles.actionBtnTextSecondary}>{langInfo.uiText.fishingZones}</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -344,16 +467,16 @@ export function ChatScreen({ navigation }: any) {
         {loading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color={colors.primaryContainer} />
-            <Text style={styles.loadingText}>Analyzing ocean conditions & safety models...</Text>
+            <Text style={styles.loadingText}>Fetching localized ocean conditions...</Text>
           </View>
         )}
       </ScrollView>
 
-      {/* Input Bar */}
+      {/* Input Bar with Localized Placeholder */}
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder="Ask about fishing safety, wind, waves..."
+          placeholder={langInfo.uiText.askPlaceholder}
           placeholderTextColor={colors.onSurfaceVariant}
           value={query}
           onChangeText={setQuery}
@@ -417,28 +540,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
     color: colors.onSurface,
-    fontFamily: 'monospace',
   },
   gpsSource: {
     fontSize: 11,
-    fontWeight: '500',
-    color: colors.onSurfaceVariant,
+    fontWeight: '600',
+    color: colors.primary,
   },
   presetRow: {
     marginBottom: 16,
   },
   presetChip: {
     backgroundColor: colors.surfaceContainerLowest,
-    borderWidth: 1,
-    borderColor: colors.surfaceContainerHighest,
-    paddingHorizontal: 12,
+    borderWidth: 1.5,
+    borderColor: colors.primaryContainer,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
   },
   presetChipText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: colors.primary,
   },
   userBubbleWrapper: {
@@ -454,7 +576,7 @@ const styles = StyleSheet.create({
   },
   userText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.white,
     lineHeight: 20,
   },
@@ -489,7 +611,7 @@ const styles = StyleSheet.create({
   },
   aiTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.primary,
   },
   cardContainer: {
@@ -503,8 +625,8 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
   },
   riskBanner: {
-    borderRadius: 10,
-    padding: 12,
+    borderRadius: 12,
+    padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -514,6 +636,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    flex: 1,
   },
   riskTitleRow: {
     flexDirection: 'row',
@@ -522,25 +645,25 @@ const styles = StyleSheet.create({
   },
   riskTitle: {
     fontSize: 16,
-    fontWeight: '800',
+    fontWeight: '900',
     color: colors.white,
   },
   scoreTag: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 6,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 6,
   },
   scoreText: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.white,
   },
   riskSub: {
-    fontSize: 10,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '800',
     color: colors.white,
-    letterSpacing: 0.5,
+    letterSpacing: 0.3,
     marginTop: 2,
   },
   telemetryHeader: {
@@ -556,12 +679,13 @@ const styles = StyleSheet.create({
   },
   telemetryTitle: {
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.onSurface,
   },
   telemetrySub: {
     fontSize: 11,
     color: colors.onSurfaceVariant,
+    fontWeight: '600',
   },
   metricsGrid: {
     flexDirection: 'row',
@@ -572,8 +696,10 @@ const styles = StyleSheet.create({
   metricCard: {
     width: '48%',
     backgroundColor: colors.surfaceContainerLow,
-    borderRadius: 8,
+    borderRadius: 10,
     padding: 10,
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerHighest,
   },
   metricCardHead: {
     flexDirection: 'row',
@@ -583,44 +709,56 @@ const styles = StyleSheet.create({
   },
   metricLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.onSurfaceVariant,
     letterSpacing: 0.5,
   },
   metricValue: {
     fontSize: 18,
-    fontWeight: '800',
+    fontWeight: '900',
     color: colors.onSurface,
-    fontFamily: 'monospace',
   },
   metricUnit: {
     fontSize: 11,
-    fontWeight: '500',
+    fontWeight: '600',
     color: colors.onSurfaceVariant,
   },
-  metricStatus: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.secondary,
-    marginTop: 4,
+  statusBadge: {
+    marginTop: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
   },
-  recBox: {
-    backgroundColor: colors.surfaceContainerHigh,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 12,
-  },
-  recLabel: {
+  statusBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: colors.primary,
+  },
+  recBox: {
+    backgroundColor: '#F0FDF4',
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 14,
+  },
+  recHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  recLabel: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#15803D',
     letterSpacing: 0.5,
-    marginBottom: 4,
   },
   recText: {
-    fontSize: 13,
-    color: colors.onSurface,
-    lineHeight: 18,
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#14532D',
+    lineHeight: 22,
   },
   actionRow: {
     flexDirection: 'row',

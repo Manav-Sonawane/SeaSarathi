@@ -16,7 +16,8 @@ import { alertsAPI } from '../services/api';
 import { useUserStore } from '../store/userStore';
 
 export function AlertsScreen({ navigation }: any) {
-  const { operatingPort, portInfo } = useUserStore();
+  const { operatingPort, portInfo, getLanguageInfo } = useUserStore();
+  const langInfo = getLanguageInfo();
 
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<'all' | 'critical' | 'advisory' | 'navigational'>('all');

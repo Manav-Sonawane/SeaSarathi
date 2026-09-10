@@ -16,7 +16,8 @@ import { pfzAPI } from '../services/api';
 import { useUserStore } from '../store/userStore';
 
 export function PFZScreen({ navigation }: any) {
-  const { vesselType, getVesselRangeKm, operatingPort, portInfo } = useUserStore();
+  const { vesselType, getVesselRangeKm, operatingPort, portInfo, getLanguageInfo } = useUserStore();
+  const langInfo = getLanguageInfo();
   const maxRangeKm = getVesselRangeKm();
 
   const [loading, setLoading] = useState(false);
