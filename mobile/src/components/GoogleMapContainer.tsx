@@ -14,6 +14,8 @@ interface GoogleMapContainerProps {
     wind: boolean;
   };
   onSelectZone: (zone: any) => void;
+  zoom?: number;
+  panOffset?: { x: number; y: number };
 }
 
 const GOOGLE_MAPS_KEY =
@@ -23,14 +25,35 @@ export function GoogleMapContainer({
   activePort,
   layers,
   onSelectZone,
+  zoom = 11,
+  panOffset = { x: 0, y: 0 },
 }: GoogleMapContainerProps) {
   const [mapMode, setMapMode] = useState<'satellite' | 'vector'>('satellite');
 
-  // Google Maps Static Satellite Image with Port Marker
-  const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${activePort.latitude},${activePort.longitude}&zoom=11&size=640x480&scale=2&maptype=hybrid&markers=color:red%7Clabel:P%7C${activePort.latitude},${activePort.longitude}&key=${GOOGLE_MAPS_KEY}`;
+  // Compute dynamic center latitude and longitude based on drag pan offset
+  const latDelta = -panOffset.y * (0.005 / Math.pow(1.5, zoom - 11));
+  const lonDelta = panOffset.x * (0.005 / Math.pow(1.5, zoom - 11));
 
-  // Google Maps Interactive Embed iframe URL
-  const embedUrl = `https://www.google.com/maps/embed/v1/view?key=${GOOGLE_MAPS_KEY}&center=${activePort.latitude},${activePort.longitude}&zoom=11&maptype=satellite`;
+  const centerLat = (activePort.latitude + latDelta).toFixed(4);
+  const centerLon = (activePort.longitude + lonDelta).toFixed(4);
+
+  // Debounce iframe center coordinates to prevent rapid iframe reloads during 60fps pan dragging
+  const [stableLat, setStableLat] = React.useState((activePort.latitude).toFixed(4));
+  const [stableLon, setStableLon] = React.useState((activePort.longitude).toFixed(4));
+
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setStableLat(centerLat);
+      setStableLon(centerLon);
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [centerLat, centerLon]);
+
+  // Google Maps Static Satellite Image with Port Marker
+  const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLon}&zoom=${zoom}&size=640x480&scale=2&maptype=hybrid&markers=color:red%7Clabel:P%7C${activePort.latitude},${activePort.longitude}&key=${GOOGLE_MAPS_KEY}`;
+
+  // Google Maps Interactive Embed iframe URL with debounced center
+  const embedUrl = `https://www.google.com/maps/embed/v1/view?key=${GOOGLE_MAPS_KEY}&center=${stableLat},${stableLon}&zoom=${zoom}&maptype=satellite`;
 
   return (
     <View style={styles.container}>
@@ -39,7 +62,7 @@ export function GoogleMapContainer({
         <View style={styles.portLabelGroup}>
           <MaterialCommunityIcons name="google-maps" size={18} color="#EA4335" />
           <Text style={styles.portLabelText}>
-            GOOGLE MAPS: <Text style={styles.boldText}>{activePort.name.toUpperCase()}</Text> ({activePort.state})
+            PORT: <Text style={styles.boldText}>{activePort.name.toUpperCase()}</Text> ({centerLat}° N, {centerLon}° E)
           </Text>
         </View>
 
@@ -77,7 +100,13 @@ export function GoogleMapContainer({
       {/* Main Map Content Area */}
       <View style={styles.mapViewport}>
         {mapMode === 'vector' ? (
-          <IndiaMapCanvas activePort={activePort} layers={layers} onSelectZone={onSelectZone} />
+          <IndiaMapCanvas
+            activePort={activePort}
+            layers={layers}
+            onSelectZone={onSelectZone}
+            zoom={zoom}
+            panOffset={panOffset}
+          />
         ) : Platform.OS === 'web' ? (
           <View style={styles.webEmbedContainer}>
             {/* Embedded Google Maps Satellite View */}
@@ -92,15 +121,15 @@ export function GoogleMapContainer({
             />
 
             {/* Tactical Floating Reticle & Port Highlight Card Over Google Maps */}
-            <View pointerEvents="none" style={styles.overlayOverlay}>
+            <View style={styles.overlayOverlay}>
               <View style={styles.gpsBanner}>
                 <Ionicons name="location-sharp" size={16} color="#EA4335" />
                 <View>
                   <Text style={styles.gpsBannerTitle}>
-                    {activePort.name} Harbor Reticle ({activePort.latitude.toFixed(4)}° N, {activePort.longitude.toFixed(4)}° E)
+                    {activePort.name} Harbor Reticle ({centerLat}° N, {centerLon}° E)
                   </Text>
                   <Text style={styles.gpsBannerSub}>
-                    Google Satellite Stream • {activePort.region} • {activePort.sea}
+                    Google Satellite Stream • Zoom: {zoom}x • {activePort.sea}
                   </Text>
                 </View>
               </View>
@@ -144,7 +173,7 @@ export function GoogleMapContainer({
             <View style={styles.gpsBanner}>
               <Ionicons name="location-sharp" size={16} color="#EA4335" />
               <Text style={styles.gpsBannerTitle}>
-                {activePort.name} ({activePort.latitude.toFixed(2)}° N, {activePort.longitude.toFixed(2)}° E)
+                {activePort.name} ({centerLat}° N, {centerLon}° E) • Zoom: {zoom}x
               </Text>
             </View>
           </View>
@@ -224,6 +253,7 @@ const styles = StyleSheet.create({
     bottom: 0,
     padding: 12,
     justifyContent: 'space-between',
+    pointerEvents: 'box-none',
   },
   gpsBanner: {
     flexDirection: 'row',

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Svg, {
   Path,
   Circle,
@@ -13,18 +13,18 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 import { INDIAN_PORTS, PortInfo } from '../constants/portsAndLanguages';
-import { colors } from '../theme/colors';
 
 interface IndiaMapCanvasProps {
   activePort: PortInfo;
-  onSelectPort?: (port: PortInfo) => void;
-  onSelectZone?: (zone: any) => void;
   layers: {
     risk: boolean;
     pfz: boolean;
     geofence: boolean;
     wind: boolean;
   };
+  onSelectZone?: (zone: any) => void;
+  zoom?: number;
+  panOffset?: { x: number; y: number };
 }
 
 // Map bounds for India Equirectangular projection
@@ -89,9 +89,9 @@ const INDIA_COAST_POINTS: Array<[number, number]> = [
 
 export function IndiaMapCanvas({
   activePort,
-  onSelectPort,
-  onSelectZone,
   layers,
+  zoom = 11,
+  panOffset = { x: 0, y: 0 },
 }: IndiaMapCanvasProps) {
   const MAP_W = 360;
   const MAP_H = 440;
@@ -104,6 +104,11 @@ export function IndiaMapCanvas({
 
   // Selected Port position
   const activePos = projectCoord(activePort.latitude, activePort.longitude, MAP_W, MAP_H);
+
+  // Scale factor (exponential scaling based on zoom level)
+  const scale = Math.pow(1.25, zoom - 11);
+  const pivotX = activePos.x;
+  const pivotY = activePos.y;
 
   // Derive 2 nearby PFZ zones off active port
   const pfz1Pos = projectCoord(
@@ -146,199 +151,124 @@ export function IndiaMapCanvas({
           </LinearGradient>
         </Defs>
 
-        {/* Ocean Background (Arabian Sea & Bay of Bengal) */}
+        {/* Ocean Background */}
         <Rect x="0" y="0" width={MAP_W} height={MAP_H} fill="url(#oceanGrad)" />
 
-        {/* Ocean Grid Lines */}
-        <G stroke="rgba(255,255,255,0.06)" strokeWidth="0.8" strokeDasharray="3,3">
-          <Polyline points={`0,${MAP_H * 0.25} ${MAP_W},${MAP_H * 0.25}`} />
-          <Polyline points={`0,${MAP_H * 0.5} ${MAP_W},${MAP_H * 0.5}`} />
-          <Polyline points={`0,${MAP_H * 0.75} ${MAP_W},${MAP_H * 0.75}`} />
-          <Polyline points={`${MAP_W * 0.25},0 ${MAP_W * 0.25},${MAP_H}`} />
-          <Polyline points={`${MAP_W * 0.5},0 ${MAP_W * 0.5},${MAP_H}`} />
-          <Polyline points={`${MAP_W * 0.75},0 ${MAP_W * 0.75},${MAP_H}`} />
-        </G>
+        {/* Transform Group for Drag/Pan & Zoom */}
+        <G
+          transform={`translate(${panOffset.x}, ${panOffset.y}) translate(${pivotX}, ${pivotY}) scale(${scale}) translate(${-pivotX}, ${-pivotY})`}
+        >
+          {/* Ocean Grid Lines */}
+          <G stroke="rgba(255,255,255,0.06)" strokeWidth="0.8" strokeDasharray="3,3">
+            <Polyline points={`0,${MAP_H * 0.25} ${MAP_W},${MAP_H * 0.25}`} />
+            <Polyline points={`0,${MAP_H * 0.5} ${MAP_W},${MAP_H * 0.5}`} />
+            <Polyline points={`0,${MAP_H * 0.75} ${MAP_W},${MAP_H * 0.75}`} />
+            <Polyline points={`${MAP_W * 0.25},0 ${MAP_W * 0.25},${MAP_H}`} />
+            <Polyline points={`${MAP_W * 0.5},0 ${MAP_W * 0.5},${MAP_H}`} />
+            <Polyline points={`${MAP_W * 0.75},0 ${MAP_W * 0.75},${MAP_H}`} />
+          </G>
 
-        {/* Ocean Sea Names */}
-        <SvgText x="35" y={MAP_H - 120} fill="#38BDF8" fontSize="10" fontWeight="bold" opacity="0.6">
-          ARABIAN SEA
-        </SvgText>
-        <SvgText x={MAP_W - 95} y={MAP_H - 140} fill="#38BDF8" fontSize="10" fontWeight="bold" opacity="0.6">
-          BAY OF BENGAL
-        </SvgText>
-        <SvgText x={MAP_W / 2 - 35} y={MAP_H - 20} fill="#38BDF8" fontSize="9" fontWeight="bold" opacity="0.5">
-          INDIAN OCEAN
-        </SvgText>
+          {/* Ocean Sea Names */}
+          <SvgText x="35" y={MAP_H - 120} fill="#38BDF8" fontSize="10" fontWeight="bold" opacity="0.6">
+            ARABIAN SEA
+          </SvgText>
+          <SvgText x={MAP_W - 95} y={MAP_H - 140} fill="#38BDF8" fontSize="10" fontWeight="bold" opacity="0.6">
+            BAY OF BENGAL
+          </SvgText>
 
-        {/* Bathymetry Isobaths (20m / 50m / 100m shelf contours) */}
-        <Path
-          d="M 50 120 Q 90 240 140 370 Q 180 410 240 370 Q 300 240 330 110"
-          fill="none"
-          stroke="#0288D1"
-          strokeWidth="1.2"
-          strokeDasharray="4,4"
-          opacity="0.5"
-        />
-        <Path
-          d="M 35 100 Q 75 230 125 385 Q 180 430 255 385 Q 320 230 350 90"
-          fill="none"
-          stroke="#0097A7"
-          strokeWidth="1"
-          opacity="0.4"
-        />
+          {/* Bathymetry Isobaths */}
+          <Path
+            d="M 50 120 Q 90 240 140 370 Q 180 410 240 370 Q 300 240 330 110"
+            fill="none"
+            stroke="#0288D1"
+            strokeWidth="1.2"
+            strokeDasharray="4,4"
+            opacity="0.5"
+          />
 
-        {/* India Landmass Polygon */}
-        <Path
-          d={indiaPathString}
-          fill="url(#landGrad)"
-          stroke="#334155"
-          strokeWidth="2"
-        />
-
-        {/* 12 NM Geofence Border Line */}
-        {layers.geofence && (
+          {/* India Landmass Polygon */}
           <Path
             d={indiaPathString}
-            fill="none"
-            stroke="#EF4444"
-            strokeWidth="1.5"
-            strokeDasharray="6,4"
-            opacity="0.85"
+            fill="url(#landGrad)"
+            stroke="#334155"
+            strokeWidth="2"
           />
-        )}
 
-        {/* Andaman & Nicobar + Lakshadweep Island Markers */}
-        <G fill="#475569">
-          {/* Lakshadweep */}
-          <Circle cx={projectCoord(10.56, 72.64, MAP_W, MAP_H).x} cy={projectCoord(10.56, 72.64, MAP_W, MAP_H).y} r="3" />
-          <Circle cx={projectCoord(11.1, 72.7, MAP_W, MAP_H).x} cy={projectCoord(11.1, 72.7, MAP_W, MAP_H).y} r="2.5" />
-
-          {/* Andaman */}
-          <Circle cx={projectCoord(11.62, 92.72, MAP_W, MAP_H).x} cy={projectCoord(11.62, 92.72, MAP_W, MAP_H).y} r="3.5" />
-          <Circle cx={projectCoord(12.5, 92.9, MAP_W, MAP_H).x} cy={projectCoord(12.5, 92.9, MAP_W, MAP_H).y} r="3" />
-        </G>
-
-        {/* Potential Fishing Zones (PFZ) Overlay */}
-        {layers.pfz && (
-          <G>
-            {/* PFZ Zone 1 */}
-            <Polygon
-              points={`
-                ${pfz1Pos.x - 22},${pfz1Pos.y - 12}
-                ${pfz1Pos.x + 22},${pfz1Pos.y - 18}
-                ${pfz1Pos.x + 30},${pfz1Pos.y + 15}
-                ${pfz1Pos.x - 18},${pfz1Pos.y + 18}
-              `}
-              fill="url(#pfzGrad1)"
-              stroke="#00E676"
+          {/* 12 NM Geofence Border Line */}
+          {layers.geofence && (
+            <Path
+              d={indiaPathString}
+              fill="none"
+              stroke="#EF4444"
               strokeWidth="1.5"
+              strokeDasharray="6,4"
+              opacity="0.85"
             />
+          )}
 
-            {/* PFZ Zone 2 */}
-            <Polygon
-              points={`
-                ${pfz2Pos.x - 20},${pfz2Pos.y - 15}
-                ${pfz2Pos.x + 24},${pfz2Pos.y - 10}
-                ${pfz2Pos.x + 18},${pfz2Pos.y + 20}
-                ${pfz2Pos.x - 22},${pfz2Pos.y + 15}
-              `}
-              fill="url(#pfzGrad2)"
-              stroke="#00B0FF"
-              strokeWidth="1.5"
-            />
+          {/* Islands */}
+          <G fill="#475569">
+            <Circle cx={projectCoord(10.56, 72.64, MAP_W, MAP_H).x} cy={projectCoord(10.56, 72.64, MAP_W, MAP_H).y} r="3" />
+            <Circle cx={projectCoord(11.62, 92.72, MAP_W, MAP_H).x} cy={projectCoord(11.62, 92.72, MAP_W, MAP_H).y} r="3.5" />
           </G>
-        )}
 
-        {/* All Coastal Ports Dots */}
-        {INDIAN_PORTS.map((p) => {
-          const pt = projectCoord(p.latitude, p.longitude, MAP_W, MAP_H);
-          const isSelected = p.name === activePort.name;
-
-          if (isSelected) return null; // Rendered in highlighted layer
-
-          return (
-            <G key={p.id}>
-              <Circle
-                cx={pt.x}
-                cy={pt.y}
-                r="3"
-                fill="#38BDF8"
-                opacity="0.75"
+          {/* Potential Fishing Zones (PFZ) Overlay */}
+          {layers.pfz && (
+            <G>
+              <Polygon
+                points={`
+                  ${pfz1Pos.x - 22},${pfz1Pos.y - 12}
+                  ${pfz1Pos.x + 22},${pfz1Pos.y - 18}
+                  ${pfz1Pos.x + 30},${pfz1Pos.y + 15}
+                  ${pfz1Pos.x - 18},${pfz1Pos.y + 18}
+                `}
+                fill="url(#pfzGrad1)"
+                stroke="#00E676"
+                strokeWidth="1.5"
+              />
+              <Polygon
+                points={`
+                  ${pfz2Pos.x - 20},${pfz2Pos.y - 15}
+                  ${pfz2Pos.x + 24},${pfz2Pos.y - 10}
+                  ${pfz2Pos.x + 18},${pfz2Pos.y + 20}
+                  ${pfz2Pos.x - 22},${pfz2Pos.y + 15}
+                `}
+                fill="url(#pfzGrad2)"
+                stroke="#00B0FF"
+                strokeWidth="1.5"
               />
             </G>
-          );
-        })}
+          )}
 
-        {/* HIGHLIGHTED ACTIVE OPERATING PORT */}
-        <G>
-          {/* Outer Pulsing Radar Ring */}
-          <Circle
-            cx={activePos.x}
-            cy={activePos.y}
-            r="16"
-            fill="none"
-            stroke="#4ADE80"
-            strokeWidth="1.5"
-            opacity="0.4"
-          />
-          <Circle
-            cx={activePos.x}
-            cy={activePos.y}
-            r="10"
-            fill="none"
-            stroke="#4ADE80"
-            strokeWidth="2"
-            opacity="0.7"
-          />
+          {/* All Coastal Ports Dots */}
+          {INDIAN_PORTS.map((p) => {
+            const pt = projectCoord(p.latitude, p.longitude, MAP_W, MAP_H);
+            if (p.name === activePort.name) return null;
+            return <Circle key={p.id} cx={pt.x} cy={pt.y} r="3" fill="#38BDF8" opacity="0.75" />;
+          })}
 
-          {/* Active Port Center Dot */}
-          <Circle
-            cx={activePos.x}
-            cy={activePos.y}
-            r="5"
-            fill="#22C55E"
-            stroke="#FFFFFF"
-            strokeWidth="1.5"
-          />
+          {/* HIGHLIGHTED ACTIVE OPERATING PORT */}
+          <G>
+            <Circle cx={activePos.x} cy={activePos.y} r="14" fill="none" stroke="#4ADE80" strokeWidth="1.5" opacity="0.4" />
+            <Circle cx={activePos.x} cy={activePos.y} r="8" fill="none" stroke="#4ADE80" strokeWidth="2" opacity="0.7" />
+            <Circle cx={activePos.x} cy={activePos.y} r="4" fill="#22C55E" stroke="#FFFFFF" strokeWidth="1.5" />
 
-          {/* Port Name Badge Card */}
-          <G x={Math.min(Math.max(activePos.x - 65, 10), MAP_W - 130)} y={Math.max(activePos.y - 35, 10)}>
-            <Rect
-              width="130"
-              height="24"
-              rx="6"
-              fill="#0F172A"
-              stroke="#22C55E"
-              strokeWidth="1.5"
-            />
-            <SvgText
-              x="65"
-              y="16"
-              fill="#FFFFFF"
-              fontSize="10"
-              fontWeight="bold"
-              textAnchor="middle"
-            >
-              📍 {activePort.name} ({activePort.state})
-            </SvgText>
-          </G>
-
-          {/* Active Vessel Marker Arrow */}
-          <G x={activePos.x} y={activePos.y + 12}>
-            <Circle cx="0" cy="0" r="10" fill="#0288D1" stroke="#FFFFFF" strokeWidth="1" />
-            <SvgText x="0" y="3" fill="#FFFFFF" fontSize="8" fontWeight="bold" textAnchor="middle">
-              ▲
-            </SvgText>
+            <G x={Math.min(Math.max(activePos.x - 65, 10), MAP_W - 130)} y={Math.max(activePos.y - 35, 10)}>
+              <Rect width="130" height="24" rx="6" fill="#0F172A" stroke="#22C55E" strokeWidth="1.5" />
+              <SvgText x="65" y="16" fill="#FFFFFF" fontSize="10" fontWeight="bold" textAnchor="middle">
+                📍 {activePort.name} ({activePort.state})
+              </SvgText>
+            </G>
           </G>
         </G>
       </Svg>
 
-      {/* Interactive Legend & Port Switcher Info Strip */}
+      {/* Info Strip */}
       <View style={styles.infoStrip}>
         <View style={styles.infoLeft}>
           <View style={styles.greenPulseDot} />
           <Text style={styles.infoText}>
-            ACTIVE PORT: <Text style={styles.boldText}>{activePort.name.toUpperCase()}</Text> ({activePort.state})
+            PORT: <Text style={styles.boldText}>{activePort.name.toUpperCase()}</Text> • ZOOM: {zoom}x
           </Text>
         </View>
         <Text style={styles.seaText}>{activePort.sea.toUpperCase()}</Text>
