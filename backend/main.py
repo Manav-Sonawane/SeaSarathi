@@ -58,6 +58,7 @@ class ChatRequest(BaseModel):
     latitude: float = 8.5       # Default: Kochi
     longitude: float = 76.2
     language: str = "en"        # en | hi | ta
+    profile: dict | None = None
 
 
 class ProfileRequest(BaseModel):
@@ -136,6 +137,7 @@ async def chat(request: ChatRequest):
                 "latitude": request.latitude,
                 "longitude": request.longitude,
                 "intent": "",
+                "profile": request.profile,
                 "risk_level": "LOW",
                 "wind_speed_10m": 0.0,
                 "wave_height": 0.0,

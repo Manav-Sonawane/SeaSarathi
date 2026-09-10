@@ -5,6 +5,7 @@ class AgentState(TypedDict):
     latitude: float
     longitude: float
     intent: str
+    profile: dict | None
 
     # Conditions
     risk_level: str

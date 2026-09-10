@@ -84,6 +84,7 @@ def response_node(state: AgentState) -> AgentState:
     geofence = state.get("geofence") or {}
     landing_options = state.get("landing_options") or []
     alerts = state.get("alerts", [])
+    profile = state.get("profile") or {}
 
     # Format data context for Sarvam
     conditions_text = (
@@ -137,6 +138,7 @@ def response_node(state: AgentState) -> AgentState:
     prompt = f"""You are a marine assistant for Indian fishermen.
 
 Data:
+Profile: Vessel: {profile.get('vessel_type', 'Unknown')} | Role: {profile.get('role', 'Unknown')} | Risk Tolerance: {profile.get('risk_tolerance', 'Unknown')}
 Risk Level: {risk_label}
 {conditions_text}
 {pfz_info}
@@ -146,7 +148,9 @@ Alerts: {active_alerts_text}
 
 User query: "{query}"
 
-Understand what the user is actually asking, then answer only that, using whatever data above is relevant to it. Leave out data that isn't relevant to the question. Answer in 2 lines.
+Understand what the user is actually asking, then answer only that, using whatever data above is relevant to it. Leave out data that isn't relevant to the question. Answer in 2 lines. 
+If the user's profile specifies a language other than English, make sure to output the response in that language.
+Ensure recommendations respect the user's {profile.get('risk_tolerance', 'Unknown')} risk tolerance and {profile.get('vessel_type', 'Unknown')} vessel capabilities.
 """
 
     try:
