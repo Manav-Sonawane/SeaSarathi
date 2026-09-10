@@ -1,6 +1,7 @@
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { DashboardScreen } from '../screens/DashboardScreen';
 import { ChatScreen } from '../screens/ChatScreen';
 import { MapScreen } from '../screens/MapScreen';
 import { PFZScreen } from '../screens/PFZScreen';
@@ -9,6 +10,7 @@ import { ProfileScreen } from '../screens/ProfileScreen';
 import { colors } from '../theme/colors';
 
 export type RootTabParamList = {
+  Dashboard: undefined;
   Chat: undefined;
   Map: undefined;
   PFZ: undefined;
@@ -46,6 +48,16 @@ export function RootNavigator() {
           },
         }}
       >
+        <Tab.Screen
+          name="Dashboard"
+          component={DashboardScreen}
+          options={{
+            title: 'Dashboard',
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="view-dashboard-outline" size={size} color={color} />
+            ),
+          }}
+        />
         <Tab.Screen
           name="Chat"
           component={ChatScreen}
