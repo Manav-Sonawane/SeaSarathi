@@ -20,9 +20,9 @@ export interface ChatResponse {
 }
 
 export const chatAPI = {
-  sendMessage: (query: string, latitude: number, longitude: number) =>
+  sendMessage: (query: string, latitude: number, longitude: number, profile?: any) =>
     api
-      .post('/chat', { query, latitude, longitude })
+      .post('/chat', { query, latitude, longitude, profile })
       .then((res) => {
         const raw = res.data || {};
         const rawWind = raw.wind_kmh ?? raw.wind_speed_10m ?? 18;

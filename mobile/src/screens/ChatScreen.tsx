@@ -24,7 +24,7 @@ interface Message {
 }
 
 export function ChatScreen({ navigation }: any) {
-  const { operatingPort, portInfo, getLanguageInfo, getVesselRangeKm, language } = useUserStore();
+  const { operatingPort, portInfo, getLanguageInfo, getVesselRangeKm, language, vesselType, riskTolerance, role } = useUserStore();
   const langInfo = getLanguageInfo();
   const vesselRange = getVesselRangeKm();
 
@@ -80,7 +80,8 @@ export function ChatScreen({ navigation }: any) {
     setLoading(true);
 
     try {
-      const res = await chatAPI.sendMessage(textToSend, portInfo.latitude, portInfo.longitude);
+      const profile = { vessel_type: vesselType, risk_tolerance: riskTolerance, role, language };
+      const res = await chatAPI.sendMessage(textToSend, portInfo.latitude, portInfo.longitude, profile);
 
       const sysMsg: Message = {
         id: (Date.now() + 1).toString(),
