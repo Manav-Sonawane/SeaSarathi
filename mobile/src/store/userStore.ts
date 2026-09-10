@@ -68,15 +68,15 @@ export const useUserStore = create<UserProfileState>((set, get) => ({
     const { vesselType } = get();
     switch (vesselType) {
       case 'small':
-        return 15;
+        return 9;
       case 'medium':
-        return 35;
+        return 22;
       case 'large':
-        return 75;
+        return 370;
       case 'union':
-        return 100;
+        return 500;
       default:
-        return 35;
+        return 22;
     }
   },
 

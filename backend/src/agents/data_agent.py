@@ -30,6 +30,8 @@ async def data_agent(state: AgentState) -> AgentState:
     """
     lat = state["latitude"]
     lon = state["longitude"]
+    profile = state.get("profile") or {}
+    vessel_type = profile.get("vessel_type", "medium")
 
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     data_static_dir = os.path.join(base_dir, "data", "static")
@@ -49,8 +51,16 @@ async def data_agent(state: AgentState) -> AgentState:
     sources = []
 
     # ── 1. Nearest Potential Fishing Zone (PFZ) ────────────────────────────────
-    # Rule: Always return the nearest PFZ, ignoring distance limits as per user request.
-    PFZ_MAX_DISTANCE_KM = 99999.0
+    # Rule: Limit PFZ distance based on the user's vessel type constraints.
+    if vessel_type == "small":
+        PFZ_MAX_DISTANCE_KM = 9.0
+    elif vessel_type == "medium":
+        PFZ_MAX_DISTANCE_KM = 22.0
+    elif vessel_type == "large":
+        PFZ_MAX_DISTANCE_KM = 370.0
+    else:
+        PFZ_MAX_DISTANCE_KM = 500.0
+
 
     nearest_pfz = None
     local_fishing_area = None
