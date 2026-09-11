@@ -23,37 +23,7 @@
 import { offlineAPI, OfflineBundle } from './api';
 import { saveMapCacheFromBundle, clearMapCacheDb } from './mapCacheDb';
 
-const safeAsyncStorage = {
-  getItem: async (key: string): Promise<string | null> => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        return window.localStorage.getItem(key);
-      }
-    } catch {}
-    return null;
-  },
-  setItem: async (key: string, value: string): Promise<void> => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.setItem(key, value);
-      }
-    } catch {}
-  },
-  removeItem: async (key: string): Promise<void> => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        window.localStorage.removeItem(key);
-      }
-    } catch {}
-  },
-  multiRemove: async (keys: string[]): Promise<void> => {
-    try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        keys.forEach((k) => window.localStorage.removeItem(k));
-      }
-    } catch {}
-  },
-};
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BUNDLE_KEY = 'seasarathi_offline_bundle';
 const BUNDLE_META_KEY = 'seasarathi_offline_bundle_meta';
@@ -85,8 +55,8 @@ export async function downloadOfflineBundle(
     tripDays,
   };
 
-  await safeAsyncStorage.setItem(BUNDLE_KEY, JSON.stringify(bundle));
-  await safeAsyncStorage.setItem(BUNDLE_META_KEY, JSON.stringify(meta));
+  await AsyncStorage.setItem(BUNDLE_KEY, JSON.stringify(bundle));
+  await AsyncStorage.setItem(BUNDLE_META_KEY, JSON.stringify(meta));
 
   // Persist the map geometry portion into SQLite too (see mapCacheDb.ts) —
   // best-effort: a failure here (e.g. web, no native SQLite) must not fail
@@ -102,7 +72,7 @@ export async function downloadOfflineBundle(
 
 export async function getBundleMeta(): Promise<BundleMeta | null> {
   try {
-    const raw = await safeAsyncStorage.getItem(BUNDLE_META_KEY);
+    const raw = await AsyncStorage.getItem(BUNDLE_META_KEY);
     return raw ? (JSON.parse(raw) as BundleMeta) : null;
   } catch {
     return null;
@@ -117,7 +87,7 @@ export async function isBundleValid(): Promise<boolean> {
 
 export async function getCachedBundleForOffline(): Promise<OfflineBundle | null> {
   try {
-    const raw = await safeAsyncStorage.getItem(BUNDLE_KEY);
+    const raw = await AsyncStorage.getItem(BUNDLE_KEY);
     return raw ? (JSON.parse(raw) as OfflineBundle) : null;
   } catch {
     return null;
@@ -125,7 +95,7 @@ export async function getCachedBundleForOffline(): Promise<OfflineBundle | null>
 }
 
 export async function clearOfflineBundle(): Promise<void> {
-  await safeAsyncStorage.multiRemove([BUNDLE_KEY, BUNDLE_META_KEY]);
+  await AsyncStorage.multiRemove([BUNDLE_KEY, BUNDLE_META_KEY]);
   await clearMapCacheDb();
 }
 
