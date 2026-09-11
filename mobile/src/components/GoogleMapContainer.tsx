@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Image, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Image, Animated, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useIsFocused } from '@react-navigation/native';
 import { PortInfo } from '../constants/portsAndLanguages';
 import { colors } from '../theme/colors';
 import { IndiaMapCanvas } from './IndiaMapCanvas';
+import { RiskHeatmapFeature } from '../services/api';
 
 interface GoogleMapContainerProps {
   activePort: PortInfo;
@@ -18,6 +19,11 @@ interface GoogleMapContainerProps {
   zoom?: number;
   panOffset?: { x: number; y: number };
   isMapHovered?: boolean;
+  // Risk heatmap overlay (backend/src/services/risk_heatmap.py via /geojson/risk)
+  riskPoints?: RiskHeatmapFeature[];
+  riskSummary?: { LOW: number; MODERATE: number; HIGH: number } | null;
+  riskLoading?: boolean;
+  riskError?: string;
 }
 
 const GOOGLE_MAPS_KEY =
@@ -30,6 +36,10 @@ export function GoogleMapContainer({
   zoom = 11,
   panOffset = { x: 0, y: 0 },
   isMapHovered = false,
+  riskPoints = [],
+  riskSummary = null,
+  riskLoading = false,
+  riskError = '',
 }: GoogleMapContainerProps) {
   const [mapMode, setMapMode] = useState<'satellite' | 'vector'>('satellite');
   const isFocused = useIsFocused();
@@ -69,11 +79,66 @@ export function GoogleMapContainer({
     return () => clearTimeout(timer);
   }, [centerLat, centerLon]);
 
+  // Risk heatmap overlay markers (real risk_heatmap.py data, capped upstream
+  // in MapScreen.tsx to keep this URL well under Static Maps' length limit).
+  // One `markers=` param per point so each can carry its own risk color —
+  // Static Maps has no "circle with opacity" primitive, so a small colored
+  // pin per grid point is the closest honest approximation this API allows.
+  const riskMarkersParam = layers.risk
+    ? riskPoints
+        .map((f) => {
+          const [lon, lat] = f.geometry.coordinates;
+          const hex = f.properties.color.replace('#', '0x');
+          return `&markers=color:${hex}%7Csize:small%7C${lat},${lon}`;
+        })
+        .join('')
+    : '';
+
   // Google Maps Static Satellite Image with Port Marker
-  const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLon}&zoom=${zoom}&size=640x480&scale=2&maptype=hybrid&markers=color:red%7Clabel:P%7C${activePort.latitude},${activePort.longitude}&key=${GOOGLE_MAPS_KEY}`;
+  const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLon}&zoom=${zoom}&size=640x480&scale=2&maptype=hybrid&markers=color:red%7Clabel:P%7C${activePort.latitude},${activePort.longitude}${riskMarkersParam}&key=${GOOGLE_MAPS_KEY}`;
 
   // Google Maps Interactive Embed iframe URL with debounced center
   const embedUrl = `https://www.google.com/maps/embed/v1/view?key=${GOOGLE_MAPS_KEY}&center=${stableLat},${stableLon}&zoom=${zoom}&maptype=satellite`;
+
+  // Risk legend/summary — shared between the web (Embed API can't render
+  // custom markers, so this is the ONLY risk info shown there) and native
+  // (markers are on the image itself; this just adds the count/legend) paths.
+  const renderRiskLegend = () => {
+    if (!layers.risk) return null;
+    if (riskLoading) {
+      return (
+        <View style={styles.riskLegendBox}>
+          <ActivityIndicator size="small" color={colors.white} />
+          <Text style={styles.riskLegendText}>Loading risk overlay…</Text>
+        </View>
+      );
+    }
+    if (riskError) {
+      return (
+        <View style={styles.riskLegendBox}>
+          <Ionicons name="alert-circle-outline" size={13} color="#FCA5A5" />
+          <Text style={styles.riskLegendText}>{riskError}</Text>
+        </View>
+      );
+    }
+    if (!riskSummary) return null;
+    return (
+      <View style={styles.riskLegendBox}>
+        <View style={styles.riskLegendDot}>
+          <View style={[styles.riskDot, { backgroundColor: '#00C853' }]} />
+          <Text style={styles.riskLegendText}>{riskSummary.LOW} Safe</Text>
+        </View>
+        <View style={styles.riskLegendDot}>
+          <View style={[styles.riskDot, { backgroundColor: '#FFB300' }]} />
+          <Text style={styles.riskLegendText}>{riskSummary.MODERATE} Caution</Text>
+        </View>
+        <View style={styles.riskLegendDot}>
+          <View style={[styles.riskDot, { backgroundColor: '#D50000' }]} />
+          <Text style={styles.riskLegendText}>{riskSummary.HIGH} Danger</Text>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -157,6 +222,8 @@ export function GoogleMapContainer({
                   </View>
                 </View>
 
+                {renderRiskLegend()}
+
                 {/* Geofence Overlay Warning with Slow Fade Transition */}
                 {layers.geofence && (
                   <Animated.View style={[styles.geofenceBadge, { opacity: alertAnim }]}>
@@ -195,12 +262,15 @@ export function GoogleMapContainer({
           <View style={styles.nativeImageContainer}>
             <Image source={{ uri: staticMapUrl }} style={styles.staticImage} resizeMode="cover" />
             {!isMapHovered && (
-              <View style={styles.gpsBanner}>
-                <Ionicons name="location-sharp" size={16} color="#EA4335" />
-                <Text style={styles.gpsBannerTitle}>
-                  {activePort.name} ({centerLat}° N, {centerLon}° E) • Zoom: {zoom}x
-                </Text>
-              </View>
+              <>
+                <View style={styles.gpsBanner}>
+                  <Ionicons name="location-sharp" size={16} color="#EA4335" />
+                  <Text style={styles.gpsBannerTitle}>
+                    {activePort.name} ({centerLat}° N, {centerLon}° E) • Zoom: {zoom}x
+                  </Text>
+                </View>
+                {renderRiskLegend()}
+              </>
             )}
           </View>
         )}
@@ -302,6 +372,33 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#38BDF8',
     marginTop: 1,
+  },
+  riskLegendBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    borderRadius: 8,
+    padding: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+    alignSelf: 'flex-start',
+  },
+  riskLegendDot: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  riskDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  riskLegendText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFFFFF',
   },
   geofenceBadge: {
     backgroundColor: 'rgba(220, 38, 38, 0.9)',

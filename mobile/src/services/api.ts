@@ -102,9 +102,45 @@ export const alertsAPI = {
       .then((res) => res.data.alerts || []),
 };
 
+export interface RiskHeatmapFeature {
+  type: 'Feature';
+  geometry: { type: 'Point'; coordinates: [number, number] }; // [lon, lat]
+  properties: {
+    risk_score: number;
+    risk_level: 'LOW' | 'MODERATE' | 'HIGH';
+    color: string;
+    opacity: number;
+    wind_speed_10m: number;
+    wave_height: number;
+    precipitation: number;
+    lightning: boolean;
+    cyclone: boolean;
+    sst_c: number | null;
+    chlorophyll: number | null;
+    data_source: string;
+    generated_at: string;
+  };
+}
+
+export interface RiskHeatmapResponse {
+  type: 'FeatureCollection';
+  features: RiskHeatmapFeature[];
+  metadata: {
+    total_points: number;
+    resolution_deg: number;
+    generated_at: string;
+    generation_time_s: number;
+    risk_counts: { LOW: number; MODERATE: number; HIGH: number };
+    color_legend: Record<string, { color: string; label: string }>;
+  };
+}
+
 export const geojsonAPI = {
   getPFZ: () => api.get('/geojson/pfz').then((res) => res.data),
-  getRisk: () => api.get('/geojson/risk').then((res) => res.data),
+  getRisk: (resolution = 1.0) =>
+    api
+      .get<RiskHeatmapResponse>('/geojson/risk', { params: { resolution } })
+      .then((res) => res.data),
 };
 
 export interface ProfilePayload {

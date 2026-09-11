@@ -18,6 +18,22 @@ import { INDIAN_PORTS } from '../constants/portsAndLanguages';
 import { useNetworkStore } from '../store/networkStore';
 import { downloadOfflineBundle, formatRelativeTime } from '../services/offlineService';
 import { getMapCacheMeta, MapCacheMeta } from '../services/mapCacheDb';
+import { geojsonAPI, RiskHeatmapFeature, RiskHeatmapResponse } from '../services/api';
+
+// Static Maps API URLs have a practical length ceiling — cap how many risk
+// markers get appended so we never build an oversized/rejected image request.
+const MAX_RISK_MARKERS = 40;
+
+function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371.0;
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
 
 let MapView: any = null;
 let Polygon: any = null;
@@ -107,6 +123,39 @@ export function MapScreen({ navigation }: any) {
     geofence: true,
     bathymetry: true,
   });
+
+  // Risk heatmap overlay (backend: src/services/risk_heatmap.py via
+  // GET /geojson/risk, 30-min server-side cache). Fetched only while the
+  // Risk layer toggle is on and only over a live connection — this map
+  // screen has no offline fallback for it (nothing cached for it yet), so a
+  // failed/offline fetch just means no dots, not a crash or stale display.
+  const [riskData, setRiskData] = useState<RiskHeatmapResponse | null>(null);
+  const [riskLoading, setRiskLoading] = useState(false);
+  const [riskError, setRiskError] = useState('');
+
+  useEffect(() => {
+    if (!layers.risk || !isOnline || riskData || riskLoading) return;
+    setRiskLoading(true);
+    setRiskError('');
+    geojsonAPI
+      .getRisk(1.0)
+      .then(setRiskData)
+      .catch(() => setRiskError('Could not load risk overlay.'))
+      .finally(() => setRiskLoading(false));
+  }, [layers.risk, isOnline]);
+
+  // Nearest points only — keeps the native Static Maps marker URL short and
+  // keeps the overlay relevant to where the fisherman actually is, rather
+  // than plotting all ~150-800 EEZ-wide grid points at once.
+  const nearestRiskFeatures: RiskHeatmapFeature[] = riskData
+    ? [...riskData.features]
+        .sort(
+          (a, b) =>
+            haversineKm(portInfo.latitude, portInfo.longitude, a.geometry.coordinates[1], a.geometry.coordinates[0]) -
+            haversineKm(portInfo.latitude, portInfo.longitude, b.geometry.coordinates[1], b.geometry.coordinates[0])
+        )
+        .slice(0, MAX_RISK_MARKERS)
+    : [];
 
   const [selectedZone, setSelectedZone] = useState<any>({
     name: `PFZ-${portInfo.name.substring(0, 3).toUpperCase()}-14`,
@@ -305,6 +354,10 @@ export function MapScreen({ navigation }: any) {
             zoom={zoom}
             panOffset={panOffset}
             isMapHovered={isMapHovered}
+            riskPoints={nearestRiskFeatures}
+            riskSummary={riskData?.metadata.risk_counts ?? null}
+            riskLoading={riskLoading}
+            riskError={riskError}
           />
         )}
 
