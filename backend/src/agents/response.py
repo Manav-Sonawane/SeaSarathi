@@ -1,6 +1,20 @@
 from src.agents.state import AgentState
 from src.services.sarvam_client import sarvam_generate
 
+# Matches mobile/src/constants/portsAndLanguages.ts's language codes exactly.
+LANGUAGE_NAMES = {
+    "en": "English",
+    "ml": "Malayalam",
+    "ta": "Tamil",
+    "te": "Telugu",
+    "bn": "Bengali",
+    "gu": "Gujarati",
+    "mr": "Marathi",
+    "or": "Odia",
+    "kn": "Kannada",
+    "hi": "Hindi",
+}
+
 
 def get_dynamic_fallback(
     risk: str,
@@ -135,6 +149,14 @@ def response_node(state: AgentState) -> AgentState:
         "HIGH": "HIGH RISK (Do not venture out)",
     }.get(risk, "UNKNOWN")
 
+    # `profile["language"]` is set per-request by the mobile client to whatever
+    # script the user actually typed the query in (see ChatScreen.tsx's
+    # detectQueryLanguage) — NOT necessarily their saved profile default. This
+    # is what makes a Malayalam-typed query get a Malayalam answer even if the
+    # fisherman's profile is set to English, and vice versa.
+    language_code = profile.get("language", "en") or "en"
+    language_name = LANGUAGE_NAMES.get(language_code, "English")
+
     prompt = f"""You are a marine assistant for Indian fishermen.
 
 Data:
@@ -148,9 +170,9 @@ Alerts: {active_alerts_text}
 
 User query: "{query}"
 
-Understand what the user is actually asking, then answer only that, using whatever data above is relevant to it. Leave out data that isn't relevant to the question. Answer in 2 lines. 
+Understand what the user is actually asking, then answer only that, using whatever data above is relevant to it. Leave out data that isn't relevant to the question. Answer in 2 lines.
 If the Risk Level is HIGH, you MUST start your response by explicitly stating the reason why it is high (e.g. dangerous wind speed, high waves, or alerts) before answering their question.
-If the user's profile specifies a language other than English, make sure to output the response in that language.
+Respond ONLY in {language_name} ({language_code}), regardless of what language this prompt or the data above is written in. Do not mix in English words except technical units (km/h, m, °C) that don't translate.
 Ensure recommendations respect the user's {profile.get('risk_tolerance', 'Unknown')} risk tolerance and {profile.get('vessel_type', 'Unknown')} vessel capabilities.
 """
 

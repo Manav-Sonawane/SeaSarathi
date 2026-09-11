@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
@@ -8,12 +8,16 @@ import {
   StatusBar,
   Platform,
   PanResponder,
+  ActivityIndicator,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/userStore';
 import { GoogleMapContainer } from '../components/GoogleMapContainer';
 import { INDIAN_PORTS } from '../constants/portsAndLanguages';
+import { useNetworkStore } from '../store/networkStore';
+import { downloadOfflineBundle, formatRelativeTime } from '../services/offlineService';
+import { getMapCacheMeta, MapCacheMeta } from '../services/mapCacheDb';
 
 let MapView: any = null;
 let Polygon: any = null;
@@ -34,6 +38,39 @@ if (Platform.OS !== 'web') {
 
 export function MapScreen({ navigation }: any) {
   const { operatingPort, portInfo } = useUserStore();
+  const isOnline = useNetworkStore((s) => s.isOnline);
+
+  // Offline map caching (SQLite via mapCacheDb.ts) — pre-fetch trigger so a
+  // fisherman can cache this port's PFZ zones/boundaries/landing centers
+  // before losing signal, without having to go find the same button buried
+  // in Profile. Downloads the same offline bundle Profile's button does —
+  // one shared cache, two entry points to it.
+  const [mapCacheMeta, setMapCacheMeta] = useState<MapCacheMeta | null>(null);
+  const [cachingMap, setCachingMap] = useState(false);
+  const [cacheError, setCacheError] = useState('');
+
+  useEffect(() => {
+    getMapCacheMeta().then(setMapCacheMeta);
+  }, []);
+
+  const handleCacheMap = async () => {
+    if (!isOnline) {
+      setCacheError('Connect to the internet to cache this area for offline use.');
+      setTimeout(() => setCacheError(''), 3000);
+      return;
+    }
+    setCachingMap(true);
+    setCacheError('');
+    try {
+      await downloadOfflineBundle(portInfo.latitude, portInfo.longitude, 5);
+      setMapCacheMeta(await getMapCacheMeta());
+    } catch {
+      setCacheError('Could not cache map data — try again.');
+      setTimeout(() => setCacheError(''), 3000);
+    } finally {
+      setCachingMap(false);
+    }
+  };
 
   const [hudOpen, setHudOpen] = useState(false);
   const [zoom, setZoom] = useState(11);
@@ -310,6 +347,39 @@ export function MapScreen({ navigation }: any) {
         {/* Floating Layer Controls Drawer (Top Right) - Hides when hovering map */}
         {!isMapHovered && (
           <View style={styles.topRightControls}>
+            {/* Offline map cache pre-fetch trigger */}
+            <TouchableOpacity
+              style={[styles.cacheMapBtn, (cachingMap || !isOnline) && { opacity: 0.7 }]}
+              onPress={handleCacheMap}
+              disabled={cachingMap}
+              activeOpacity={0.8}
+            >
+              {cachingMap ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <Ionicons
+                  name={mapCacheMeta ? 'checkmark-circle' : 'cloud-download-outline'}
+                  size={14}
+                  color={mapCacheMeta ? '#4ADE80' : colors.secondaryContainer}
+                />
+              )}
+              <Text style={styles.cacheMapBtnText}>
+                {cachingMap
+                  ? 'Caching map…'
+                  : !isOnline
+                    ? 'Offline'
+                    : mapCacheMeta
+                      ? `Cached ${formatRelativeTime(mapCacheMeta.syncedAt)}`
+                      : 'Cache map for offline'}
+              </Text>
+            </TouchableOpacity>
+
+            {cacheError ? (
+              <View style={styles.cacheErrorBanner}>
+                <Text style={styles.cacheErrorText}>{cacheError}</Text>
+              </View>
+            ) : null}
+
             <TouchableOpacity
               style={styles.hudTriggerBtn}
               onPress={() => setHudOpen(!hudOpen)}
@@ -536,6 +606,34 @@ const styles = StyleSheet.create({
     top: 14,
     right: 14,
     alignItems: 'flex-end',
+    gap: 8,
+  },
+  cacheMapBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.inverseSurface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    elevation: 4,
+  },
+  cacheMapBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.inverseOnSurface,
+  },
+  cacheErrorBanner: {
+    backgroundColor: 'rgba(220, 38, 38, 0.95)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    maxWidth: 220,
+  },
+  cacheErrorText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.white,
   },
   hudTriggerBtn: {
     flexDirection: 'row',

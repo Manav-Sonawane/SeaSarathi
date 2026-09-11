@@ -409,7 +409,7 @@ export interface OfflineAlert {
  * weather alerts are recomputed from the cached forecast window using the
  * exact same thresholds the backend's /alerts endpoint uses.
  */
-export function buildOfflineAlerts(bundle: OfflineBundle, lat: number, lon: number): OfflineAlert[] {
+export function buildOfflineAlerts(bundle: OfflineBundle, _lat: number, _lon: number): OfflineAlert[] {
   const alerts: OfflineAlert[] = [];
 
   for (const a of bundle.dynamic?.geofence_alerts || []) {

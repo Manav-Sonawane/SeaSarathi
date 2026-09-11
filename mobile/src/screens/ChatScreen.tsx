@@ -16,6 +16,8 @@ import { chatAPI, ChatResponse } from '../services/api';
 import { useUserStore } from '../store/userStore';
 import { getCachedBundleForOffline, buildOfflineChatAnswer, formatRelativeTime } from '../services/offlineService';
 import { useNetworkStore } from '../store/networkStore';
+import { detectQueryLanguage } from '../utils/languageDetection';
+import { INDIAN_LANGUAGES } from '../constants/portsAndLanguages';
 
 interface Message {
   id: string;
@@ -85,13 +87,20 @@ export function ChatScreen({ navigation }: any) {
     setQuery('');
     setLoading(true);
 
+    // Respond in whatever language this message was actually typed in — not
+    // necessarily the profile's saved default (a fisherman might type one
+    // question in Malayalam and the next in English). Deterministic script
+    // detection, see languageDetection.ts.
+    const queryLanguage = detectQueryLanguage(textToSend);
+    const queryLangInfo = INDIAN_LANGUAGES.find((l) => l.code === queryLanguage) || langInfo;
+
     try {
       // Known offline (UPDATE.md 3.4 "automatic switch to offline mode") —
       // skip straight to the cached fallback instead of waiting out a 60s
       // request timeout on a connection we already know has no signal.
       if (!isOnline) throw new Error('No network connection (known offline)');
 
-      const profile = { vessel_type: vesselType, risk_tolerance: riskTolerance, role, language };
+      const profile = { vessel_type: vesselType, risk_tolerance: riskTolerance, role, language: queryLanguage };
       const res = await chatAPI.sendMessage(textToSend, portInfo.latitude, portInfo.longitude, profile);
 
       const sysMsg: Message = {
@@ -100,12 +109,13 @@ export function ChatScreen({ navigation }: any) {
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
         // Show the backend's actual (Sarvam-generated) recommendation as-is.
         // Only fall back to the static localized template if the backend
-        // returned no text at all (e.g. an empty string).
+        // returned no text at all (e.g. an empty string) — and even then,
+        // in the language the query was actually typed in.
         data: {
           ...res,
           recommendation:
             res.recommendation ||
-            langInfo.getAdvisory(portInfo.name, res.risk_level, res.wind_kmh, res.wave_m, vesselRange),
+            queryLangInfo.getAdvisory(portInfo.name, res.risk_level, res.wind_kmh, res.wave_m, vesselRange),
         },
       };
       setMessages((prev) => [...prev, sysMsg]);
@@ -138,7 +148,7 @@ export function ChatScreen({ navigation }: any) {
           rainfall_mm: 0.0,
           lightning: false,
           cyclone: false,
-          recommendation: langInfo.getAdvisory(portInfo.name, 'LOW', 16, 1.1, vesselRange),
+          recommendation: queryLangInfo.getAdvisory(portInfo.name, 'LOW', 16, 1.1, vesselRange),
           confidence: 85,
           sources: [],
           sst_c: null,
