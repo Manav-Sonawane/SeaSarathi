@@ -14,7 +14,8 @@ import { colors } from '../theme/colors';
 import { alertsAPI, Alert } from '../services/api';
 
 import { useUserStore } from '../store/userStore';
-import { getCachedBundleForOffline, buildOfflineAlerts } from '../services/offlineService';
+import { getCachedBundleForOffline, buildOfflineAlerts, formatRelativeTime } from '../services/offlineService';
+import { useNetworkStore } from '../store/networkStore';
 
 // Static example cards shown only until the first /alerts response (live or
 // cached) arrives, so the screen isn't empty on first paint.
@@ -63,8 +64,10 @@ export function AlertsScreen({ navigation }: any) {
   const { operatingPort, portInfo, getLanguageInfo } = useUserStore();
   const langInfo = getLanguageInfo();
 
+  const isOnline = useNetworkStore((s) => s.isOnline);
   const [loading, setLoading] = useState(false);
   const [isOfflineData, setIsOfflineData] = useState(false);
+  const [offlineAsOf, setOfflineAsOf] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'critical' | 'advisory' | 'navigational'>('all');
   const [acknowledged, setAcknowledged] = useState(false);
 
@@ -77,6 +80,7 @@ export function AlertsScreen({ navigation }: any) {
   const loadAlerts = async () => {
     setLoading(true);
     try {
+      if (!isOnline) throw new Error('No network connection (known offline)');
       const data = await alertsAPI.getAlerts(portInfo.latitude, portInfo.longitude);
       // Show the backend's real alert list as-is (empty list = no active alerts,
       // which is a valid, meaningful result — not treated as a failure).
@@ -90,6 +94,7 @@ export function AlertsScreen({ navigation }: any) {
           const offlineAlerts = buildOfflineAlerts(bundle, portInfo.latitude, portInfo.longitude);
           setAlertsList(offlineAlerts.map((a, idx) => alertToCard(a as unknown as Alert, idx, portInfo)));
           setIsOfflineData(true);
+          setOfflineAsOf(bundle.metadata.created);
         }
       } catch {
         // No cached bundle either — leave the placeholder cards showing.
@@ -189,7 +194,7 @@ export function AlertsScreen({ navigation }: any) {
           <View style={styles.offlineBanner}>
             <Ionicons name="cloud-offline-outline" size={14} color={colors.tertiary} />
             <Text style={styles.offlineBannerText}>
-              OFFLINE — alerts recomputed from your last downloaded forecast, not live data
+              OFFLINE mode (last updated: {formatRelativeTime(offlineAsOf)}) — recomputed from cached forecast
             </Text>
           </View>
         )}

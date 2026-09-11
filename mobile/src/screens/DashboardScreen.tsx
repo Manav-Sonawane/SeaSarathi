@@ -13,7 +13,8 @@ import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-ic
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/userStore';
 import { chatAPI, ChatResponse, Alert } from '../services/api';
-import { getCachedBundleForOffline, buildOfflineChatAnswer } from '../services/offlineService';
+import { getCachedBundleForOffline, buildOfflineChatAnswer, formatRelativeTime } from '../services/offlineService';
+import { useNetworkStore } from '../store/networkStore';
 
 interface FishAvailability {
   id: string;
@@ -44,8 +45,10 @@ export function DashboardScreen({ navigation }: any) {
     }));
   };
 
+  const isOnline = useNetworkStore((s) => s.isOnline);
   const [loading, setLoading] = useState(false);
   const [isOfflineData, setIsOfflineData] = useState(false);
+  const [offlineAsOf, setOfflineAsOf] = useState<string | null>(null);
   const [conditions, setConditions] = useState<ChatResponse | null>(null);
 
   useEffect(() => {
@@ -55,6 +58,7 @@ export function DashboardScreen({ navigation }: any) {
   const loadConditions = async () => {
     setLoading(true);
     try {
+      if (!isOnline) throw new Error('No network connection (known offline)');
       const profile = { vessel_type: vesselType, risk_tolerance: riskTolerance, role, language };
       const res = await chatAPI.sendMessage(
         `${langInfo.presets.safety} (${portInfo.name})`,
@@ -77,6 +81,7 @@ export function DashboardScreen({ navigation }: any) {
           );
           setConditions(offlineAnswer);
           setIsOfflineData(true);
+          setOfflineAsOf(bundle.metadata.created);
         }
       } catch {
         // No cached bundle either — leave whatever was last shown (or null on first load).
@@ -238,7 +243,7 @@ export function DashboardScreen({ navigation }: any) {
           <View style={styles.offlineBanner}>
             <Ionicons name="cloud-offline-outline" size={14} color={colors.tertiary} />
             <Text style={styles.offlineBannerText}>
-              Showing last downloaded data, not a live reading — reconnect to refresh.
+              OFFLINE mode (last updated: {formatRelativeTime(offlineAsOf)})
             </Text>
           </View>
         )}

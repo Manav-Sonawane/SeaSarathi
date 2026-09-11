@@ -14,15 +14,18 @@ import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-ic
 import { colors } from '../theme/colors';
 import { pfzAPI } from '../services/api';
 import { useUserStore } from '../store/userStore';
-import { getCachedBundleForOffline, findNearestZonesOffline } from '../services/offlineService';
+import { getCachedBundleForOffline, findNearestZonesOffline, formatRelativeTime } from '../services/offlineService';
+import { useNetworkStore } from '../store/networkStore';
 
 export function PFZScreen({ navigation }: any) {
   const { vesselType, getVesselRangeKm, operatingPort, portInfo, getLanguageInfo } = useUserStore();
   const langInfo = getLanguageInfo();
   const maxRangeKm = getVesselRangeKm();
 
+  const isOnline = useNetworkStore((s) => s.isOnline);
   const [loading, setLoading] = useState(false);
   const [isOfflineData, setIsOfflineData] = useState(false);
+  const [offlineAsOf, setOfflineAsOf] = useState<string | null>(null);
   const [selectedInspectZone, setSelectedInspectZone] = useState<any>(null);
 
   const [zones, setZones] = useState<any[]>([
@@ -84,6 +87,7 @@ export function PFZScreen({ navigation }: any) {
   const loadZones = async () => {
     setLoading(true);
     try {
+      if (!isOnline) throw new Error('No network connection (known offline)');
       const data = await pfzAPI.getNearest(portInfo.latitude, portInfo.longitude);
       if (data && data.length > 0) {
         const formatted = data.map((z, idx) => ({
@@ -131,6 +135,7 @@ export function PFZScreen({ navigation }: any) {
             }));
             setZones(formatted);
             setIsOfflineData(true);
+            setOfflineAsOf(bundle.metadata.created);
           }
         }
       } catch {
@@ -203,7 +208,7 @@ export function PFZScreen({ navigation }: any) {
           <View style={styles.offlineBanner}>
             <Ionicons name="cloud-offline-outline" size={14} color={colors.tertiary} />
             <Text style={styles.offlineBannerText}>
-              OFFLINE — zone locations from your last download; SST/chlorophyll need a live connection
+              OFFLINE mode (last updated: {formatRelativeTime(offlineAsOf)}) — SST/chlorophyll need a live connection
             </Text>
           </View>
         )}

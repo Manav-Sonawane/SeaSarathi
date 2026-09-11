@@ -22,6 +22,7 @@
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { offlineAPI, OfflineBundle } from './api';
+import { saveMapCacheFromBundle, clearMapCacheDb } from './mapCacheDb';
 
 const BUNDLE_KEY = 'seasarathi_offline_bundle';
 const BUNDLE_META_KEY = 'seasarathi_offline_bundle_meta';
@@ -55,6 +56,17 @@ export async function downloadOfflineBundle(
 
   await AsyncStorage.setItem(BUNDLE_KEY, JSON.stringify(bundle));
   await AsyncStorage.setItem(BUNDLE_META_KEY, JSON.stringify(meta));
+
+  // Persist the map geometry portion into SQLite too (see mapCacheDb.ts) —
+  // best-effort: a failure here (e.g. web, no native SQLite) must not fail
+  // the bundle download itself, since the AsyncStorage copy above already
+  // has everything the chat/PFZ/alerts fallbacks need.
+  try {
+    await saveMapCacheFromBundle(bundle);
+  } catch (e) {
+    console.error('[offlineService] Map cache DB write failed (non-fatal):', e);
+  }
+
   return meta;
 }
 
@@ -84,6 +96,48 @@ export async function getCachedBundleForOffline(): Promise<OfflineBundle | null>
 
 export async function clearOfflineBundle(): Promise<void> {
   await AsyncStorage.multiRemove([BUNDLE_KEY, BUNDLE_META_KEY]);
+  await clearMapCacheDb();
+}
+
+// ── "Offline mode (last updated: 2 hours ago)" — UPDATE.md 3.4 ──────────────
+
+export function formatRelativeTime(iso: string | null | undefined): string {
+  if (!iso) return 'unknown time';
+  const ms = Date.now() - new Date(iso).getTime();
+  if (ms < 0 || Number.isNaN(ms)) return 'unknown time';
+  const minutes = Math.floor(ms / 60000);
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} min${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+// ── Auto re-sync on reconnect — UPDATE.md 3.4 "Return to Shore" behavior ────
+//
+// Deliberately conservative: only re-downloads automatically when a bundle
+// the user already opted into already exists locally — never spends a
+// first-time user's mobile data without an explicit tap on "Download Offline
+// Bundle". Re-syncing an *existing* bundle on reconnect is a refresh of data
+// the user already chose to have offline, not a new consent decision.
+const AUTO_RESYNC_MIN_INTERVAL_MS = 60 * 60 * 1000; // don't re-sync more than hourly
+
+export async function autoResyncIfNeeded(): Promise<BundleMeta | null> {
+  const meta = await getBundleMeta();
+  if (!meta) return null; // no existing offline bundle — nothing to refresh
+
+  const ageMs = Date.now() - new Date(meta.createdAt).getTime();
+  if (ageMs < AUTO_RESYNC_MIN_INTERVAL_MS) return null; // still fresh enough
+
+  try {
+    return await downloadOfflineBundle(meta.latitude, meta.longitude, meta.tripDays);
+  } catch {
+    // Reconnect was flaky or backend unreachable — keep the existing bundle,
+    // try again on the next reconnect event rather than surfacing an error
+    // for a background operation the user didn't initiate.
+    return null;
+  }
 }
 
 // ── Geo helpers (port of backend/src/utils/geo.py) ──────────────────────────

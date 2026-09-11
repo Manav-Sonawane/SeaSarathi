@@ -19,8 +19,11 @@ import {
   downloadOfflineBundle,
   getBundleMeta,
   clearOfflineBundle,
+  formatRelativeTime,
   BundleMeta,
 } from '../services/offlineService';
+import { getMapCacheMeta, MapCacheMeta } from '../services/mapCacheDb';
+import { useNetworkStore } from '../store/networkStore';
 
 export function ProfileScreen() {
   const {
@@ -48,21 +51,29 @@ export function ProfileScreen() {
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  const isOnline = useNetworkStore((s) => s.isOnline);
   const [bundleMeta, setBundleMeta] = useState<BundleMeta | null>(null);
+  const [mapCacheMeta, setMapCacheMeta] = useState<MapCacheMeta | null>(null);
   const [downloadingBundle, setDownloadingBundle] = useState(false);
   const [bundleError, setBundleError] = useState('');
 
   useEffect(() => {
     loadFromBackend();
     getBundleMeta().then(setBundleMeta);
+    getMapCacheMeta().then(setMapCacheMeta);
   }, []);
 
   const handleDownloadBundle = async () => {
+    if (!isOnline) {
+      setBundleError('You need an internet connection to download the offline bundle.');
+      return;
+    }
     setDownloadingBundle(true);
     setBundleError('');
     try {
       const meta = await downloadOfflineBundle(portInfo.latitude, portInfo.longitude, 5);
       setBundleMeta(meta);
+      getMapCacheMeta().then(setMapCacheMeta);
       setToastMessage(`Offline bundle ready (${meta.sizeMb} MB, valid ${new Date(meta.validUntil).toLocaleDateString()}).`);
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3500);
@@ -76,6 +87,7 @@ export function ProfileScreen() {
   const handleClearBundle = async () => {
     await clearOfflineBundle();
     setBundleMeta(null);
+    setMapCacheMeta(null);
   };
 
   const statesList = ['All', 'Kerala', 'Tamil Nadu', 'Gujarat', 'Maharashtra', 'Karnataka', 'Andhra Pradesh', 'Odisha', 'West Bengal', 'Goa', 'Islands'];
@@ -395,6 +407,15 @@ export function ProfileScreen() {
             there's a connection; this only kicks in if a live request fails.
           </Text>
 
+          {!isOnline && (
+            <View style={styles.bundleOfflineNotice}>
+              <Ionicons name="cloud-offline-outline" size={14} color={colors.tertiary} />
+              <Text style={styles.bundleOfflineNoticeText}>
+                No connection — reconnect to download or refresh the bundle.
+              </Text>
+            </View>
+          )}
+
           {bundleMeta ? (
             <View style={styles.bundleStatusBox}>
               <Ionicons name="checkmark-circle" size={16} color={colors.secondary} />
@@ -403,7 +424,7 @@ export function ProfileScreen() {
                   {bundleMeta.sizeMb} MB cached • {bundleMeta.tripDays}-day forecast
                 </Text>
                 <Text style={styles.bundleStatusSub}>
-                  Downloaded {new Date(bundleMeta.createdAt).toLocaleString()} • Valid until{' '}
+                  Last updated: {formatRelativeTime(bundleMeta.createdAt)} • Valid until{' '}
                   {new Date(bundleMeta.validUntil).toLocaleDateString()}
                 </Text>
               </View>
@@ -415,13 +436,26 @@ export function ProfileScreen() {
             </View>
           )}
 
+          {mapCacheMeta && (
+            <View style={[styles.bundleStatusBox, { marginTop: 6 }]}>
+              <MaterialCommunityIcons name="database-outline" size={16} color={colors.secondary} />
+              <Text style={styles.bundleStatusSub}>
+                Map data in local SQLite: {mapCacheMeta.pfzCount} PFZ zones, {mapCacheMeta.boundaryCount} boundaries,{' '}
+                {mapCacheMeta.landingCount} landing centers
+              </Text>
+            </View>
+          )}
+
           {bundleError ? <Text style={styles.bundleErrorText}>{bundleError}</Text> : null}
 
           <View style={{ flexDirection: 'row', gap: 10, marginTop: 10 }}>
             <TouchableOpacity
-              style={[styles.btnPrimarySmall, downloadingBundle && { opacity: 0.8 }]}
+              style={[
+                styles.btnPrimarySmall,
+                (downloadingBundle || !isOnline) && { opacity: 0.5 },
+              ]}
               onPress={handleDownloadBundle}
-              disabled={downloadingBundle}
+              disabled={downloadingBundle || !isOnline}
             >
               {downloadingBundle ? (
                 <ActivityIndicator size="small" color={colors.white} />
@@ -431,9 +465,11 @@ export function ProfileScreen() {
               <Text style={styles.btnPrimarySmallText}>
                 {downloadingBundle
                   ? 'Downloading (can take ~30s)...'
-                  : bundleMeta
-                    ? 'Refresh Bundle'
-                    : 'Download Offline Bundle'}
+                  : !isOnline
+                    ? 'Offline — connect to download'
+                    : bundleMeta
+                      ? 'Refresh Bundle'
+                      : 'Download Offline Bundle'}
               </Text>
             </TouchableOpacity>
 
@@ -731,6 +767,24 @@ const styles = StyleSheet.create({
     color: colors.onPrimaryContainer,
     marginTop: 4,
     opacity: 0.9,
+  },
+  bundleOfflineNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FFF7E6',
+    borderWidth: 1,
+    borderColor: colors.tertiaryContainer,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  bundleOfflineNoticeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.tertiary,
+    flex: 1,
   },
   bundleStatusBox: {
     flexDirection: 'row',

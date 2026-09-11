@@ -14,20 +14,22 @@ import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-ic
 import { colors } from '../theme/colors';
 import { chatAPI, ChatResponse } from '../services/api';
 import { useUserStore } from '../store/userStore';
-import { getCachedBundleForOffline, buildOfflineChatAnswer } from '../services/offlineService';
+import { getCachedBundleForOffline, buildOfflineChatAnswer, formatRelativeTime } from '../services/offlineService';
+import { useNetworkStore } from '../store/networkStore';
 
 interface Message {
   id: string;
   sender: 'user' | 'system';
   text?: string;
   time: string;
-  data?: ChatResponse & { offline?: boolean };
+  data?: ChatResponse & { offline?: boolean; bundle_created_at?: string };
 }
 
 export function ChatScreen({ navigation }: any) {
   const { operatingPort, portInfo, getLanguageInfo, getVesselRangeKm, language, vesselType, riskTolerance, role } = useUserStore();
   const langInfo = getLanguageInfo();
   const vesselRange = getVesselRangeKm();
+  const isOnline = useNetworkStore((s) => s.isOnline);
 
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
@@ -84,6 +86,11 @@ export function ChatScreen({ navigation }: any) {
     setLoading(true);
 
     try {
+      // Known offline (UPDATE.md 3.4 "automatic switch to offline mode") —
+      // skip straight to the cached fallback instead of waiting out a 60s
+      // request timeout on a connection we already know has no signal.
+      if (!isOnline) throw new Error('No network connection (known offline)');
+
       const profile = { vessel_type: vesselType, risk_tolerance: riskTolerance, role, language };
       const res = await chatAPI.sendMessage(textToSend, portInfo.latitude, portInfo.longitude, profile);
 
@@ -275,7 +282,7 @@ export function ChatScreen({ navigation }: any) {
                     <View style={styles.offlineBanner}>
                       <Ionicons name="cloud-offline-outline" size={14} color={colors.tertiary} />
                       <Text style={styles.offlineBannerText}>
-                        OFFLINE — showing last downloaded data, not a live answer
+                        OFFLINE mode (last updated: {formatRelativeTime(data.bundle_created_at)})
                       </Text>
                     </View>
                   )}
