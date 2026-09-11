@@ -1,5 +1,6 @@
 import os
 import json
+import asyncio
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,7 +25,22 @@ async def lifespan(app: FastAPI):
     print("SeaSarathi Backend starting up...")
     print(f"  SARVAM_API_KEY: {'SET' if os.getenv('SARVAM_API_KEY') else 'MISSING'}")
     print(f"  Agent available: {AGENT_AVAILABLE}")
+
+    # Data freshness (backend/src/utils/data_freshness.py):
+    #   1. Unconditional Copernicus grid fetch on every startup, backgrounded
+    #      so it never delays the server becoming ready (~90s live fetch) —
+    #      the server starts serving immediately on whatever grid is already
+    #      on disk (or none, gracefully, if this is a first run).
+    #   2. A periodic loop that re-checks every 30 min and re-fetches only
+    #      once the grid crosses 6 hours old, for the rest of this process's
+    #      uptime (not just at startup).
+    from src.utils.data_freshness import refresh_grid_now, start_periodic_freshness_loop
+    asyncio.create_task(refresh_grid_now())
+    freshness_task = asyncio.create_task(start_periodic_freshness_loop())
+
     yield
+
+    freshness_task.cancel()
     print("SeaSarathi Backend shutting down...")
 
 
@@ -569,3 +585,21 @@ async def data_status():
         }
 
     return {"static_data": status_static, "dynamic_data": status_dynamic}
+
+
+@app.get("/data/freshness", summary="Copernicus Grid Freshness")
+async def data_freshness():
+    """
+    Age of the precomputed SST/Chlorophyll grid and whether it's due for a
+    refresh (see src/utils/data_freshness.py). A background loop already
+    keeps this from staying stale on its own — this is for visibility, not
+    something the app needs to poll to trigger anything.
+    """
+    from src.utils.data_freshness import get_grid_age_hours, is_grid_stale, DEFAULT_MAX_AGE_HOURS
+    age = get_grid_age_hours()
+    return {
+        "grid_age_hours": round(age, 2) if age is not None else None,
+        "stale": is_grid_stale(),
+        "max_age_hours": DEFAULT_MAX_AGE_HOURS,
+        "grid_exists": age is not None,
+    }
