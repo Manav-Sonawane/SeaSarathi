@@ -84,10 +84,11 @@ export const chatAPI = {
 export interface PFZZone {
   name: string;
   distance: number;
-  sst: number;
-  chl: number;
+  sst: number | null;
+  chl: number | null;
   confidence: number;
   bearing?: string;
+  dataNote?: string;
 }
 
 export const pfzAPI = {
@@ -97,13 +98,19 @@ export const pfzAPI = {
       .then((res) => {
         const raw = res.data;
         const list = Array.isArray(raw) ? raw : raw?.zones || [];
+        // Real distance/confidence always come from the backend (Haversine +
+        // a distance-based formula — see main.py's /pfz/nearest). SST/
+        // chlorophyll are real Copernicus grid lookups when available and
+        // null otherwise — passed through as null rather than a plausible-
+        // looking fake number, so the UI can honestly show "N/A"/"Offline".
         return list.map((z: any) => ({
           name: z.name || 'PFZ Zone',
-          distance: z.distance ?? z.distance_km ?? 15,
-          sst: z.sst ?? 28.2,
-          chl: z.chl ?? z.chlorophyll ?? 1.6,
-          confidence: z.confidence ?? 85,
-          bearing: z.direction ?? z.bearing ?? '280° WNW',
+          distance: z.distance ?? z.distance_km,
+          sst: typeof z.sst === 'number' ? z.sst : null,
+          chl: typeof (z.chl ?? z.chlorophyll) === 'number' ? (z.chl ?? z.chlorophyll) : null,
+          confidence: z.confidence,
+          bearing: z.direction ?? z.bearing,
+          dataNote: z.data_note,
         })) as PFZZone[];
       }),
 };

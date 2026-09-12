@@ -24,6 +24,7 @@ import {
 } from '../services/offlineService';
 import { getMapCacheMeta, MapCacheMeta } from '../services/mapCacheDb';
 import { useNetworkStore } from '../store/networkStore';
+import { getScreenText } from '../constants/screenTranslations';
 
 export function ProfileScreen() {
   const {
@@ -43,7 +44,9 @@ export function ProfileScreen() {
     getVesselRangeKm,
     syncWithBackend,
     loadFromBackend,
+    getLanguageInfo,
   } = useUserStore();
+  const t = getScreenText(getLanguageInfo().code);
 
   const [saving, setSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -138,7 +141,7 @@ export function ProfileScreen() {
             <MaterialCommunityIcons name="account-cog-outline" size={28} color={colors.white} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.profileName}>Fisherman Profile & Settings</Text>
+            <Text style={styles.profileName}>{t.profile.title}</Text>
             <Text style={styles.profileSub}>
               Active Port: {portInfo.name} ({portInfo.state}) • Range: {getVesselRangeKm()} km
             </Text>
@@ -160,7 +163,7 @@ export function ProfileScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <MaterialCommunityIcons name="sail-boat" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>Vessel Type & Capability</Text>
+            <Text style={styles.cardTitle}>{t.profile.vesselSection}</Text>
           </View>
           <Text style={styles.cardDesc}>
             Current Operating Limit: <Text style={styles.boldText}>{getVesselRangeKm()} km offshore</Text>
@@ -241,7 +244,7 @@ export function ProfileScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="location-outline" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>Home Operating Port (All Indian Ports)</Text>
+            <Text style={styles.cardTitle}>{t.profile.portSection}</Text>
           </View>
           <Text style={styles.cardDesc}>
             Selected Port:{' '}
@@ -255,7 +258,7 @@ export function ProfileScreen() {
             <Ionicons name="search" size={16} color={colors.onSurfaceVariant} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search by port name, state, or region..."
+              placeholder={t.profile.searchPlaceholder}
               placeholderTextColor={colors.onSurfaceVariant}
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -321,7 +324,7 @@ export function ProfileScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <MaterialIcons name="security" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>Risk Profile</Text>
+            <Text style={styles.cardTitle}>{t.profile.riskSection}</Text>
           </View>
 
           <View style={styles.segmentedRow}>
@@ -343,7 +346,7 @@ export function ProfileScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="people-outline" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>Operating Role</Text>
+            <Text style={styles.cardTitle}>{t.profile.roleSection}</Text>
           </View>
 
           <View style={styles.segmentedRow}>
@@ -371,7 +374,7 @@ export function ProfileScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="language-outline" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>Voice & Advisory Language (Regional Languages)</Text>
+            <Text style={styles.cardTitle}>{t.profile.languageSection}</Text>
           </View>
 
           <View style={styles.optionsGrid}>
@@ -399,7 +402,7 @@ export function ProfileScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <MaterialCommunityIcons name="cloud-download-outline" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>Deep Sea Offline Bundle</Text>
+            <Text style={styles.cardTitle}>{t.profile.offlineBundleSection}</Text>
           </View>
           <Text style={styles.cardDesc}>
             50+ km offshore there is usually no signal. Download a bundle before sailing so chat and
@@ -464,12 +467,12 @@ export function ProfileScreen() {
               )}
               <Text style={styles.btnPrimarySmallText}>
                 {downloadingBundle
-                  ? 'Downloading (can take ~30s)...'
+                  ? t.profile.downloading
                   : !isOnline
-                    ? 'Offline — connect to download'
+                    ? t.profile.connectToDownload
                     : bundleMeta
-                      ? 'Refresh Bundle'
-                      : 'Download Offline Bundle'}
+                      ? t.profile.refreshBundle
+                      : t.profile.downloadBundle}
               </Text>
             </TouchableOpacity>
 
@@ -493,14 +496,14 @@ export function ProfileScreen() {
             <Ionicons name="checkmark-done-circle-outline" size={18} color={colors.white} />
           )}
           <Text style={styles.saveBtnText}>
-            {saving ? 'Saving Preferences...' : 'Save Preferences'}
+            {saving ? t.profile.saving : t.profile.savePreferences}
           </Text>
         </TouchableOpacity>
 
         {/* Reset Profile */}
         <TouchableOpacity style={styles.resetBtn} onPress={handleResetProfile}>
           <Ionicons name="trash-outline" size={16} color={colors.error} />
-          <Text style={styles.resetBtnText}>Reset Profile Preferences</Text>
+          <Text style={styles.resetBtnText}>{t.profile.resetPreferences}</Text>
         </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>

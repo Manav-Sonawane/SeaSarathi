@@ -16,10 +16,12 @@ import { pfzAPI } from '../services/api';
 import { useUserStore } from '../store/userStore';
 import { getCachedBundleForOffline, findNearestZonesOffline, formatRelativeTime } from '../services/offlineService';
 import { useNetworkStore } from '../store/networkStore';
+import { getScreenText } from '../constants/screenTranslations';
 
 export function PFZScreen({ navigation }: any) {
   const { vesselType, getVesselRangeKm, operatingPort, portInfo, getLanguageInfo } = useUserStore();
   const langInfo = getLanguageInfo();
+  const t = getScreenText(langInfo.code);
   const maxRangeKm = getVesselRangeKm();
 
   const isOnline = useNetworkStore((s) => s.isOnline);
@@ -28,57 +30,9 @@ export function PFZScreen({ navigation }: any) {
   const [offlineAsOf, setOfflineAsOf] = useState<string | null>(null);
   const [selectedInspectZone, setSelectedInspectZone] = useState<any>(null);
 
-  const [zones, setZones] = useState<any[]>([
-    {
-      id: '1',
-      name: `PFZ-${portInfo.name.substring(0, 3).toUpperCase()}-14`,
-      subtitle: `${portInfo.region} Upwelling Sector`,
-      distance: 14.2,
-      bearing: '280° WNW',
-      estArrival: '1h 15m @ 11 kts',
-      sst: 28.4,
-      chl: 1.84,
-      depth: 42,
-      confidence: 92,
-      targetSpecies: 'Indian Oil Sardine & Mackerel',
-      evidence: [
-        `Thermal front gradient (ΔT = 1.2°C) off ${portInfo.name}.`,
-        'Phytoplankton convergence zone with active pelagic surface baitfish.',
-        'High Sardine & Mackerel probability in this sector.',
-      ],
-    },
-    {
-      id: '2',
-      name: `PFZ-${portInfo.name.substring(0, 3).toUpperCase()}-18`,
-      subtitle: `${portInfo.state} Shelf Edge`,
-      distance: 21.5,
-      bearing: '240° WSW',
-      estArrival: '1h 55m @ 11 kts',
-      sst: 27.9,
-      chl: 1.52,
-      depth: 38,
-      confidence: 86,
-      targetSpecies: 'Tuna & Skipjack Shoal',
-      evidence: [
-        'Chlorophyll bloom boundary detected in high-density area.',
-        `Cool upwelling tongue extending 18 NM west of ${portInfo.name}.`,
-      ],
-    },
-    {
-      id: '3',
-      name: `PFZ-${portInfo.name.substring(0, 3).toUpperCase()}-22`,
-      subtitle: `${portInfo.sea} Continental Trench`,
-      distance: 48.1,
-      bearing: '295° NW',
-      estArrival: '3h 30m @ 11 kts',
-      sst: 28.1,
-      chl: 1.35,
-      depth: 55,
-      confidence: 79,
-      targetSpecies: 'Ribbonfish & Anchovy',
-      evidence: ['Bathymetric 50m shelf break convergence zone.'],
-    },
-  ]);
+  // No fabricated placeholder zones — starts empty and only ever shows real
+  // /pfz/nearest data (live) or real cached PFZ geometry (offline fallback).
+  const [zones, setZones] = useState<any[]>([]);
 
   useEffect(() => {
     loadZones();
@@ -90,22 +44,24 @@ export function PFZScreen({ navigation }: any) {
       if (!isOnline) throw new Error('No network connection (known offline)');
       const data = await pfzAPI.getNearest(portInfo.latitude, portInfo.longitude);
       if (data && data.length > 0) {
+        // Only fields the backend actually computes (see main.py's
+        // /pfz/nearest — real Haversine distance, real bearing, real
+        // Copernicus SST/chlorophyll lookup when available, real
+        // distance-derived confidence). No invented depth, species, or
+        // evidence bullets — dataNote carries the backend's own honest note
+        // about where the SST/chlorophyll number came from (or that it's
+        // unavailable).
         const formatted = data.map((z, idx) => ({
           id: (idx + 1).toString(),
           name: z.name || `PFZ-${portInfo.name.substring(0, 3).toUpperCase()}-${(idx + 1) * 6}`,
           subtitle: `${portInfo.name} Sector #${idx + 1}`,
           distance: z.distance,
-          bearing: z.bearing || '280° WNW',
-          estArrival: `${Math.round((z.distance / 11) * 60)}m @ 11 kts`,
+          bearing: z.bearing,
+          estArrival: z.distance != null ? `${Math.round((z.distance / 11) * 60)}m @ 11 kts` : '—',
           sst: z.sst,
           chl: z.chl,
-          depth: 42 + idx * 5,
           confidence: z.confidence,
-          targetSpecies: 'Pelagic Shoal & Sardines',
-          evidence: [
-            `SST temperature front optimal at ${z.sst}°C off ${portInfo.name}.`,
-            `Chlorophyll concentration dense at ${z.chl} mg/m³.`,
-          ],
+          dataNote: z.dataNote,
         }));
         setZones(formatted);
         setIsOfflineData(false);
@@ -128,10 +84,8 @@ export function PFZScreen({ navigation }: any) {
               estArrival: `${Math.round((z.distance_km / 11) * 60)}m @ 11 kts`,
               sst: null,
               chl: null,
-              depth: null,
               confidence: null,
-              targetSpecies: 'Not available offline',
-              evidence: ['SST/Chlorophyll require a live connection — last downloaded zone geometry only.'],
+              dataNote: null,
             }));
             setZones(formatted);
             setIsOfflineData(true);
@@ -159,7 +113,7 @@ export function PFZScreen({ navigation }: any) {
               <Text style={styles.vesselBarTitle}>
                 {vesselType.toUpperCase()} BOAT • {operatingPort.toUpperCase()} PORT ({portInfo.state.toUpperCase()})
               </Text>
-              <Text style={styles.vesselBarSub}>Operating Range: Max {maxRangeKm} km offshore</Text>
+              <Text style={styles.vesselBarSub}>{t.pfz.operatingRange}: Max {maxRangeKm} km offshore</Text>
             </View>
           </View>
           <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
@@ -172,16 +126,18 @@ export function PFZScreen({ navigation }: any) {
           <View style={styles.heroHeader}>
             <View style={styles.heroBadge}>
               <MaterialCommunityIcons name="radar" size={16} color={colors.secondaryContainer} />
-              <Text style={styles.heroBadgeText}>{operatingPort} Sector Reticle ({portInfo.sea})</Text>
+              <Text style={styles.heroBadgeText}>{operatingPort} • {portInfo.sea}</Text>
             </View>
-            <View style={styles.nearestBadge}>
-              <Text style={styles.nearestText}>14.2 NM NEAREST</Text>
-            </View>
+            {zones.length > 0 && zones[0].distance != null && (
+              <View style={styles.nearestBadge}>
+                <Text style={styles.nearestText}>{zones[0].distance} {t.pfz.nearestSuffix}</Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.heroFooter}>
-            <Text style={styles.heroCategory}>{portInfo.region} Chlorophyll Fronts</Text>
-            <Text style={styles.heroTitle}>{portInfo.name} Deep Shelf Swells</Text>
+            <Text style={styles.heroCategory}>{portInfo.region}</Text>
+            <Text style={styles.heroTitle}>{portInfo.name} {langInfo.uiText.fishingZones}</Text>
           </View>
         </View>
 
@@ -189,18 +145,14 @@ export function PFZScreen({ navigation }: any) {
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterRow}>
           <TouchableOpacity style={styles.filterChipActive}>
             <Ionicons name="navigate-outline" size={14} color={colors.white} />
-            <Text style={styles.filterTextActive}>Range (≤ {maxRangeKm}km)</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.filterChip}>
-            <MaterialCommunityIcons name="fish" size={14} color={colors.primary} />
-            <Text style={styles.filterText}>Sardine / Pelagic</Text>
+            <Text style={styles.filterTextActive}>{t.pfz.rangeLabel} (≤ {maxRangeKm}km)</Text>
           </TouchableOpacity>
         </ScrollView>
 
         {loading && (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="small" color={colors.primaryContainer} />
-            <Text style={styles.loadingText}>Fetching ocean productivity zones...</Text>
+            <Text style={styles.loadingText}>{t.pfz.fetching}</Text>
           </View>
         )}
 
@@ -208,7 +160,7 @@ export function PFZScreen({ navigation }: any) {
           <View style={styles.offlineBanner}>
             <Ionicons name="cloud-offline-outline" size={14} color={colors.tertiary} />
             <Text style={styles.offlineBannerText}>
-              OFFLINE mode (last updated: {formatRelativeTime(offlineAsOf)}) — SST/chlorophyll need a live connection
+              {t.pfz.offlineNotice} ({formatRelativeTime(offlineAsOf)})
             </Text>
           </View>
         )}
@@ -230,7 +182,7 @@ export function PFZScreen({ navigation }: any) {
                 <View style={styles.confBadge}>
                   <MaterialIcons name="verified" size={16} color={colors.secondary} />
                   <Text style={styles.confText}>
-                    {zone.confidence != null ? `${zone.confidence}%` : 'N/A'}
+                    {zone.confidence != null ? `${zone.confidence}%` : t.pfz.notAvailable}
                   </Text>
                 </View>
               </View>
@@ -254,8 +206,8 @@ export function PFZScreen({ navigation }: any) {
                   ]}
                 >
                   {isFeasible
-                    ? `FEASIBLE (Within your ${maxRangeKm}km ${vesselType} boat range)`
-                    : `BEYOND RANGE (Requires > ${maxRangeKm}km capacity)`}
+                    ? `${t.pfz.feasible} (${maxRangeKm}km ${vesselType})`
+                    : `${t.pfz.beyondRange} (> ${maxRangeKm}km)`}
                 </Text>
               </View>
 
@@ -264,53 +216,53 @@ export function PFZScreen({ navigation }: any) {
                 <View style={styles.distItem}>
                   <Ionicons name="compass-outline" size={18} color={colors.primary} />
                   <View>
-                    <Text style={styles.distLabel}>DISTANCE</Text>
+                    <Text style={styles.distLabel}>{t.pfz.distance}</Text>
                     <Text style={styles.distVal}>
-                      {zone.distance} NM ({zone.bearing})
+                      {zone.distance != null ? `${zone.distance} NM` : t.pfz.notAvailable}
+                      {zone.bearing ? ` (${zone.bearing})` : ''}
                     </Text>
                   </View>
                 </View>
                 <View style={styles.distItem}>
                   <Ionicons name="time-outline" size={18} color={colors.primary} />
                   <View>
-                    <Text style={styles.distLabel}>EST. ARRIVAL</Text>
+                    <Text style={styles.distLabel}>{t.pfz.estArrival}</Text>
                     <Text style={styles.distVal}>{zone.estArrival}</Text>
                   </View>
                 </View>
               </View>
 
-              {/* Telemetry Row */}
+              {/* Telemetry Row — only real backend fields (SST/chlorophyll from
+                  the Copernicus grid when available, null otherwise). No
+                  fabricated depth/bathymetry — the backend doesn't provide it. */}
               <View style={styles.telemetryRow}>
                 <View style={styles.telemetryCard}>
-                  <Text style={styles.telLabel}>SST TEMP</Text>
-                  <Text style={styles.telValue}>{zone.sst != null ? `${zone.sst}°C` : 'N/A'}</Text>
-                  <Text style={styles.telStatus}>{zone.sst != null ? 'Optimal' : 'Offline'}</Text>
+                  <Text style={styles.telLabel}>{t.pfz.sstTemp}</Text>
+                  <Text style={styles.telValue}>{zone.sst != null ? `${zone.sst}°C` : t.pfz.notAvailable}</Text>
+                  <Text style={styles.telStatus}>{zone.sst != null ? '' : t.pfz.offlineStatus}</Text>
                 </View>
                 <View style={styles.telemetryCard}>
-                  <Text style={styles.telLabel}>CHLOROPHYLL</Text>
-                  <Text style={styles.telValue}>{zone.chl != null ? `${zone.chl}mg` : 'N/A'}</Text>
-                  <Text style={styles.telStatus}>{zone.chl != null ? 'Rich Bloom' : 'Offline'}</Text>
-                </View>
-                <View style={styles.telemetryCard}>
-                  <Text style={styles.telLabel}>BATHYMETRY</Text>
-                  <Text style={styles.telValue}>{zone.depth != null ? `${zone.depth}m` : 'N/A'}</Text>
-                  <Text style={styles.telStatus}>{zone.depth != null ? 'Swell Shelf' : 'Offline'}</Text>
+                  <Text style={styles.telLabel}>{t.pfz.chlorophyll}</Text>
+                  <Text style={styles.telValue}>{zone.chl != null ? `${zone.chl}mg` : t.pfz.notAvailable}</Text>
+                  <Text style={styles.telStatus}>{zone.chl != null ? '' : t.pfz.offlineStatus}</Text>
                 </View>
               </View>
 
-              {/* Evidence Bullets */}
-              <View style={styles.evidenceBox}>
-                <View style={styles.evidenceHeader}>
-                  <MaterialIcons name="insights" size={16} color={colors.primary} />
-                  <Text style={styles.evidenceTitle}>Ocean Biomass Telemetry</Text>
-                </View>
-                {zone.evidence.map((bullet: string, bIdx: number) => (
-                  <View key={bIdx} style={styles.bulletRow}>
-                    <View style={styles.bulletDot} />
-                    <Text style={styles.bulletText}>{bullet}</Text>
+              {/* Data Source Note — the backend's own honest note on where the
+                  SST/chlorophyll reading came from (or that it's unavailable),
+                  replacing the previous fabricated "evidence" bullets. */}
+              {zone.dataNote && (
+                <View style={styles.evidenceBox}>
+                  <View style={styles.evidenceHeader}>
+                    <MaterialIcons name="insights" size={16} color={colors.primary} />
+                    <Text style={styles.evidenceTitle}>{t.pfz.dataSource}</Text>
                   </View>
-                ))}
-              </View>
+                  <View style={styles.bulletRow}>
+                    <View style={styles.bulletDot} />
+                    <Text style={styles.bulletText}>{zone.dataNote}</Text>
+                  </View>
+                </View>
+              )}
 
               {/* Action Buttons */}
               <View style={styles.cardActions}>
@@ -319,7 +271,7 @@ export function PFZScreen({ navigation }: any) {
                   onPress={() => navigation.navigate('Map')}
                 >
                   <Ionicons name="map-outline" size={16} color={colors.white} />
-                  <Text style={styles.btnTextPrimary}>View on Map</Text>
+                  <Text style={styles.btnTextPrimary}>{t.pfz.viewOnMap}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -327,7 +279,7 @@ export function PFZScreen({ navigation }: any) {
                   onPress={() => setSelectedInspectZone(zone)}
                 >
                   <MaterialCommunityIcons name="waves" size={16} color={colors.primary} />
-                  <Text style={styles.btnTextSecondary}>Inspect Thermocline</Text>
+                  <Text style={styles.btnTextSecondary}>{t.pfz.inspectDetails}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -335,13 +287,13 @@ export function PFZScreen({ navigation }: any) {
         })}
       </ScrollView>
 
-      {/* Thermocline Modal */}
+      {/* Zone Detail Modal — only real fields, no fabricated depth-layer graphic */}
       {selectedInspectZone && (
         <Modal animationType="slide" transparent visible>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.modalHeader}>
-                <Text style={styles.modalTitle}>Zone {selectedInspectZone.name} Inspection</Text>
+                <Text style={styles.modalTitle}>{selectedInspectZone.name}</Text>
                 <TouchableOpacity onPress={() => setSelectedInspectZone(null)}>
                   <Ionicons name="close-circle" size={24} color={colors.onSurfaceVariant} />
                 </TouchableOpacity>
@@ -349,44 +301,42 @@ export function PFZScreen({ navigation }: any) {
 
               <ScrollView contentContainerStyle={{ paddingBottom: 20 }}>
                 <View style={styles.modalSpeciesBox}>
-                  <Text style={styles.modalLabel}>TARGET SHOAL SPECIES</Text>
-                  <Text style={styles.modalSpeciesVal}>{selectedInspectZone.targetSpecies}</Text>
-                  <Text style={styles.modalCatchText}>
-                    Catch Potential:{' '}
-                    <Text style={{ color: colors.secondary, fontWeight: '800' }}>
-                      {selectedInspectZone.confidence}% CONF
-                    </Text>
+                  <Text style={styles.modalLabel}>{t.pfz.distance}</Text>
+                  <Text style={styles.modalSpeciesVal}>
+                    {selectedInspectZone.distance != null ? `${selectedInspectZone.distance} NM` : t.pfz.notAvailable}
+                    {selectedInspectZone.bearing ? ` (${selectedInspectZone.bearing})` : ''}
                   </Text>
+                  {selectedInspectZone.confidence != null && (
+                    <Text style={styles.modalCatchText}>
+                      {t.pfz.catchPotential}:{' '}
+                      <Text style={{ color: colors.secondary, fontWeight: '800' }}>
+                        {selectedInspectZone.confidence}% CONF
+                      </Text>
+                    </Text>
+                  )}
                 </View>
 
-                {/* Stratification Profile */}
-                <View style={styles.graphCanvas}>
-                  <Text style={styles.graphHeaderTitle}>Water Column Stratification (0m - 50m)</Text>
-
-                  <View style={styles.depthLayerSurface}>
-                    <Text style={styles.depthText}>
-                      0m Surface: {selectedInspectZone.sst}°C (Sunny Mixed Layer)
+                <View style={styles.telemetryRow}>
+                  <View style={styles.telemetryCard}>
+                    <Text style={styles.telLabel}>{t.pfz.sstTemp}</Text>
+                    <Text style={styles.telValue}>
+                      {selectedInspectZone.sst != null ? `${selectedInspectZone.sst}°C` : t.pfz.notAvailable}
                     </Text>
                   </View>
-
-                  <View style={styles.depthLayerPelagic}>
-                    <Ionicons name="fish-outline" size={16} color={colors.white} />
-                    <Text style={styles.pelagicText}>18m - 32m ACTIVE PELAGIC FEEDING ZONE</Text>
-                  </View>
-
-                  <View style={styles.depthLayerSeabed}>
-                    <Text style={styles.depthText}>42m Seabed Shelf: 23.1°C (Continental Slope)</Text>
+                  <View style={styles.telemetryCard}>
+                    <Text style={styles.telLabel}>{t.pfz.chlorophyll}</Text>
+                    <Text style={styles.telValue}>
+                      {selectedInspectZone.chl != null ? `${selectedInspectZone.chl}mg` : t.pfz.notAvailable}
+                    </Text>
                   </View>
                 </View>
 
-                <View style={styles.modalAdvisory}>
-                  <Ionicons name="checkmark-done-circle" size={20} color={colors.secondary} />
-                  <Text style={styles.modalAdvisoryText}>
-                    Optimal nocturnal schooling window:{' '}
-                    <Text style={{ fontWeight: '800' }}>21:30 - 04:30 IST</Text>. Surface drift
-                    aligns with purse seine casting arc.
-                  </Text>
-                </View>
+                {selectedInspectZone.dataNote && (
+                  <View style={styles.modalAdvisory}>
+                    <Ionicons name="checkmark-done-circle" size={20} color={colors.secondary} />
+                    <Text style={styles.modalAdvisoryText}>{selectedInspectZone.dataNote}</Text>
+                  </View>
+                )}
               </ScrollView>
             </View>
           </View>

@@ -16,20 +16,21 @@ import { alertsAPI, Alert } from '../services/api';
 import { useUserStore } from '../store/userStore';
 import { getCachedBundleForOffline, buildOfflineAlerts, formatRelativeTime } from '../services/offlineService';
 import { useNetworkStore } from '../store/networkStore';
+import { getScreenText } from '../constants/screenTranslations';
 
-// Static example cards shown only until the first /alerts response (live or
+// Static example card shown only until the first /alerts response (live or
 // cached) arrives, so the screen isn't empty on first paint.
-const PLACEHOLDER_ALERTS = (portInfo: any, operatingPort: string) => [
+const PLACEHOLDER_ALERTS = (portInfo: any, operatingPort: string, fetchingText: string) => [
   {
     id: '1',
     category: 'navigational' as const,
     type: 'INFO',
-    title: 'Fetching Live Safety Alerts…',
-    sub: `MONITORING ${operatingPort.toUpperCase()} (${portInfo.state.toUpperCase()})`,
+    title: fetchingText,
+    sub: `${operatingPort.toUpperCase()} (${portInfo.state.toUpperCase()})`,
     distText: '—',
     vector: '—',
     breachTime: '—',
-    body: 'Checking maritime boundaries, wind, waves and rainfall for your operating area.',
+    body: '',
     coords: `${portInfo.latitude.toFixed(2)}° N, ${portInfo.longitude.toFixed(2)}° E`,
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
   },
@@ -63,6 +64,7 @@ function alertToCard(a: Alert, idx: number, portInfo: any) {
 export function AlertsScreen({ navigation }: any) {
   const { operatingPort, portInfo, getLanguageInfo } = useUserStore();
   const langInfo = getLanguageInfo();
+  const t = getScreenText(langInfo.code);
 
   const isOnline = useNetworkStore((s) => s.isOnline);
   const [loading, setLoading] = useState(false);
@@ -71,7 +73,7 @@ export function AlertsScreen({ navigation }: any) {
   const [filter, setFilter] = useState<'all' | 'critical' | 'advisory' | 'navigational'>('all');
   const [acknowledged, setAcknowledged] = useState(false);
 
-  const [alertsList, setAlertsList] = useState<any[]>(PLACEHOLDER_ALERTS(portInfo, operatingPort));
+  const [alertsList, setAlertsList] = useState<any[]>(PLACEHOLDER_ALERTS(portInfo, operatingPort, t.alerts.fetching));
 
   useEffect(() => {
     loadAlerts();
@@ -119,9 +121,8 @@ export function AlertsScreen({ navigation }: any) {
           <View style={styles.sentryHeader}>
             <View style={styles.sentryHeaderLeft}>
               <View style={styles.greenDot} />
-              <Text style={styles.sentryTitle}>TACTICAL SENTRY ACTIVE • {operatingPort.toUpperCase()} ({portInfo.state.toUpperCase()})</Text>
+              <Text style={styles.sentryTitle}>{t.alerts.sentryActive} • {operatingPort.toUpperCase()} ({portInfo.state.toUpperCase()})</Text>
             </View>
-            <Text style={styles.latencyText}>DGPS LOCK OK</Text>
           </View>
 
           <View style={styles.sentryBody}>
@@ -129,10 +130,9 @@ export function AlertsScreen({ navigation }: any) {
               <MaterialCommunityIcons name="radar" size={24} color={colors.inversePrimary} />
             </View>
             <View style={styles.sentryTextCol}>
-              <Text style={styles.sentryHeading}>GEOFENCE PROXIMITY WATCH ENABLED</Text>
+              <Text style={styles.sentryHeading}>{t.alerts.geofenceWatch}</Text>
               <View style={styles.sentryBadgesRow}>
                 <Text style={styles.sentrySubBadge}>📍 {operatingPort}</Text>
-                <Text style={styles.sentrySubBadge}>🛡 BUFFER 15 NM</Text>
               </View>
             </View>
           </View>
@@ -140,14 +140,14 @@ export function AlertsScreen({ navigation }: any) {
 
         {/* Urgency Tab Filters */}
         <View style={styles.tabSection}>
-          <Text style={styles.tabSectionTitle}>SEVERITY QUEUES</Text>
+          <Text style={styles.tabSectionTitle}>{t.alerts.severityQueues}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabRow}>
             <TouchableOpacity
               style={[styles.tabBtn, filter === 'all' && styles.tabBtnActive]}
               onPress={() => setFilter('all')}
             >
               <Text style={[styles.tabText, filter === 'all' && styles.tabTextActive]}>
-                All ({alertsList.length})
+                {t.alerts.all} ({alertsList.length})
               </Text>
             </TouchableOpacity>
 
@@ -157,7 +157,7 @@ export function AlertsScreen({ navigation }: any) {
             >
               <View style={[styles.filterDot, { backgroundColor: colors.error }]} />
               <Text style={[styles.tabText, filter === 'critical' && styles.tabTextActive]}>
-                Critical ({alertsList.filter((a) => a.category === 'critical').length})
+                {t.alerts.critical} ({alertsList.filter((a) => a.category === 'critical').length})
               </Text>
             </TouchableOpacity>
 
@@ -167,7 +167,7 @@ export function AlertsScreen({ navigation }: any) {
             >
               <View style={[styles.filterDot, { backgroundColor: colors.riskModerate }]} />
               <Text style={[styles.tabText, filter === 'advisory' && styles.tabTextActive]}>
-                Advisories ({alertsList.filter((a) => a.category === 'advisory').length})
+                {t.alerts.advisories} ({alertsList.filter((a) => a.category === 'advisory').length})
               </Text>
             </TouchableOpacity>
 
@@ -177,7 +177,7 @@ export function AlertsScreen({ navigation }: any) {
             >
               <View style={[styles.filterDot, { backgroundColor: colors.primaryContainer }]} />
               <Text style={[styles.tabText, filter === 'navigational' && styles.tabTextActive]}>
-                Navigational ({alertsList.filter((a) => a.category === 'navigational').length})
+                {t.alerts.navigational} ({alertsList.filter((a) => a.category === 'navigational').length})
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -186,7 +186,7 @@ export function AlertsScreen({ navigation }: any) {
         {loading && (
           <View style={styles.loadingBox}>
             <ActivityIndicator size="small" color={colors.primaryContainer} />
-            <Text style={styles.loadingText}>Fetching ocean safety alerts...</Text>
+            <Text style={styles.loadingText}>{t.alerts.fetching}</Text>
           </View>
         )}
 
@@ -194,7 +194,7 @@ export function AlertsScreen({ navigation }: any) {
           <View style={styles.offlineBanner}>
             <Ionicons name="cloud-offline-outline" size={14} color={colors.tertiary} />
             <Text style={styles.offlineBannerText}>
-              OFFLINE mode (last updated: {formatRelativeTime(offlineAsOf)}) — recomputed from cached forecast
+              {t.alerts.offlineNotice} ({formatRelativeTime(offlineAsOf)})
             </Text>
           </View>
         )}
@@ -202,7 +202,7 @@ export function AlertsScreen({ navigation }: any) {
         {!loading && !isOfflineData && filteredAlerts.length === 0 && (
           <View style={styles.emptyBox}>
             <Ionicons name="checkmark-done-circle-outline" size={20} color={colors.secondary} />
-            <Text style={styles.emptyText}>No active alerts for your operating area right now.</Text>
+            <Text style={styles.emptyText}>{t.alerts.noActive}</Text>
           </View>
         )}
 
@@ -258,11 +258,11 @@ export function AlertsScreen({ navigation }: any) {
                 {/* Telemetry Strip */}
                 <View style={styles.telemetryBox}>
                   <View style={styles.telCol}>
-                    <Text style={styles.telLabel}>Vector & Speed</Text>
+                    <Text style={styles.telLabel}>{t.alerts.vectorSpeed}</Text>
                     <Text style={styles.telVal}>{item.vector}</Text>
                   </View>
                   <View style={styles.telCol}>
-                    <Text style={styles.telLabel}>Status / Estimate</Text>
+                    <Text style={styles.telLabel}>{t.alerts.statusEstimate}</Text>
                     <Text
                       style={[
                         styles.telVal,
@@ -296,7 +296,7 @@ export function AlertsScreen({ navigation }: any) {
                     onPress={() => navigation.navigate('Map')}
                   >
                     <Ionicons name="map" size={16} color={colors.white} />
-                    <Text style={styles.actionBtnMapText}>Open Radar Map ➔</Text>
+                    <Text style={styles.actionBtnMapText}>{t.alerts.openMap}</Text>
                   </TouchableOpacity>
 
                   {item.category === 'critical' && (
@@ -310,7 +310,7 @@ export function AlertsScreen({ navigation }: any) {
                         color={colors.primary}
                       />
                       <Text style={styles.actionBtnAckText}>
-                        {acknowledged ? 'Acknowledged (8 NM Buffer Set)' : 'Acknowledge Buffer'}
+                        {acknowledged ? t.alerts.acknowledged : t.alerts.acknowledgeBuffer}
                       </Text>
                     </TouchableOpacity>
                   )}
