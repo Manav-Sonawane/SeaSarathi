@@ -5,7 +5,6 @@ import Svg, {
   Circle,
   G,
   Text as SvgText,
-  Polygon,
   Polyline,
   Rect,
   Defs,
@@ -13,6 +12,7 @@ import Svg, {
   Stop,
 } from 'react-native-svg';
 import { INDIAN_PORTS, PortInfo } from '../constants/portsAndLanguages';
+import { geometryToSegments, NamedFeature } from '../utils/geoJsonToMap';
 
 interface IndiaMapCanvasProps {
   activePort: PortInfo;
@@ -20,11 +20,15 @@ interface IndiaMapCanvasProps {
     risk: boolean;
     pfz: boolean;
     geofence: boolean;
-    wind: boolean;
   };
   onSelectZone?: (zone: any) => void;
   zoom?: number;
   panOffset?: { x: number; y: number };
+  // Real PFZ/boundary geometry (see MapScreen.tsx) — replaces this
+  // component's previous two hardcoded, algorithmically-offset PFZ polygons
+  // and its reuse of the coastline outline as a fake "geofence" line.
+  pfzFeatures?: NamedFeature[];
+  boundaryFeatures?: NamedFeature[];
 }
 
 // Map bounds for India Equirectangular projection
@@ -92,6 +96,8 @@ export function IndiaMapCanvas({
   layers,
   zoom = 11,
   panOffset = { x: 0, y: 0 },
+  pfzFeatures = [],
+  boundaryFeatures = [],
 }: IndiaMapCanvasProps) {
   const MAP_W = 360;
   const MAP_H = 440;
@@ -110,19 +116,19 @@ export function IndiaMapCanvas({
   const pivotX = activePos.x;
   const pivotY = activePos.y;
 
-  // Derive 2 nearby PFZ zones off active port
-  const pfz1Pos = projectCoord(
-    activePort.latitude + (activePort.sea.includes('Bay') ? 0.08 : 0.05),
-    activePort.longitude + (activePort.sea.includes('Bay') ? 0.15 : -0.15),
-    MAP_W,
-    MAP_H
+  // Real PFZ transects / maritime boundary lines, projected into this SVG's
+  // coordinate space — same geometry the native and web map renderers use
+  // (see geoJsonToMap.ts), instead of the two fixed-offset fake polygons
+  // this component used to draw regardless of actual PFZ data.
+  const pfzLines = pfzFeatures.map((z) =>
+    geometryToSegments(z.geometry).map((segment) =>
+      segment.map((p) => projectCoord(p.latitude, p.longitude, MAP_W, MAP_H))
+    )
   );
-
-  const pfz2Pos = projectCoord(
-    activePort.latitude - (activePort.sea.includes('Bay') ? 0.08 : 0.08),
-    activePort.longitude + (activePort.sea.includes('Bay') ? 0.22 : -0.22),
-    MAP_W,
-    MAP_H
+  const boundaryLines = boundaryFeatures.map((b) =>
+    geometryToSegments(b.geometry).map((segment) =>
+      segment.map((p) => projectCoord(p.latitude, p.longitude, MAP_W, MAP_H))
+    )
   );
 
   return (
@@ -194,17 +200,21 @@ export function IndiaMapCanvas({
             strokeWidth="2"
           />
 
-          {/* 12 NM Geofence Border Line */}
-          {layers.geofence && (
-            <Path
-              d={indiaPathString}
-              fill="none"
-              stroke="#EF4444"
-              strokeWidth="1.5"
-              strokeDasharray="6,4"
-              opacity="0.85"
-            />
-          )}
+          {/* Real maritime boundary lines (EEZ / geofence geojson) */}
+          {layers.geofence &&
+            boundaryLines.map((segments, i) =>
+              segments.map((segment, j) => (
+                <Polyline
+                  key={`boundary-${i}-${j}`}
+                  points={segment.map((p) => `${p.x},${p.y}`).join(' ')}
+                  fill="none"
+                  stroke="#EF4444"
+                  strokeWidth="1.5"
+                  strokeDasharray="6,4"
+                  opacity="0.85"
+                />
+              ))
+            )}
 
           {/* Islands */}
           <G fill="#475569">
@@ -212,33 +222,20 @@ export function IndiaMapCanvas({
             <Circle cx={projectCoord(11.62, 92.72, MAP_W, MAP_H).x} cy={projectCoord(11.62, 92.72, MAP_W, MAP_H).y} r="3.5" />
           </G>
 
-          {/* Potential Fishing Zones (PFZ) Overlay */}
-          {layers.pfz && (
-            <G>
-              <Polygon
-                points={`
-                  ${pfz1Pos.x - 22},${pfz1Pos.y - 12}
-                  ${pfz1Pos.x + 22},${pfz1Pos.y - 18}
-                  ${pfz1Pos.x + 30},${pfz1Pos.y + 15}
-                  ${pfz1Pos.x - 18},${pfz1Pos.y + 18}
-                `}
-                fill="url(#pfzGrad1)"
-                stroke="#00E676"
-                strokeWidth="1.5"
-              />
-              <Polygon
-                points={`
-                  ${pfz2Pos.x - 20},${pfz2Pos.y - 15}
-                  ${pfz2Pos.x + 24},${pfz2Pos.y - 10}
-                  ${pfz2Pos.x + 18},${pfz2Pos.y + 20}
-                  ${pfz2Pos.x - 22},${pfz2Pos.y + 15}
-                `}
-                fill="url(#pfzGrad2)"
-                stroke="#00B0FF"
-                strokeWidth="1.5"
-              />
-            </G>
-          )}
+          {/* Real Potential Fishing Zone transects (PFZ.geojson) */}
+          {layers.pfz &&
+            pfzLines.map((segments, i) =>
+              segments.map((segment, j) => (
+                <Polyline
+                  key={`pfz-${i}-${j}`}
+                  points={segment.map((p) => `${p.x},${p.y}`).join(' ')}
+                  fill="none"
+                  stroke="#00E676"
+                  strokeWidth="2"
+                  opacity="0.9"
+                />
+              ))
+            )}
 
           {/* ALL COASTAL PORTS PINNED LOCATIONS */}
           {INDIAN_PORTS.map((p) => {

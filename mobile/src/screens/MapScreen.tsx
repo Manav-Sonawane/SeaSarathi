@@ -20,6 +20,7 @@ import { downloadOfflineBundle, formatRelativeTime } from '../services/offlineSe
 import { getMapCacheMeta, MapCacheMeta, getCachedPfzZonesDb, getCachedBoundariesDb, CachedPfzZone, CachedBoundary } from '../services/mapCacheDb';
 import { geojsonAPI, RiskHeatmapFeature, RiskHeatmapResponse, GeoJsonFeatureCollection } from '../services/api';
 import { geometryToSegments } from '../utils/geoJsonToMap';
+import { getScreenText } from '../constants/screenTranslations';
 
 // Static Maps API URLs have a practical length ceiling — cap how many risk
 // markers get appended so we never build an oversized/rejected image request
@@ -58,7 +59,9 @@ if (Platform.OS !== 'web') {
 }
 
 export function MapScreen({ navigation }: any) {
-  const { operatingPort, portInfo } = useUserStore();
+  const { operatingPort, portInfo, getLanguageInfo } = useUserStore();
+  const langInfo = getLanguageInfo();
+  const t = getScreenText(langInfo.code);
   const isOnline = useNetworkStore((s) => s.isOnline);
 
   // Offline map caching (SQLite via mapCacheDb.ts) — pre-fetch trigger so a
@@ -120,13 +123,14 @@ export function MapScreen({ navigation }: any) {
     }, 2000);
   };
 
+  // Only layers that actually render something (risk circles, PFZ lines,
+  // boundary lines) are toggleable. sst/wind/bathymetry were previously
+  // present here and in the layer menu but never consumed by any renderer —
+  // fake toggles implying features that didn't exist.
   const [layers, setLayers] = useState({
     risk: true,
     pfz: true,
-    sst: false,
-    wind: true,
     geofence: true,
-    bathymetry: true,
   });
 
   // Risk heatmap overlay (backend: src/services/risk_heatmap.py via
@@ -510,12 +514,12 @@ export function MapScreen({ navigation }: any) {
               )}
               <Text style={styles.cacheMapBtnText}>
                 {cachingMap
-                  ? 'Caching map…'
+                  ? t.map.cachingMap
                   : !isOnline
-                    ? 'Offline'
+                    ? t.map.offlineLabel
                     : mapCacheMeta
-                      ? `Cached ${formatRelativeTime(mapCacheMeta.syncedAt)}`
-                      : 'Cache map for offline'}
+                      ? `${t.map.cachedLabel} ${formatRelativeTime(mapCacheMeta.syncedAt)}`
+                      : t.map.cacheOffline}
               </Text>
             </TouchableOpacity>
 
@@ -530,7 +534,7 @@ export function MapScreen({ navigation }: any) {
               onPress={() => setHudOpen(!hudOpen)}
             >
               <Ionicons name="layers-outline" size={18} color={colors.secondaryContainer} />
-              <Text style={styles.hudTriggerText}>Layers</Text>
+              <Text style={styles.hudTriggerText}>{t.map.layers}</Text>
               <Ionicons
                 name={hudOpen ? 'chevron-up' : 'chevron-down'}
                 size={16}
@@ -540,7 +544,7 @@ export function MapScreen({ navigation }: any) {
 
             {hudOpen && (
               <View style={styles.hudMenu}>
-                <Text style={styles.hudTitle}>TACTICAL OVERLAYS</Text>
+                <Text style={styles.hudTitle}>{t.map.tacticalOverlays}</Text>
 
                 <TouchableOpacity
                   style={styles.layerOption}
@@ -551,7 +555,7 @@ export function MapScreen({ navigation }: any) {
                     size={16}
                     color={layers.pfz ? colors.secondary : colors.gray}
                   />
-                  <Text style={styles.layerText}>PFZ Fishing Zones</Text>
+                  <Text style={styles.layerText}>{t.map.pfzZones}</Text>
                   <Ionicons
                     name={layers.pfz ? 'checkbox' : 'square-outline'}
                     size={18}
@@ -568,7 +572,7 @@ export function MapScreen({ navigation }: any) {
                     size={16}
                     color={layers.risk ? colors.riskModerate : colors.gray}
                   />
-                  <Text style={styles.layerText}>Risk Heatmap</Text>
+                  <Text style={styles.layerText}>{t.map.riskHeatmap}</Text>
                   <Ionicons
                     name={layers.risk ? 'checkbox' : 'square-outline'}
                     size={18}
@@ -585,28 +589,11 @@ export function MapScreen({ navigation }: any) {
                     size={16}
                     color={layers.geofence ? colors.riskHigh : colors.gray}
                   />
-                  <Text style={styles.layerText}>12 NM Geofence</Text>
+                  <Text style={styles.layerText}>{t.map.geofenceLayer}</Text>
                   <Ionicons
                     name={layers.geofence ? 'checkbox' : 'square-outline'}
                     size={18}
                     color={layers.geofence ? colors.primaryContainer : colors.gray}
-                  />
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.layerOption}
-                  onPress={() => toggleLayer('wind')}
-                >
-                  <MaterialCommunityIcons
-                    name="weather-windy"
-                    size={16}
-                    color={layers.wind ? colors.primaryContainer : colors.gray}
-                  />
-                  <Text style={styles.layerText}>Wind Flow Streamlines</Text>
-                  <Ionicons
-                    name={layers.wind ? 'checkbox' : 'square-outline'}
-                    size={18}
-                    color={layers.wind ? colors.primaryContainer : colors.gray}
                   />
                 </TouchableOpacity>
               </View>
@@ -633,7 +620,7 @@ export function MapScreen({ navigation }: any) {
               <View style={styles.headerRightRow}>
                 <View style={styles.zoneConfBadge}>
                   <Text style={styles.zoneConfText}>
-                    {selectedZone.confidence != null ? `${selectedZone.confidence}% CONF` : 'INFO'}
+                    {selectedZone.confidence != null ? `${selectedZone.confidence}% CONF` : t.pfz.notAvailable}
                   </Text>
                 </View>
                 <Ionicons
@@ -666,7 +653,7 @@ export function MapScreen({ navigation }: any) {
                   onPress={() => navigation.navigate('PFZ')}
                 >
                   <Ionicons name="navigate" size={16} color={colors.white} />
-                  <Text style={styles.zoneNavBtnText}>Inspect Fishing Zone Details</Text>
+                  <Text style={styles.zoneNavBtnText}>{t.map.inspectZoneDetails}</Text>
                 </TouchableOpacity>
               </>
             )}

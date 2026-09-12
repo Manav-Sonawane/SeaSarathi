@@ -14,7 +14,6 @@ interface GoogleMapContainerProps {
     risk: boolean;
     pfz: boolean;
     geofence: boolean;
-    wind: boolean;
   };
   onSelectZone: (zone: any) => void;
   zoom?: number;
@@ -170,6 +169,8 @@ export function GoogleMapContainer({
             onSelectZone={onSelectZone}
             zoom={zoom}
             panOffset={panOffset}
+            pfzFeatures={pfzFeatures}
+            boundaryFeatures={boundaryFeatures}
           />
         ) : Platform.OS === 'web' ? (
           <View style={styles.webEmbedContainer}>
