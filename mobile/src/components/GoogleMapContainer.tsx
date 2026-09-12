@@ -1,11 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Image, Animated, ActivityIndicator } from 'react-native';
+import { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, Image, ActivityIndicator } from 'react-native';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useIsFocused } from '@react-navigation/native';
 import { PortInfo } from '../constants/portsAndLanguages';
 import { colors } from '../theme/colors';
 import { IndiaMapCanvas } from './IndiaMapCanvas';
+import { WebGoogleMap } from './WebGoogleMap';
 import { RiskHeatmapFeature } from '../services/api';
+import { NamedFeature } from '../utils/geoJsonToMap';
 
 interface GoogleMapContainerProps {
   activePort: PortInfo;
@@ -24,10 +25,14 @@ interface GoogleMapContainerProps {
   riskSummary?: { LOW: number; MODERATE: number; HIGH: number } | null;
   riskLoading?: boolean;
   riskError?: string;
+  // Real PFZ zones / maritime boundaries (see MapScreen.tsx) — used on web to
+  // draw genuine vector overlays via the Google Maps JavaScript API.
+  pfzFeatures?: NamedFeature[];
+  boundaryFeatures?: NamedFeature[];
 }
 
 const GOOGLE_MAPS_KEY =
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || 'AIzaSyDAipJLXbPfmpSdi91j_4mcWHbFSfmjq4c';
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? 'AIzaSyDAipJLXbPfmpSdi91j_4mcWHbFSfmjq4c';
 
 export function GoogleMapContainer({
   activePort,
@@ -40,44 +45,19 @@ export function GoogleMapContainer({
   riskSummary = null,
   riskLoading = false,
   riskError = '',
+  pfzFeatures = [],
+  boundaryFeatures = [],
 }: GoogleMapContainerProps) {
   const [mapMode, setMapMode] = useState<'satellite' | 'vector'>('satellite');
-  const isFocused = useIsFocused();
-  const alertAnim = React.useRef(new Animated.Value(1)).current;
 
-  // Re-trigger alert visibility and slow fade-out transition every time the Marine Map tab is focused
-  React.useEffect(() => {
-    if (isFocused) {
-      alertAnim.setValue(1);
-      Animated.sequence([
-        Animated.delay(1500),
-        Animated.timing(alertAnim, {
-          toValue: 0,
-          duration: 2500,
-          useNativeDriver: true,
-        }),
-      ]).start();
-    }
-  }, [isFocused]);
-
-  // Compute dynamic center latitude and longitude based on drag pan offset
+  // Compute dynamic center latitude and longitude based on drag pan offset.
+  // Only meaningful for the native Static Maps image path below — the real
+  // web map (WebGoogleMap) handles its own pan/zoom via native map dragging.
   const latDelta = -panOffset.y * (0.005 / Math.pow(1.5, zoom - 11));
   const lonDelta = panOffset.x * (0.005 / Math.pow(1.5, zoom - 11));
 
   const centerLat = (activePort.latitude + latDelta).toFixed(4);
   const centerLon = (activePort.longitude + lonDelta).toFixed(4);
-
-  // Debounce iframe center coordinates to prevent rapid iframe reloads during 60fps pan dragging
-  const [stableLat, setStableLat] = React.useState((activePort.latitude).toFixed(4));
-  const [stableLon, setStableLon] = React.useState((activePort.longitude).toFixed(4));
-
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setStableLat(centerLat);
-      setStableLon(centerLon);
-    }, 150);
-    return () => clearTimeout(timer);
-  }, [centerLat, centerLon]);
 
   // Risk heatmap overlay markers (real risk_heatmap.py data, capped upstream
   // in MapScreen.tsx to keep this URL well under Static Maps' length limit).
@@ -86,19 +66,16 @@ export function GoogleMapContainer({
   // pin per grid point is the closest honest approximation this API allows.
   const riskMarkersParam = layers.risk
     ? riskPoints
-        .map((f) => {
-          const [lon, lat] = f.geometry.coordinates;
-          const hex = f.properties.color.replace('#', '0x');
-          return `&markers=color:${hex}%7Csize:small%7C${lat},${lon}`;
-        })
-        .join('')
+      .map((f) => {
+        const [lon, lat] = f.geometry.coordinates;
+        const hex = f.properties.color.replace('#', '0x');
+        return `&markers=color:${hex}%7Csize:small%7C${lat},${lon}`;
+      })
+      .join('')
     : '';
 
   // Google Maps Static Satellite Image with Port Marker
   const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${centerLat},${centerLon}&zoom=${zoom}&size=640x480&scale=2&maptype=hybrid&markers=color:red%7Clabel:P%7C${activePort.latitude},${activePort.longitude}${riskMarkersParam}&key=${GOOGLE_MAPS_KEY}`;
-
-  // Google Maps Interactive Embed iframe URL with debounced center
-  const embedUrl = `https://www.google.com/maps/embed/v1/view?key=${GOOGLE_MAPS_KEY}&center=${stableLat},${stableLon}&zoom=${zoom}&maptype=satellite`;
 
   // Risk legend/summary — shared between the web (Embed API can't render
   // custom markers, so this is the ONLY risk info shown there) and native
@@ -196,20 +173,22 @@ export function GoogleMapContainer({
           />
         ) : Platform.OS === 'web' ? (
           <View style={styles.webEmbedContainer}>
-            {/* Embedded Google Maps Satellite View */}
-            <iframe
-              title="Google Maps Port Satellite View"
-              width="100%"
-              height="100%"
-              style={{ border: 0 }}
-              loading="lazy"
-              allowFullScreen
-              src={embedUrl}
+            {/* Real Google Maps JavaScript API — genuine Polyline/Circle overlays,
+                unlike the old Embed-API iframe this replaced (view-only, no
+                custom vector overlays possible at all). */}
+            <WebGoogleMap
+              apiKey={GOOGLE_MAPS_KEY}
+              center={{ lat: activePort.latitude, lng: activePort.longitude }}
+              zoom={zoom}
+              pfzFeatures={layers.pfz ? pfzFeatures : []}
+              boundaryFeatures={layers.geofence ? boundaryFeatures : []}
+              riskPoints={layers.risk ? riskPoints : []}
+              onSelectZone={onSelectZone}
             />
 
-            {/* Tactical Floating Reticle & Port Highlight Card Over Google Maps (Hides during map hover/drag) */}
+            {/* Tactical Floating Reticle & Port Highlight Card (Hides during map hover/drag) */}
             {!isMapHovered && (
-              <View style={styles.overlayOverlay}>
+              <View style={styles.overlayOverlay} pointerEvents="box-none">
                 <View style={styles.gpsBanner}>
                   <Ionicons name="location-sharp" size={16} color="#EA4335" />
                   <View>
@@ -217,44 +196,12 @@ export function GoogleMapContainer({
                       📍 PINNED PORT: {activePort.name.toUpperCase()} ({centerLat}° N, {centerLon}° E)
                     </Text>
                     <Text style={styles.gpsBannerSub}>
-                      Google Satellite Stream • Zoom: {zoom}x • {activePort.sea}
+                      Google Satellite • Zoom: {zoom}x • {activePort.sea}
                     </Text>
                   </View>
                 </View>
 
                 {renderRiskLegend()}
-
-                {/* Geofence Overlay Warning with Slow Fade Transition */}
-                {layers.geofence && (
-                  <Animated.View style={[styles.geofenceBadge, { opacity: alertAnim }]}>
-                    <Text style={styles.geofenceBadgeText}>
-                      ⚠️ 12 NM TERRITORIAL BORDER WATCH ACTIVE ({activePort.state.toUpperCase()})
-                    </Text>
-                  </Animated.View>
-                )}
-
-                {/* PFZ Zone Hotspots */}
-                {layers.pfz && (
-                  <TouchableOpacity
-                    style={styles.pfzHotspot}
-                    onPress={() =>
-                      onSelectZone({
-                        name: `PFZ-${activePort.name.substring(0, 3).toUpperCase()}-14`,
-                        title: `${activePort.name} Deep Swell`,
-                        distance: '14.2 NM',
-                        bearing: '280° WNW',
-                        confidence: 92,
-                        sst: '28.4°C',
-                        chl: '1.84 mg/m³',
-                      })
-                    }
-                  >
-                    <MaterialCommunityIcons name="fish" size={14} color="#00E676" />
-                    <Text style={styles.pfzHotspotText}>
-                      PFZ-{activePort.name.substring(0, 3).toUpperCase()}-14 (92% CONF)
-                    </Text>
-                  </TouchableOpacity>
-                )}
               </View>
             )}
           </View>
@@ -399,33 +346,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '700',
     color: '#FFFFFF',
-  },
-  geofenceBadge: {
-    backgroundColor: 'rgba(220, 38, 38, 0.9)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 6,
-    alignSelf: 'center',
-  },
-  geofenceBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#FFFFFF',
-  },
-  pfzHotspot: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: 'rgba(0, 230, 118, 0.9)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 16,
-    alignSelf: 'flex-end',
-  },
-  pfzHotspotText: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: '#003311',
   },
   nativeImageContainer: {
     flex: 1,

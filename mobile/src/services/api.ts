@@ -1,14 +1,36 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
+import Constants from 'expo-constants';
 
 // 'localhost' means "this device", not your dev machine — that resolves fine
 // on iOS simulator / web, but on Android (emulator or physical device) every
 // request silently fails as a generic Network Error. 10.0.2.2 is the Android
-// emulator's alias for the host machine's localhost.
-// For a PHYSICAL Android/iOS device (Expo Go over Wi-Fi), 10.0.2.2 does NOT
-// work either — set EXPO_PUBLIC_API_URL in mobile/.env to your dev machine's
-// LAN IP instead, e.g. EXPO_PUBLIC_API_URL=http://192.168.1.23:8000
-const DEFAULT_API_URL = Platform.OS === 'android' ? 'http://10.0.2.2:8000' : 'http://localhost:8000';
+// emulator's alias for the host machine's localhost — but a PHYSICAL device
+// over Wi-Fi needs the dev machine's actual LAN IP, which changes every time
+// you switch networks (Wi-Fi 1 → Wi-Fi 2 → hotspot).
+//
+// Fix: Expo Go/dev-client always knows exactly which host:port it loaded the
+// JS bundle from — that's Constants.expoConfig.hostUri (e.g.
+// "192.168.1.38:8081"), populated live by @expo/cli, correct for whatever
+// network you're on right now. Reuse that host, swap Metro's port (8081) for
+// the backend's (8000). This only exists in development (__DEV__); it's null
+// in a production build, where you'd want a real deployed API URL instead.
+function detectDevServerHost(): string | null {
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (!hostUri) return null;
+  return hostUri.split(':')[0];
+}
+
+const detectedHost = __DEV__ ? detectDevServerHost() : null;
+const DEFAULT_API_URL = detectedHost
+  ? `http://${detectedHost}:8000`
+  : Platform.OS === 'android'
+    ? 'http://10.0.2.2:8000' // Android emulator fallback (no physical-device host to detect)
+    : 'http://localhost:8000';
+
+// EXPO_PUBLIC_API_URL in mobile/.env still wins if set (e.g. pointing at a
+// deployed backend instead of your dev machine) — but for local dev, leave
+// it unset and let auto-detection handle network switches for you.
 const API_URL = process.env.EXPO_PUBLIC_API_URL ?? DEFAULT_API_URL;
 
 export const api = axios.create({
@@ -135,8 +157,14 @@ export interface RiskHeatmapResponse {
   };
 }
 
+export interface GeoJsonFeatureCollection {
+  type: 'FeatureCollection';
+  features: Array<{ type: 'Feature'; geometry: any; properties: Record<string, any> }>;
+}
+
 export const geojsonAPI = {
-  getPFZ: () => api.get('/geojson/pfz').then((res) => res.data),
+  getPFZ: () => api.get<GeoJsonFeatureCollection>('/geojson/pfz').then((res) => res.data),
+  getBoundaries: () => api.get<GeoJsonFeatureCollection>('/geojson/boundaries').then((res) => res.data),
   getRisk: (resolution = 1.0) =>
     api
       .get<RiskHeatmapResponse>('/geojson/risk', { params: { resolution } })

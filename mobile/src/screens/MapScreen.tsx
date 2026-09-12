@@ -17,11 +17,14 @@ import { GoogleMapContainer } from '../components/GoogleMapContainer';
 import { INDIAN_PORTS } from '../constants/portsAndLanguages';
 import { useNetworkStore } from '../store/networkStore';
 import { downloadOfflineBundle, formatRelativeTime } from '../services/offlineService';
-import { getMapCacheMeta, MapCacheMeta } from '../services/mapCacheDb';
-import { geojsonAPI, RiskHeatmapFeature, RiskHeatmapResponse } from '../services/api';
+import { getMapCacheMeta, MapCacheMeta, getCachedPfzZonesDb, getCachedBoundariesDb, CachedPfzZone, CachedBoundary } from '../services/mapCacheDb';
+import { geojsonAPI, RiskHeatmapFeature, RiskHeatmapResponse, GeoJsonFeatureCollection } from '../services/api';
+import { geometryToSegments } from '../utils/geoJsonToMap';
 
 // Static Maps API URLs have a practical length ceiling — cap how many risk
-// markers get appended so we never build an oversized/rejected image request.
+// markers get appended so we never build an oversized/rejected image request
+// on the web/fallback path (GoogleMapContainer). Native react-native-maps has
+// no such URL limit, but it's kept for the shared nearest-N logic below too.
 const MAX_RISK_MARKERS = 40;
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -36,17 +39,19 @@ function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): nu
 }
 
 let MapView: any = null;
-let Polygon: any = null;
 let Polyline: any = null;
 let Marker: any = null;
+let Circle: any = null;
+let PROVIDER_GOOGLE: any = undefined;
 
 if (Platform.OS !== 'web') {
   try {
     const Maps = require('react-native-maps');
     MapView = Maps.default;
-    Polygon = Maps.Polygon;
     Polyline = Maps.Polyline;
     Marker = Maps.Marker;
+    Circle = Maps.Circle;
+    PROVIDER_GOOGLE = Maps.PROVIDER_GOOGLE;
   } catch {
     // Native maps fallback
   }
@@ -157,15 +162,83 @@ export function MapScreen({ navigation }: any) {
         .slice(0, MAX_RISK_MARKERS)
     : [];
 
-  const [selectedZone, setSelectedZone] = useState<any>({
-    name: `PFZ-${portInfo.name.substring(0, 3).toUpperCase()}-14`,
-    title: `${portInfo.name} Swell Bank`,
-    distance: '14.2 NM',
-    bearing: '280° WNW',
-    confidence: 92,
-    sst: '28.4°C',
-    chl: '1.84 mg/m³',
-  });
+  // Real PFZ zones + maritime boundaries — fetched for EVERY platform now.
+  // Native renders them via react-native-maps' <Polyline>; web renders them
+  // via the real Google Maps JavaScript API in GoogleMapContainer (no longer
+  // the old Embed-iframe approach, which couldn't draw overlays at all).
+  // Live fetch first, same convention as Chat/PFZ/Alerts/Dashboard; falls
+  // back to the SQLite cache (mapCacheDb.ts, populated by "Cache map for
+  // offline" — a no-op returning [] on web, where there's no native SQLite)
+  // only if the live call fails or we're already offline.
+  const [pfzGeo, setPfzGeo] = useState<GeoJsonFeatureCollection | CachedPfzZone[] | null>(null);
+  const [boundariesGeo, setBoundariesGeo] = useState<GeoJsonFeatureCollection | CachedBoundary[] | null>(null);
+
+  useEffect(() => {
+    (async () => {
+      if (isOnline) {
+        try {
+          const [pfz, boundaries] = await Promise.all([geojsonAPI.getPFZ(), geojsonAPI.getBoundaries()]);
+          setPfzGeo(pfz);
+          setBoundariesGeo(boundaries);
+          return;
+        } catch (err) {
+          console.error('[MapScreen] Live geojson fetch failed, trying SQLite cache:', err);
+        }
+      }
+      const [cachedPfz, cachedBoundaries] = await Promise.all([getCachedPfzZonesDb(), getCachedBoundariesDb()]);
+      setPfzGeo(cachedPfz);
+      setBoundariesGeo(cachedBoundaries);
+    })();
+  }, [isOnline]);
+
+  // Normalize both possible shapes (live GeoJSON FeatureCollection vs. the
+  // SQLite cache's already-flat row array) into one list of {name, geometry}.
+  // Memoized on the raw fetch results only — without this, every re-render
+  // (e.g. every drag frame, every layer toggle) rebuilt these arrays with new
+  // references, which cascaded into recomputing geometryToSegments and
+  // remounting every Polyline below.
+  const pfzFeatures: { name: string; sector: string; geometry: any }[] = React.useMemo(
+    () =>
+      !pfzGeo
+        ? []
+        : Array.isArray(pfzGeo)
+          ? pfzGeo.map((z) => ({ name: z.name, sector: z.sector, geometry: z.geometry }))
+          : pfzGeo.features.map((f, i) => ({
+              name: (f.properties.SECTORNAME || '').trim() || `PFZ-${f.properties.UID ?? i}`,
+              sector: (f.properties.SECTORNAME || '').trim(),
+              geometry: f.geometry,
+            })),
+    [pfzGeo]
+  );
+
+  const boundaryFeatures: { name: string; geometry: any }[] = React.useMemo(
+    () =>
+      !boundariesGeo
+        ? []
+        : Array.isArray(boundariesGeo)
+          ? boundariesGeo.map((b) => ({ name: b.name, geometry: b.geometry }))
+          : boundariesGeo.features.map((f, i) => ({
+              name: f.properties.LINE_NAME || f.properties.GEONAME || `Boundary ${i}`,
+              geometry: f.geometry,
+            })),
+    [boundariesGeo]
+  );
+
+  // Pre-flatten geometry → line segments once per data change, instead of
+  // inside the render's .map() (which re-ran geometryToSegments on every
+  // MapScreen re-render, including every drag frame).
+  const boundarySegments = React.useMemo(
+    () => boundaryFeatures.map((b) => ({ b, segments: geometryToSegments(b.geometry) })),
+    [boundaryFeatures]
+  );
+  const pfzSegments = React.useMemo(
+    () => pfzFeatures.map((z) => ({ z, segments: geometryToSegments(z.geometry) })),
+    [pfzFeatures]
+  );
+
+  // No fabricated default — the card only appears once the fisherman taps a
+  // real PFZ line, boundary, or (on the web/Static-Maps path) a PFZ hotspot.
+  const [selectedZone, setSelectedZone] = useState<any>(null);
 
   const panResponder = React.useMemo(
     () =>
@@ -182,10 +255,19 @@ export function MapScreen({ navigation }: any) {
         },
         onPanResponderMove: (_, gestureState) => {
           setIsMapHovered(true);
-          setPanOffset({
-            x: panStartRef.current.x + gestureState.dx,
-            y: panStartRef.current.y + gestureState.dy,
-          });
+          // Native MapView has its own built-in pan/zoom gestures and never
+          // reads panOffset — it's only consumed by the web/GoogleMapContainer
+          // fallback. Updating it here on every touch-move event was forcing
+          // a full MapScreen re-render (and re-computation of every PFZ/
+          // boundary segment + re-rasterization of every port marker bitmap)
+          // on every frame of a native drag, which is what caused the lag
+          // and crashes.
+          if (Platform.OS === 'web') {
+            setPanOffset({
+              x: panStartRef.current.x + gestureState.dx,
+              y: panStartRef.current.y + gestureState.dy,
+            });
+          }
         },
         onPanResponderRelease: () => {
           handleMapTouchEnd();
@@ -222,27 +304,6 @@ export function MapScreen({ navigation }: any) {
     longitudeDelta: 0.4,
   };
 
-  const pfzPolygon1 = [
-    { latitude: portInfo.latitude + 0.05, longitude: portInfo.longitude - 0.1 },
-    { latitude: portInfo.latitude + 0.12, longitude: portInfo.longitude - 0.17 },
-    { latitude: portInfo.latitude + 0.09, longitude: portInfo.longitude - 0.27 },
-    { latitude: portInfo.latitude - 0.01, longitude: portInfo.longitude - 0.2 },
-  ];
-
-  const pfzPolygon2 = [
-    { latitude: portInfo.latitude - 0.08, longitude: portInfo.longitude - 0.07 },
-    { latitude: portInfo.latitude - 0.03, longitude: portInfo.longitude - 0.2 },
-    { latitude: portInfo.latitude - 0.13, longitude: portInfo.longitude - 0.25 },
-    { latitude: portInfo.latitude - 0.17, longitude: portInfo.longitude - 0.13 },
-  ];
-
-  const geofenceLine = [
-    { latitude: portInfo.latitude + 0.22, longitude: portInfo.longitude - 0.4 },
-    { latitude: portInfo.latitude + 0.02, longitude: portInfo.longitude - 0.33 },
-    { latitude: portInfo.latitude - 0.18, longitude: portInfo.longitude - 0.27 },
-    { latitude: portInfo.latitude - 0.38, longitude: portInfo.longitude - 0.2 },
-  ];
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
@@ -260,57 +321,79 @@ export function MapScreen({ navigation }: any) {
         {Platform.OS !== 'web' && MapView ? (
           <MapView
             style={styles.map}
+            provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : undefined}
             initialRegion={initialRegion}
             showsUserLocation={false}
           >
-            {layers.geofence && Polyline && (
-              <Polyline
-                coordinates={geofenceLine}
-                strokeColor={colors.riskHigh}
-                strokeWidth={3}
-                lineDashPattern={[8, 4]}
-              />
-            )}
-            {layers.pfz && Polygon && (
-              <>
-                <Polygon
-                  coordinates={pfzPolygon1}
-                  fillColor="rgba(0, 200, 100, 0.3)"
-                  strokeColor={colors.riskLow}
-                  strokeWidth={2}
-                  tappable
-                  onPress={() =>
-                    setSelectedZone({
-                      name: `PFZ-${portInfo.name.substring(0, 3).toUpperCase()}-14`,
-                      title: `${portInfo.name} Deep Swell`,
-                      distance: '14.2 NM',
-                      bearing: '280° WNW',
-                      confidence: 92,
-                      sst: '28.4°C',
-                      chl: '1.84 mg/m³',
-                    })
-                  }
+            {/* Maritime boundaries — real INDIAN-WATER-BOUNDARIES.geojson / INDIA-EEZ.geojson
+                line geometry (see backend/main.py's /geojson/boundaries), not a fabricated shape. */}
+            {layers.geofence && Polyline &&
+              boundarySegments.map(({ b, segments }, i) =>
+                segments.map((segment, j) => (
+                  <Polyline
+                    key={`boundary-${i}-${j}`}
+                    coordinates={segment}
+                    strokeColor={colors.riskHigh}
+                    strokeWidth={2}
+                    lineDashPattern={[8, 4]}
+                    tappable
+                    onPress={() =>
+                      setSelectedZone({
+                        name: b.name,
+                        title: 'Maritime Boundary',
+                        distance: '—',
+                        bearing: '—',
+                        confidence: null,
+                        sst: '—',
+                        chl: '—',
+                      })
+                    }
+                  />
+                ))
+              )}
+
+            {/* PFZ zones — real PFZ.geojson MultiLineString transects (52 nationwide,
+                see backend/src/utils/geo.py's docstring). Rendered as lines, matching
+                the actual geometry type — not fabricated filled polygons. */}
+            {layers.pfz && Polyline &&
+              pfzSegments.map(({ z, segments }, i) =>
+                segments.map((segment, j) => (
+                  <Polyline
+                    key={`pfz-${i}-${j}`}
+                    coordinates={segment}
+                    strokeColor={colors.riskLow}
+                    strokeWidth={3}
+                    tappable
+                    onPress={() =>
+                      setSelectedZone({
+                        name: z.name,
+                        title: z.sector || `${portInfo.name} PFZ Sector`,
+                        distance: `${haversineKm(portInfo.latitude, portInfo.longitude, segment[0]?.latitude ?? portInfo.latitude, segment[0]?.longitude ?? portInfo.longitude).toFixed(1)} km`,
+                        bearing: '—',
+                        confidence: null,
+                        sst: '—',
+                        chl: '—',
+                      })
+                    }
+                  />
+                ))
+              )}
+
+            {/* Risk heatmap — real risk_heatmap.py data as genuine semi-transparent
+                circles (react-native-maps supports this natively; the web/Static-Maps
+                fallback in GoogleMapContainer can only approximate with colored pins). */}
+            {layers.risk && Circle &&
+              nearestRiskFeatures.map((f, i) => (
+                <Circle
+                  key={`risk-${i}`}
+                  center={{ latitude: f.geometry.coordinates[1], longitude: f.geometry.coordinates[0] }}
+                  radius={18000}
+                  fillColor={`${f.properties.color}${Math.round(f.properties.opacity * 255).toString(16).padStart(2, '0')}`}
+                  strokeColor={f.properties.color}
+                  strokeWidth={1}
                 />
-                <Polygon
-                  coordinates={pfzPolygon2}
-                  fillColor="rgba(0, 150, 255, 0.25)"
-                  strokeColor={colors.primaryContainer}
-                  strokeWidth={2}
-                  tappable
-                  onPress={() =>
-                    setSelectedZone({
-                      name: `PFZ-${portInfo.name.substring(0, 3).toUpperCase()}-18`,
-                      title: `${portInfo.state} Bank Edge`,
-                      distance: '21.5 NM',
-                      bearing: '240° WSW',
-                      confidence: 86,
-                      sst: '27.9°C',
-                      chl: '1.52 mg/m³',
-                    })
-                  }
-                />
-              </>
-            )}
+              ))}
+
             {Marker && (
               <>
                 {INDIAN_PORTS.map((port) => (
@@ -319,6 +402,12 @@ export function MapScreen({ navigation }: any) {
                     coordinate={{ latitude: port.latitude, longitude: port.longitude }}
                     title={`📍 ${port.name} Port (${port.state})`}
                     description={`${port.region} • ${port.sea}`}
+                    // Custom-icon markers default to tracksViewChanges=true,
+                    // which re-rasterizes the marker's bitmap on EVERY
+                    // re-render of the map, not just when it actually
+                    // changes. With ~10+ static port markers this was the
+                    // main cause of the lag/crashes on Android.
+                    tracksViewChanges={false}
                   >
                     <View
                       style={[
@@ -338,6 +427,7 @@ export function MapScreen({ navigation }: any) {
                   coordinate={{ latitude: portInfo.latitude, longitude: portInfo.longitude }}
                   title={`MY VESSEL (${operatingPort})`}
                   description="8.4 KTS • 285° WNW"
+                  tracksViewChanges={false}
                 >
                   <View style={styles.vesselMarker}>
                     <MaterialCommunityIcons name="navigation" size={24} color={colors.primaryContainer} />
@@ -358,6 +448,8 @@ export function MapScreen({ navigation }: any) {
             riskSummary={riskData?.metadata.risk_counts ?? null}
             riskLoading={riskLoading}
             riskError={riskError}
+            pfzFeatures={pfzFeatures}
+            boundaryFeatures={boundaryFeatures}
           />
         )}
 
@@ -540,7 +632,9 @@ export function MapScreen({ navigation }: any) {
 
               <View style={styles.headerRightRow}>
                 <View style={styles.zoneConfBadge}>
-                  <Text style={styles.zoneConfText}>{selectedZone.confidence}% CONF</Text>
+                  <Text style={styles.zoneConfText}>
+                    {selectedZone.confidence != null ? `${selectedZone.confidence}% CONF` : 'INFO'}
+                  </Text>
                 </View>
                 <Ionicons
                   name={isZoneCardCollapsed ? 'chevron-up-circle' : 'chevron-down-circle'}
