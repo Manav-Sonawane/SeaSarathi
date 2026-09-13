@@ -19,6 +19,31 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", "..", ".en
 SARVAM_API_KEY = os.getenv("SARVAM_API_KEY", "")
 SARVAM_BASE_URL = "https://api.sarvam.ai"
 SARVAM_LLM_MODEL = "sarvam-105b"
+SARVAM_STT_MODEL = "saaras:v3"
+SARVAM_TTS_MODEL = "bulbul:v3"
+
+# App language codes (see mobile/src/constants/portsAndLanguages.ts) -> Sarvam's
+# BCP-47 codes. Sarvam's Indian-language coverage happens to match this app's
+# language list exactly, except Odia is "od-IN" (not "or-IN").
+LANGUAGE_BCP47 = {
+    "en": "en-IN",
+    "hi": "hi-IN",
+    "ml": "ml-IN",
+    "ta": "ta-IN",
+    "te": "te-IN",
+    "bn": "bn-IN",
+    "gu": "gu-IN",
+    "mr": "mr-IN",
+    "or": "od-IN",
+    "kn": "kn-IN",
+}
+
+# TTS request cap (bulbul:v3): 2500 chars per call. Longer text is split into
+# chunks at sentence boundaries and synthesized as multiple audio clips rather
+# than one combined file — concatenating raw WAV bytes correctly requires
+# re-parsing/merging headers, which isn't worth it when the client can just
+# play a short list of clips back to back.
+SARVAM_TTS_MAX_CHARS = 2500
 
 
 def sarvam_generate(prompt: str, max_tokens: int = 1024, temperature: float = 0.3) -> str:
@@ -83,6 +108,121 @@ def sarvam_generate(prompt: str, max_tokens: int = 1024, temperature: float = 0.
         if not content:
             raise ValueError(f"Empty response from Sarvam. Full response: {data}")
         return content
+
+
+def sarvam_speech_to_text(audio_bytes: bytes, filename: str, language_code: str | None = None) -> dict:
+    """
+    Transcribes audio via Sarvam's /speech-to-text (saaras:v3).
+
+    Args:
+        audio_bytes: Raw audio file bytes (WAV/M4A/OGG/etc — whatever the
+            client recorded; Sarvam accepts a broad range of codecs directly).
+        filename: Original filename, used only to hint the content type.
+        language_code: BCP-47 code (e.g. "hi-IN") to bias recognition, or
+            None to let Sarvam auto-detect ("unknown").
+
+    Returns:
+        {"transcript": str, "language_code": str | None}
+    """
+    if not SARVAM_API_KEY:
+        raise ValueError("SARVAM_API_KEY is not set in backend/.env")
+
+    headers = {"api-subscription-key": SARVAM_API_KEY}
+    files = {"file": (filename, audio_bytes)}
+    data = {
+        "model": SARVAM_STT_MODEL,
+        "language_code": language_code or "unknown",
+    }
+
+    with httpx.Client(timeout=60.0) as client:
+        response = client.post(
+            f"{SARVAM_BASE_URL}/speech-to-text",
+            headers=headers,
+            files=files,
+            data=data,
+        )
+        response.raise_for_status()
+        result = response.json()
+        return {
+            "transcript": result.get("transcript", ""),
+            "language_code": result.get("language_code"),
+        }
+
+
+def sarvam_text_to_speech(text: str, language_code: str, speaker: str = "shubh") -> list[str]:
+    """
+    Synthesizes speech via Sarvam's /text-to-speech (bulbul:v3).
+
+    Splits text longer than SARVAM_TTS_MAX_CHARS into sentence-boundary
+    chunks (each synthesized separately — see module-level comment on why
+    chunks aren't merged into one file server-side).
+
+    Args:
+        text: The text to speak.
+        language_code: BCP-47 code (e.g. "hi-IN").
+        speaker: Sarvam voice name (lowercase).
+
+    Returns:
+        List of base64-encoded WAV strings, one per chunk, in playback order.
+    """
+    if not SARVAM_API_KEY:
+        raise ValueError("SARVAM_API_KEY is not set in backend/.env")
+    if not text.strip():
+        return []
+
+    chunks = _split_into_chunks(text, SARVAM_TTS_MAX_CHARS)
+
+    headers = {
+        "api-subscription-key": SARVAM_API_KEY,
+        "Content-Type": "application/json",
+    }
+
+    audios: list[str] = []
+    with httpx.Client(timeout=60.0) as client:
+        for chunk in chunks:
+            payload = {
+                "text": chunk,
+                "language_code": language_code,
+                "model": SARVAM_TTS_MODEL,
+                "speaker": speaker,
+            }
+            response = client.post(
+                f"{SARVAM_BASE_URL}/text-to-speech",
+                headers=headers,
+                json=payload,
+            )
+            response.raise_for_status()
+            result = response.json()
+            audios.extend(result.get("audios", []))
+    return audios
+
+
+def _split_into_chunks(text: str, max_chars: int) -> list[str]:
+    """Splits text into <=max_chars pieces, breaking at sentence ends where
+    possible so each chunk is still natural to speak aloud."""
+    if len(text) <= max_chars:
+        return [text]
+
+    import re
+    sentences = re.split(r"(?<=[.!?।])\s+", text)
+    chunks: list[str] = []
+    current = ""
+    for sentence in sentences:
+        candidate = f"{current} {sentence}".strip() if current else sentence
+        if len(candidate) > max_chars:
+            if current:
+                chunks.append(current)
+            # A single sentence longer than max_chars: hard-split it.
+            current = sentence[:max_chars]
+            while len(current) == max_chars and len(sentence) > max_chars:
+                sentence = sentence[max_chars:]
+                chunks.append(current)
+                current = sentence[:max_chars]
+        else:
+            current = candidate
+    if current:
+        chunks.append(current)
+    return chunks
 
 
 def test_sarvam_connection() -> dict:

@@ -9,15 +9,19 @@ import {
   ActivityIndicator,
   SafeAreaView,
   StatusBar,
+  Platform,
 } from 'react-native';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { useAudioRecorder, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
 import { colors } from '../theme/colors';
-import { chatAPI, ChatResponse } from '../services/api';
+import { chatAPI, ChatResponse, voiceAPI } from '../services/api';
 import { useUserStore } from '../store/userStore';
 import { getCachedBundleForOffline, buildOfflineChatAnswer, formatRelativeTime } from '../services/offlineService';
 import { useNetworkStore } from '../store/networkStore';
 import { detectQueryLanguage } from '../utils/languageDetection';
 import { INDIAN_LANGUAGES } from '../constants/portsAndLanguages';
+import { getScreenText } from '../constants/screenTranslations';
+import { playTtsClips } from '../services/voiceService';
 
 interface Message {
   id: string;
@@ -25,17 +29,76 @@ interface Message {
   text?: string;
   time: string;
   data?: ChatResponse & { offline?: boolean; bundle_created_at?: string };
+  language?: string; // App language code this message's text/recommendation is in — used for TTS
 }
 
 export function ChatScreen({ navigation }: any) {
   const { operatingPort, portInfo, getLanguageInfo, getVesselRangeKm, language, vesselType, riskTolerance, role } = useUserStore();
   const langInfo = getLanguageInfo();
+  const t = getScreenText(langInfo.code);
   const vesselRange = getVesselRangeKm();
   const isOnline = useNetworkStore((s) => s.isOnline);
 
   const [query, setQuery] = useState('');
   const [loading, setLoading] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
+
+  // Voice input (STT) — record with expo-audio, upload to backend's
+  // /voice/stt (Sarvam saaras:v3), fill the transcript in as the query.
+  const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
+  const [isRecording, setIsRecording] = useState(false);
+  const [transcribing, setTranscribing] = useState(false);
+
+  // Voice output (TTS) — which message's advisory is currently being
+  // synthesized/played, so only one plays at a time and the button can show
+  // a loading/playing state.
+  const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
+
+  const handleMicPress = async () => {
+    if (isRecording) {
+      setIsRecording(false);
+      await recorder.stop();
+      const uri = recorder.uri;
+      if (!uri) return;
+      setTranscribing(true);
+      try {
+        const ext = Platform.OS === 'web' ? 'webm' : 'm4a';
+        const mime = Platform.OS === 'web' ? 'audio/webm' : 'audio/m4a';
+        const result = await voiceAPI.stt(uri, `voice.${ext}`, mime, language);
+        if (result.transcript?.trim()) {
+          handleSend(result.transcript.trim());
+        }
+      } catch (err) {
+        console.error('[ChatScreen] Speech-to-text failed:', err);
+      } finally {
+        setTranscribing(false);
+      }
+      return;
+    }
+
+    const { granted } = await requestRecordingPermissionsAsync();
+    if (!granted) {
+      console.warn('[ChatScreen] Microphone permission denied');
+      return;
+    }
+    await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+    await recorder.prepareToRecordAsync();
+    recorder.record();
+    setIsRecording(true);
+  };
+
+  const handleSpeakPress = async (msg: Message) => {
+    if (!msg.data?.recommendation || speakingMessageId) return;
+    setSpeakingMessageId(msg.id);
+    try {
+      const result = await voiceAPI.tts(msg.data.recommendation, msg.language || language);
+      await playTtsClips(result.audios);
+    } catch (err) {
+      console.error('[ChatScreen] Text-to-speech failed:', err);
+    } finally {
+      setSpeakingMessageId(null);
+    }
+  };
 
   // Generate localized initial welcome message whenever language or port changes
   useEffect(() => {
@@ -52,6 +115,7 @@ export function ChatScreen({ navigation }: any) {
         id: '2',
         sender: 'system',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
+        language: langInfo.code,
         data: {
           risk_level: 'LOW',
           wind_kmh: 16,
@@ -107,6 +171,7 @@ export function ChatScreen({ navigation }: any) {
         id: (Date.now() + 1).toString(),
         sender: 'system',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
+        language: queryLanguage,
         // Show the backend's actual (Sarvam-generated) recommendation as-is.
         // Only fall back to the static localized template if the backend
         // returned no text at all (e.g. an empty string) — and even then,
@@ -161,6 +226,7 @@ export function ChatScreen({ navigation }: any) {
         id: (Date.now() + 1).toString(),
         sender: 'system',
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
+        language: queryLanguage,
         data: fallbackData,
       };
       setMessages((prev) => [...prev, sysMsg]);
@@ -285,6 +351,17 @@ export function ChatScreen({ navigation }: any) {
                     <MaterialCommunityIcons name="anchor" size={16} color={colors.white} />
                   </View>
                   <Text style={styles.aiTitle}>{langInfo.uiText.aiTitle}</Text>
+                  <TouchableOpacity
+                    style={styles.speakButton}
+                    onPress={() => handleSpeakPress(msg)}
+                    disabled={speakingMessageId !== null}
+                  >
+                    {speakingMessageId === msg.id ? (
+                      <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                      <Ionicons name="volume-high-outline" size={18} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
                 </View>
 
                 <View style={styles.cardContainer}>
@@ -344,12 +421,26 @@ export function ChatScreen({ navigation }: any) {
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          placeholder={langInfo.uiText.askPlaceholder}
+          placeholder={
+            isRecording ? t.voice.listening : transcribing ? t.voice.transcribing : langInfo.uiText.askPlaceholder
+          }
           placeholderTextColor={colors.onSurfaceVariant}
           value={query}
           onChangeText={setQuery}
           onSubmitEditing={() => handleSend()}
+          editable={!isRecording && !transcribing}
         />
+        <TouchableOpacity
+          style={[styles.micButton, isRecording && styles.micButtonActive]}
+          onPress={handleMicPress}
+          disabled={transcribing}
+        >
+          {transcribing ? (
+            <ActivityIndicator size="small" color={colors.white} />
+          ) : (
+            <Ionicons name={isRecording ? 'stop' : 'mic'} size={18} color={colors.white} />
+          )}
+        </TouchableOpacity>
         <TouchableOpacity style={styles.sendButton} onPress={() => handleSend()}>
           <Ionicons name="send" size={18} color={colors.white} />
         </TouchableOpacity>
@@ -481,6 +572,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '800',
     color: colors.primary,
+    flex: 1,
+  },
+  speakButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cardContainer: {
     backgroundColor: colors.surfaceContainerLowest,
@@ -716,5 +815,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryContainer,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  micButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: colors.secondary,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  micButtonActive: {
+    backgroundColor: colors.error,
   },
 });

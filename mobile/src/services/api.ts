@@ -273,3 +273,33 @@ export const offlineAPI = {
       .then((res) => res.data),
 };
 
+export interface SttResponse {
+  transcript: string;
+  language_code: string | null;
+}
+
+export interface TtsResponse {
+  audios: string[]; // base64 WAV clips, in playback order
+  language_code: string;
+}
+
+export const voiceAPI = {
+  // `fileUri` is a local file:// (or blob: on web) URI from an expo-audio
+  // recording — uploaded as multipart/form-data, matching the backend's
+  // /voice/stt (Sarvam saaras:v3). `language` is this app's language code
+  // (e.g. "hi"), used only as a recognition hint.
+  stt: (fileUri: string, filename: string, mimeType: string, language?: string) => {
+    const form = new FormData();
+    form.append('file', { uri: fileUri, name: filename, type: mimeType } as any);
+    if (language) form.append('language', language);
+    return api
+      .post<SttResponse>('/voice/stt', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: 30000,
+      })
+      .then((res) => res.data);
+  },
+  tts: (text: string, language: string) =>
+    api.post<TtsResponse>('/voice/tts', { text, language }, { timeout: 30000 }).then((res) => res.data),
+};
+

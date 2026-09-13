@@ -2,7 +2,7 @@ import os
 import json
 import asyncio
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
@@ -107,6 +107,11 @@ class OfflineBundleRequest(BaseModel):
     latitude: float = 8.5        # Default: Kochi
     longitude: float = 76.2
     trip_days: int = 5           # Clamped server-side to [1, 10]
+
+
+class TTSRequest(BaseModel):
+    text: str
+    language: str = "en"         # App language code (see LANGUAGE_BCP47), not BCP-47 directly
 
 
 class ChatResponse(BaseModel):
@@ -603,3 +608,50 @@ async def data_freshness():
         "max_age_hours": DEFAULT_MAX_AGE_HOURS,
         "grid_exists": age is not None,
     }
+
+
+# ─── Voice (STT / TTS) Endpoints ────────────────────────────────────────────────
+
+@app.post("/voice/stt", summary="Speech to Text")
+async def voice_stt(file: UploadFile = File(...), language: str | None = Form(None)):
+    """
+    Transcribes an uploaded audio clip via Sarvam's saaras:v3 STT.
+    `language` is an app language code (e.g. "hi", "ml") used only as a
+    recognition hint — omit it to let Sarvam auto-detect the spoken language.
+    """
+    from src.services.sarvam_client import sarvam_speech_to_text, LANGUAGE_BCP47
+
+    audio_bytes = await file.read()
+    if not audio_bytes:
+        raise HTTPException(status_code=400, detail="Empty audio file")
+
+    bcp47 = LANGUAGE_BCP47.get(language) if language else None
+    try:
+        result = await asyncio.to_thread(
+            sarvam_speech_to_text, audio_bytes, file.filename or "audio.m4a", bcp47
+        )
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Speech-to-text failed: {e}")
+
+    return result
+
+
+@app.post("/voice/tts", summary="Text to Speech")
+async def voice_tts(request: TTSRequest):
+    """
+    Synthesizes speech via Sarvam's bulbul:v3 TTS. Returns one or more
+    base64-encoded WAV clips (multiple only if `text` exceeded the per-call
+    character cap — see sarvam_client.py) for the client to play in order.
+    """
+    from src.services.sarvam_client import sarvam_text_to_speech, LANGUAGE_BCP47
+
+    if not request.text.strip():
+        raise HTTPException(status_code=400, detail="text must not be empty")
+
+    bcp47 = LANGUAGE_BCP47.get(request.language, "en-IN")
+    try:
+        audios = await asyncio.to_thread(sarvam_text_to_speech, request.text, bcp47)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Text-to-speech failed: {e}")
+
+    return {"audios": audios, "language_code": bcp47}

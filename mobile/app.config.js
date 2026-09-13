@@ -29,7 +29,13 @@ module.exports = {
     plugins: [
       "expo-sqlite",
       "expo-font",
-      "expo-dev-client"
+      "expo-dev-client",
+      [
+        "expo-audio",
+        {
+          microphonePermission: "Allow SeaSarathi to use the microphone to transcribe your voice queries."
+        }
+      ]
     ],
     extra: {
       eas: {

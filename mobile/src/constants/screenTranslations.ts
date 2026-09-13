@@ -75,6 +75,11 @@ export interface ScreenText {
     downloading: string;
     connectToDownload: string;
   };
+  voice: {
+    listening: string;
+    transcribing: string;
+    micPermissionDenied: string;
+  };
 }
 
 export const SCREEN_TEXT: Record<string, ScreenText> = {
@@ -147,6 +152,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       downloading: 'Downloading (can take ~30s)...',
       connectToDownload: 'Offline — connect to download',
     },
+    voice: {
+      listening: 'Listening…',
+      transcribing: 'Transcribing…',
+      micPermissionDenied: 'Microphone permission denied — enable it in Settings to use voice input.',
+    },
   },
   ml: {
     pfz: {
@@ -216,6 +226,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       refreshBundle: 'ബണ്ടിൽ പുതുക്കുക',
       downloading: 'ഡൗൺലോഡ് ചെയ്യുന്നു…',
       connectToDownload: 'ഓഫ്‌ലൈൻ — ഡൗൺലോഡ് ചെയ്യാൻ ബന്ധിപ്പിക്കുക',
+    },
+    voice: {
+      listening: 'കേൾക്കുന്നു…',
+      transcribing: 'എഴുതി മാറ്റുന്നു…',
+      micPermissionDenied: 'മൈക്രോഫോൺ അനുമതി നിഷേധിച്ചു — സെറ്റിംഗ്സിൽ അനുവദിക്കുക.',
     },
   },
   ta: {
@@ -287,6 +302,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       downloading: 'பதிவிறக்குகிறது…',
       connectToDownload: 'ஆஃப்லைன் — பதிவிறக்க இணைக்கவும்',
     },
+    voice: {
+      listening: 'கேட்கிறது…',
+      transcribing: 'எழுத்தாக மாற்றுகிறது…',
+      micPermissionDenied: 'மைக்ரோஃபோன் அனுமதி மறுக்கப்பட்டது — அமைப்புகளில் அனுமதிக்கவும்.',
+    },
   },
   te: {
     pfz: {
@@ -356,6 +376,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       refreshBundle: 'బండిల్ రిఫ్రెష్ చేయండి',
       downloading: 'డౌన్‌లోడ్ అవుతోంది…',
       connectToDownload: 'ఆఫ్‌లైన్ — డౌన్‌లోడ్ చేయడానికి కనెక్ట్ చేయండి',
+    },
+    voice: {
+      listening: 'వింటోంది…',
+      transcribing: 'వ్రాస్తోంది…',
+      micPermissionDenied: 'మైక్రోఫోన్ అనుమతి తిరస్కరించబడింది — సెట్టింగ్‌లలో అనుమతించండి.',
     },
   },
   bn: {
@@ -427,6 +452,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       downloading: 'ডাউনলোড হচ্ছে…',
       connectToDownload: 'অফলাইন — ডাউনলোড করতে সংযুক্ত করুন',
     },
+    voice: {
+      listening: 'শুনছে…',
+      transcribing: 'লিখে ফেলা হচ্ছে…',
+      micPermissionDenied: 'মাইক্রোফোন অনুমতি প্রত্যাখ্যাত — সেটিংসে অনুমতি দিন।',
+    },
   },
   gu: {
     pfz: {
@@ -496,6 +526,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       refreshBundle: 'બંડલ રિફ્રેશ કરો',
       downloading: 'ડાઉનલોડ થઈ રહ્યું છે…',
       connectToDownload: 'ઓફલાઇન — ડાઉનલોડ કરવા કનેક્ટ કરો',
+    },
+    voice: {
+      listening: 'સાંભળી રહ્યું છે…',
+      transcribing: 'લખી રહ્યું છે…',
+      micPermissionDenied: 'માઇક્રોફોન પરવાનગી નકારાઈ — સેટિંગ્સમાં મંજૂરી આપો.',
     },
   },
   mr: {
@@ -567,6 +602,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       downloading: 'डाउनलोड होत आहे…',
       connectToDownload: 'ऑफलाइन — डाउनलोडसाठी कनेक्ट करा',
     },
+    voice: {
+      listening: 'ऐकत आहे…',
+      transcribing: 'लिहित आहे…',
+      micPermissionDenied: 'मायक्रोफोन परवानगी नाकारली — सेटिंग्जमध्ये परवानगी द्या.',
+    },
   },
   or: {
     pfz: {
@@ -636,6 +676,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       refreshBundle: 'ବଣ୍ଡଲ ରିଫ୍ରେସ୍ କରନ୍ତୁ',
       downloading: 'ଡାଉନଲୋଡ୍ ହେଉଛି…',
       connectToDownload: 'ଅଫଲାଇନ — ଡାଉନଲୋଡ୍ ପାଇଁ ସଂଯୋଗ କରନ୍ତୁ',
+    },
+    voice: {
+      listening: 'ଶୁଣୁଛି…',
+      transcribing: 'ଲେଖୁଛି…',
+      micPermissionDenied: 'ମାଇକ୍ରୋଫୋନ୍ ଅନୁମତି ମନା କରାଗଲା — ସେଟିଂସରେ ଅନୁମତି ଦିଅନ୍ତୁ।',
     },
   },
   kn: {
@@ -707,6 +752,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       downloading: 'ಡೌನ್‌ಲೋಡ್ ಆಗುತ್ತಿದೆ…',
       connectToDownload: 'ಆಫ್‌ಲೈನ್ — ಡೌನ್‌ಲೋಡ್ ಮಾಡಲು ಸಂಪರ್ಕಿಸಿ',
     },
+    voice: {
+      listening: 'ಕೇಳುತ್ತಿದೆ…',
+      transcribing: 'ಬರೆಯುತ್ತಿದೆ…',
+      micPermissionDenied: 'ಮೈಕ್ರೊಫೋನ್ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ — ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ ಅನುಮತಿಸಿ.',
+    },
   },
   hi: {
     pfz: {
@@ -776,6 +826,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       refreshBundle: 'बंडल रीफ्रेश करें',
       downloading: 'डाउनलोड हो रहा है…',
       connectToDownload: 'ऑफलाइन — डाउनलोड के लिए कनेक्ट करें',
+    },
+    voice: {
+      listening: 'सुन रहा है…',
+      transcribing: 'लिख रहा है…',
+      micPermissionDenied: 'माइक्रोफ़ोन अनुमति अस्वीकृत — सेटिंग्स में अनुमति दें।',
     },
   },
 };
