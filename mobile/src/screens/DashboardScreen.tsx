@@ -15,6 +15,7 @@ import { useUserStore } from '../store/userStore';
 import { chatAPI, ChatResponse, Alert, freshnessAPI, DataFreshnessInfo } from '../services/api';
 import { getCachedBundleForOffline, buildOfflineChatAnswer, formatRelativeTime } from '../services/offlineService';
 import { useNetworkStore } from '../store/networkStore';
+import { getScreenText } from '../constants/screenTranslations';
 
 interface FishAvailability {
   id: string;
@@ -29,10 +30,108 @@ interface FishAvailability {
   chl: string;
 }
 
+// Fixed, prop/state-independent dataset — hoisted to module scope instead of
+// being redeclared inline on every render.
+const AVAILABLE_FISH_LIST: FishAvailability[] = [
+  {
+    id: '1',
+    name: 'Indian Oil Sardine',
+    localNames: {
+      en: 'Indian Oil Sardine',
+      ml: 'മത്തി (Mathi)',
+      ta: 'மத்தி (Mathi)',
+      te: 'సార్డైన్ (Sardine)',
+      bn: 'তারলি (Tarali)',
+      gu: 'તરલી (Tarali)',
+      mr: 'तारली (Tarli)',
+      or: 'ତାରଲି (Tarali)',
+      kn: 'ತಾರಲಿ (Tarali)',
+      hi: 'तारली (Tarli)',
+    },
+    abundance: 'VERY HIGH',
+    distance: '12 - 22 NM',
+    depth: '15 - 30m',
+    peakTime: '04:00 - 08:30 IST (Dawn)',
+    gear: 'Ring Seine / Purse Seine (32mm)',
+    sst: '28.2°C',
+    chl: '1.84 mg/m³',
+  },
+  {
+    id: '2',
+    name: 'Indian Mackerel',
+    localNames: {
+      en: 'Indian Mackerel',
+      ml: 'അയില (Ayila)',
+      ta: 'கானாங்கெளுத்தி (Kanangeluthi)',
+      te: 'కానాగర్త (Kanagartha)',
+      bn: 'বাংড়া (Bangda)',
+      gu: 'બંગડા (Bangda)',
+      mr: 'बांगडा (Bangda)',
+      or: 'ବାଂଗଡ଼ା (Bangada)',
+      kn: 'ಬಂಗ್ಡೆ (Bangude)',
+      hi: 'बांगड़ा (Bangda)',
+    },
+    abundance: 'HIGH',
+    distance: '8 - 18 NM',
+    depth: '20 - 40m',
+    peakTime: '05:00 - 10:00 IST',
+    gear: 'Surface Gillnet / Driftnet',
+    sst: '28.0°C',
+    chl: '1.65 mg/m³',
+  },
+  {
+    id: '3',
+    name: 'Yellowfin Tuna',
+    localNames: {
+      en: 'Yellowfin Tuna',
+      ml: 'ചൂള / സൂത (Choora)',
+      ta: 'சூரை (Soorai)',
+      te: 'తున్నా (Tunna)',
+      bn: 'টুনা (Tuna)',
+      gu: 'ટુના (Tuna)',
+      mr: 'कुप्पा (Kuppa)',
+      or: 'ଟୁନା (Tuna)',
+      kn: 'ಟ್ಯೂನಾ (Tuna)',
+      hi: 'ट्यूना (Tuna)',
+    },
+    abundance: 'HIGH',
+    distance: '18 - 35 NM',
+    depth: '40 - 90m',
+    peakTime: '03:30 - 09:00 IST',
+    gear: 'Hooks & Lines / Longline',
+    sst: '27.8°C',
+    chl: '1.45 mg/m³',
+  },
+  {
+    id: '4',
+    name: 'Silver Pomfret',
+    localNames: {
+      en: 'Silver Pomfret',
+      ml: 'ആവോലി (Aavoli)',
+      ta: 'வௌவால் (Vavval)',
+      te: 'చందమామ (Chandamama)',
+      bn: 'রুপচাঁদা (Rupchanda)',
+      gu: 'વિજળ (Vijal)',
+      mr: 'पापलेट (Paplet)',
+      or: 'ରୂପଚାନ୍ଦା (Rupachanda)',
+      kn: 'ಮಾಂಜಿ (Manji)',
+      hi: 'पापलेट (Paplet)',
+    },
+    abundance: 'MODERATE',
+    distance: '15 - 28 NM',
+    depth: '25 - 50m',
+    peakTime: '17:00 - 21:00 IST (Dusk)',
+    gear: 'Bottom Trawl / Drift Gillnet',
+    sst: '28.4°C',
+    chl: '1.72 mg/m³',
+  },
+];
+
 export function DashboardScreen({ navigation }: any) {
   const { portInfo, getLanguageInfo, getVesselRangeKm, language, vesselType, riskTolerance, role } =
     useUserStore();
   const langInfo = getLanguageInfo();
+  const t = getScreenText(langInfo.code);
   const vesselRange = getVesselRangeKm();
 
   // State to manage collapsible accordion for fish species cards (default 1st fish expanded)
@@ -70,7 +169,7 @@ export function DashboardScreen({ navigation }: any) {
       const data = await freshnessAPI.getFreshness(triggerAutoRefresh);
       setFreshness(data);
       if (data.refreshed) {
-        setSyncBannerMessage('Ocean data was >6h old — Auto-refreshed live!');
+        setSyncBannerMessage(t.dashboard.autoRefreshedBanner);
         setTimeout(() => setSyncBannerMessage(null), 5000);
       }
     } catch (err) {
@@ -92,7 +191,7 @@ export function DashboardScreen({ navigation }: any) {
           metadata: res.metadata,
         });
       }
-      setSyncBannerMessage('Live data re-fetch complete! (0.0h age)');
+      setSyncBannerMessage(t.dashboard.manualRefreshBanner);
       setTimeout(() => setSyncBannerMessage(null), 4000);
       await loadConditions();
     } catch (err) {
@@ -158,102 +257,6 @@ export function DashboardScreen({ navigation }: any) {
   const safetyAdvisory = conditions?.recommendation
     || langInfo.getAdvisory(portInfo.name, telemetry.riskLevel, telemetry.windSpeed, telemetry.waveHeight, vesselRange);
 
-  // Region-specific fish species dataset
-  const availableFishList: FishAvailability[] = [
-    {
-      id: '1',
-      name: 'Indian Oil Sardine',
-      localNames: {
-        en: 'Indian Oil Sardine',
-        ml: 'മത്തി (Mathi)',
-        ta: 'மத்தி (Mathi)',
-        te: 'సార్డైన్ (Sardine)',
-        bn: 'তারলি (Tarali)',
-        gu: 'તરલી (Tarali)',
-        mr: 'तारली (Tarli)',
-        or: 'ତାରଲି (Tarali)',
-        kn: 'ತಾರಲಿ (Tarali)',
-        hi: 'तारली (Tarli)',
-      },
-      abundance: 'VERY HIGH',
-      distance: '12 - 22 NM',
-      depth: '15 - 30m',
-      peakTime: '04:00 - 08:30 IST (Dawn)',
-      gear: 'Ring Seine / Purse Seine (32mm)',
-      sst: '28.2°C',
-      chl: '1.84 mg/m³',
-    },
-    {
-      id: '2',
-      name: 'Indian Mackerel',
-      localNames: {
-        en: 'Indian Mackerel',
-        ml: 'അയില (Ayila)',
-        ta: 'கானாங்கெளுத்தி (Kanangeluthi)',
-        te: 'కానాగర్త (Kanagartha)',
-        bn: 'বাংড়া (Bangda)',
-        gu: 'બંગડા (Bangda)',
-        mr: 'बांगडा (Bangda)',
-        or: 'ବାଂଗଡ଼ା (Bangada)',
-        kn: 'ಬಂಗ್ಡೆ (Bangude)',
-        hi: 'बांगड़ा (Bangda)',
-      },
-      abundance: 'HIGH',
-      distance: '8 - 18 NM',
-      depth: '20 - 40m',
-      peakTime: '05:00 - 10:00 IST',
-      gear: 'Surface Gillnet / Driftnet',
-      sst: '28.0°C',
-      chl: '1.65 mg/m³',
-    },
-    {
-      id: '3',
-      name: 'Yellowfin Tuna',
-      localNames: {
-        en: 'Yellowfin Tuna',
-        ml: 'ചൂള / സൂത (Choora)',
-        ta: 'சூரை (Soorai)',
-        te: 'తున్నా (Tunna)',
-        bn: 'টুના (Tuna)',
-        gu: 'ટુના (Tuna)',
-        mr: 'कुप्पा (Kuppa)',
-        or: 'ଟୁନା (Tuna)',
-        kn: 'ಟ್ಯೂನಾ (Tuna)',
-        hi: 'ट्यूना (Tuna)',
-      },
-      abundance: 'HIGH',
-      distance: '18 - 35 NM',
-      depth: '40 - 90m',
-      peakTime: '03:30 - 09:00 IST',
-      gear: 'Hooks & Lines / Longline',
-      sst: '27.8°C',
-      chl: '1.45 mg/m³',
-    },
-    {
-      id: '4',
-      name: 'Silver Pomfret',
-      localNames: {
-        en: 'Silver Pomfret',
-        ml: 'ആവോലി (Aavoli)',
-        ta: 'வௌவால் (Vavval)',
-        te: 'చందమామ (Chandamama)',
-        bn: 'রুপচাঁদা (Rupchanda)',
-        gu: 'વિજળ (Vijal)',
-        mr: 'पापलेट (Paplet)',
-        or: 'ରୂପଚାନ୍ଦା (Rupachanda)',
-        kn: 'ಮಾಂಜಿ (Manji)',
-        hi: 'पापलेट (Paplet)',
-      },
-      abundance: 'MODERATE',
-      distance: '15 - 28 NM',
-      depth: '25 - 50m',
-      peakTime: '17:00 - 21:00 IST (Dusk)',
-      gear: 'Bottom Trawl / Drift Gillnet',
-      sst: '28.4°C',
-      chl: '1.72 mg/m³',
-    },
-  ];
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
@@ -266,7 +269,7 @@ export function DashboardScreen({ navigation }: any) {
               <MaterialCommunityIcons name="view-dashboard" size={24} color={colors.white} />
             </View>
             <View style={styles.headerTextCol}>
-              <Text style={styles.headerTitle}>DAILY MARINE DASHBOARD</Text>
+              <Text style={styles.headerTitle}>{t.dashboard.title}</Text>
             </View>
             <View
               style={[
@@ -280,7 +283,7 @@ export function DashboardScreen({ navigation }: any) {
                 <View style={[styles.greenPulse, isOfflineData && { backgroundColor: '#FCD34D' }]} />
               )}
               <Text style={styles.liveChipText}>
-                {loading ? 'SYNCING' : isOfflineData ? 'OFFLINE (CACHED)' : 'LIVE'}
+                {loading ? t.dashboard.syncing : isOfflineData ? t.dashboard.offlineCached : t.dashboard.live}
               </Text>
             </View>
           </View>
@@ -333,7 +336,7 @@ export function DashboardScreen({ navigation }: any) {
 
             <View style={styles.freshnessTextCol}>
               <View style={styles.freshnessTitleRow}>
-                <Text style={styles.freshnessTitle}>DATA FRESHNESS</Text>
+                <Text style={styles.freshnessTitle}>{t.dashboard.freshnessTitle}</Text>
                 <View
                   style={[
                     styles.freshnessBadge,
@@ -349,27 +352,30 @@ export function DashboardScreen({ navigation }: any) {
                     ]}
                   >
                     {refreshingData
-                      ? 'SYNCING...'
+                      ? t.dashboard.freshnessSyncing
                       : freshness?.stale
-                      ? 'STALE (>6h)'
-                      : 'FRESH (<6h)'}
+                      ? t.dashboard.freshnessStale
+                      : t.dashboard.freshnessFresh}
                   </Text>
                 </View>
               </View>
 
               <Text style={styles.freshnessAgeText}>
-                Age:{' '}
+                {t.dashboard.ageLabel}:{' '}
                 <Text style={{ fontWeight: '800', color: colors.onSurface }}>
-                  {freshness?.grid_age_hours !== null && freshness?.grid_age_hours !== undefined
-                    ? freshness.grid_age_hours < 0.1
-                      ? 'Live (0.0h)'
-                      : freshness.grid_age_hours < 1.0
-                      ? `${Math.round(freshness.grid_age_hours * 60)} min ago`
-                      : `${freshness.grid_age_hours.toFixed(1)}h ago`
-                    : 'Live (0.0h)'}
+                  {/* Missing age (null/undefined) means "unknown", not "just
+                      refreshed" — showing "Live (0.0h)" here used to claim a
+                      real, fresh number when the actual value was unavailable. */}
+                  {freshness?.grid_age_hours == null
+                    ? t.pfz.notAvailable
+                    : freshness.grid_age_hours < 0.1
+                    ? t.dashboard.liveAge
+                    : freshness.grid_age_hours < 1.0
+                    ? `${Math.round(freshness.grid_age_hours * 60)} ${t.dashboard.minAgoSuffix}`
+                    : `${freshness.grid_age_hours.toFixed(1)}${t.dashboard.hAgoSuffix}`}
                 </Text>
                 {' • '}
-                {freshness?.metadata?.point_count ?? 595} Marine Points
+                {freshness?.metadata?.point_count ?? t.pfz.notAvailable} {t.dashboard.marinePoints}
               </Text>
             </View>
 
@@ -383,7 +389,7 @@ export function DashboardScreen({ navigation }: any) {
               ) : (
                 <>
                   <Ionicons name="refresh" size={13} color={colors.primary} />
-                  <Text style={styles.reFetchBtnText}>Re-fetch</Text>
+                  <Text style={styles.reFetchBtnText}>{t.dashboard.reFetch}</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -418,7 +424,7 @@ export function DashboardScreen({ navigation }: any) {
             </Text>
             <View style={[styles.statusBadge, { backgroundColor: isWindGood ? '#DCFCE7' : '#FEE2E2' }]}>
               <Text style={[styles.statusBadgeText, { color: isWindGood ? '#15803D' : '#B91C1C' }]}>
-                {isWindGood ? `🟢 ${langInfo.uiText.metricStatuses.gentleBreeze}` : '🔴 Strong Wind Warning'}
+                {isWindGood ? `🟢 ${langInfo.uiText.metricStatuses.gentleBreeze}` : `🔴 ${t.dashboard.strongWindWarning}`}
               </Text>
             </View>
           </View>
@@ -434,7 +440,7 @@ export function DashboardScreen({ navigation }: any) {
             </Text>
             <View style={[styles.statusBadge, { backgroundColor: isWaveGood ? '#DCFCE7' : '#FEE2E2' }]}>
               <Text style={[styles.statusBadgeText, { color: isWaveGood ? '#15803D' : '#B91C1C' }]}>
-                {isWaveGood ? `🟢 ${langInfo.uiText.metricStatuses.normalSwell}` : '🔴 Rough Sea (>1.5m)'}
+                {isWaveGood ? `🟢 ${langInfo.uiText.metricStatuses.normalSwell}` : `🔴 ${t.dashboard.roughSea}`}
               </Text>
             </View>
           </View>
@@ -450,7 +456,7 @@ export function DashboardScreen({ navigation }: any) {
             </Text>
             <View style={[styles.statusBadge, { backgroundColor: isRainGood ? '#DCFCE7' : '#FEF3C7' }]}>
               <Text style={[styles.statusBadgeText, { color: isRainGood ? '#15803D' : '#B45309' }]}>
-                {isRainGood ? `🟢 ${langInfo.uiText.metricStatuses.clearSky}` : '🟠 Rain Detected'}
+                {isRainGood ? `🟢 ${langInfo.uiText.metricStatuses.clearSky}` : `🟠 ${t.dashboard.rainDetected}`}
               </Text>
             </View>
           </View>
@@ -462,11 +468,11 @@ export function DashboardScreen({ navigation }: any) {
               <Ionicons name="flash-outline" size={18} color={colors.primary} />
             </View>
             <Text style={[styles.metricValue, { color: telemetry.lightning ? '#DC2626' : '#16A34A' }]}>
-              {telemetry.lightning ? 'ACTIVE' : 'NONE'}
+              {telemetry.lightning ? t.dashboard.lightningActive : t.dashboard.lightningNone}
             </Text>
             <View style={[styles.statusBadge, { backgroundColor: !telemetry.lightning ? '#DCFCE7' : '#FEE2E2' }]}>
               <Text style={[styles.statusBadgeText, { color: !telemetry.lightning ? '#15803D' : '#B91C1C' }]}>
-                {!telemetry.lightning ? `🟢 ${langInfo.uiText.metricStatuses.noLightning}` : '🔴 Lightning Alert'}
+                {!telemetry.lightning ? `🟢 ${langInfo.uiText.metricStatuses.noLightning}` : `🔴 ${t.dashboard.lightningAlert}`}
               </Text>
             </View>
           </View>
@@ -478,11 +484,11 @@ export function DashboardScreen({ navigation }: any) {
               <MaterialCommunityIcons name="weather-hurricane" size={18} color={colors.primary} />
             </View>
             <Text style={[styles.metricValue, { color: telemetry.cyclone ? '#DC2626' : '#16A34A' }]}>
-              {telemetry.cyclone ? 'WARNING' : 'SAFE'}
+              {telemetry.cyclone ? t.dashboard.cycloneWarning : t.dashboard.cycloneSafe}
             </Text>
             <View style={[styles.statusBadge, { backgroundColor: !telemetry.cyclone ? '#DCFCE7' : '#FEE2E2' }]}>
               <Text style={[styles.statusBadgeText, { color: !telemetry.cyclone ? '#15803D' : '#B91C1C' }]}>
-                {!telemetry.cyclone ? `🟢 ${langInfo.uiText.metricStatuses.noCyclone}` : '🔴 Cyclone Threat'}
+                {!telemetry.cyclone ? `🟢 ${langInfo.uiText.metricStatuses.noCyclone}` : `🔴 ${t.dashboard.cycloneThreat}`}
               </Text>
             </View>
           </View>
@@ -496,7 +502,7 @@ export function DashboardScreen({ navigation }: any) {
             <Text style={styles.metricValue}>{telemetry.confidence}%</Text>
             <View style={[styles.statusBadge, { backgroundColor: telemetry.confidence >= 60 ? '#DCFCE7' : '#FEF3C7' }]}>
               <Text style={[styles.statusBadgeText, { color: telemetry.confidence >= 60 ? '#15803D' : '#B45309' }]}>
-                {telemetry.confidence >= 60 ? `🟢 ${langInfo.uiText.metricStatuses.highCertainty}` : '🟠 Lower Certainty'}
+                {telemetry.confidence >= 60 ? `🟢 ${langInfo.uiText.metricStatuses.highCertainty}` : `🟠 ${t.dashboard.lowerCertainty}`}
               </Text>
             </View>
           </View>
@@ -506,12 +512,12 @@ export function DashboardScreen({ navigation }: any) {
         <View style={styles.warningsSection}>
           <View style={styles.sectionTitleRow}>
             <Ionicons name="warning-outline" size={20} color={colors.error} />
-            <Text style={styles.sectionTitle}>SAFETY WARNINGS</Text>
+            <Text style={styles.sectionTitle}>{t.dashboard.safetyWarnings}</Text>
           </View>
           {warnings.length === 0 ? (
             <View style={styles.noWarningsBox}>
               <Ionicons name="checkmark-done-circle-outline" size={18} color={colors.secondary} />
-              <Text style={styles.noWarningsText}>No active warnings for {portInfo.name} right now.</Text>
+              <Text style={styles.noWarningsText}>{t.dashboard.noActiveWarnings.replace('{port}', portInfo.name)}</Text>
             </View>
           ) : (
             warnings.map((w, idx) => {
@@ -550,7 +556,7 @@ export function DashboardScreen({ navigation }: any) {
               {langInfo.uiText.safetyAdvisoryHeader}
             </Text>
           </View>
-          <Text style={styles.recText}>{loading ? 'Fetching current conditions…' : safetyAdvisory}</Text>
+          <Text style={styles.recText}>{loading ? t.dashboard.fetchingConditions : safetyAdvisory}</Text>
         </View>
 
         {/* Fish Species Available in this Zone Section */}
@@ -558,15 +564,15 @@ export function DashboardScreen({ navigation }: any) {
           <View style={styles.sectionTitleRow}>
             <MaterialCommunityIcons name="fish" size={22} color={colors.primary} />
             <Text style={styles.sectionTitle}>
-              REGIONAL SPECIES GUIDE ({portInfo.name.toUpperCase()})
+              {t.dashboard.speciesGuideTitle} ({portInfo.name.toUpperCase()})
             </Text>
           </View>
         </View>
         <Text style={styles.fishSectionNote}>
-          Typical species, gear, and season for this coast — general reference, not a live catch feed.
+          {t.dashboard.speciesGuideNote}
           {conditions && (conditions.sst_c != null || conditions.chlorophyll_mg_m3 != null) ? (
             <Text style={styles.fishSectionNoteBold}>
-              {'  '}Current water: {conditions.sst_c != null ? `${conditions.sst_c.toFixed(1)}°C SST` : ''}
+              {'  '}{t.dashboard.currentWaterPrefix} {conditions.sst_c != null ? `${conditions.sst_c.toFixed(1)}°C SST` : ''}
               {conditions.sst_c != null && conditions.chlorophyll_mg_m3 != null ? ' · ' : ''}
               {conditions.chlorophyll_mg_m3 != null ? `${conditions.chlorophyll_mg_m3.toFixed(2)} mg/m³ Chl-a` : ''}
             </Text>
@@ -575,7 +581,7 @@ export function DashboardScreen({ navigation }: any) {
 
         {/* Collapsible Accordion List for Fish Species */}
         <View style={styles.fishCardsList}>
-          {availableFishList.map((fish) => {
+          {AVAILABLE_FISH_LIST.map((fish) => {
             const speciesName = fish.localNames[language] || fish.localNames['en'] || fish.name;
             const isExpanded = !!expandedMap[fish.id];
             const abundanceColor =
@@ -584,6 +590,12 @@ export function DashboardScreen({ navigation }: any) {
                 : fish.abundance === 'HIGH'
                 ? '#0288D1'
                 : '#B45309';
+            const abundanceLabel =
+              fish.abundance === 'VERY HIGH'
+                ? t.dashboard.veryHighAbundance
+                : fish.abundance === 'HIGH'
+                ? t.dashboard.highAbundance
+                : t.dashboard.moderateAbundance;
 
             return (
               <View key={fish.id} style={styles.fishCard}>
@@ -604,7 +616,7 @@ export function DashboardScreen({ navigation }: any) {
                   <View style={styles.headerRightRow}>
                     <View style={[styles.abundanceBadge, { backgroundColor: abundanceColor + '20' }]}>
                       <Text style={[styles.abundanceText, { color: abundanceColor }]}>
-                        TYPICAL: {fish.abundance}
+                        {t.dashboard.typicalPrefix}: {abundanceLabel}
                       </Text>
                     </View>
 
@@ -620,19 +632,19 @@ export function DashboardScreen({ navigation }: any) {
                 {isExpanded && (
                   <View style={styles.fishDetailsGrid}>
                     <View style={styles.fishDetailItem}>
-                      <Text style={styles.fishDetailLabel}>TARGET ZONE & DEPTH</Text>
+                      <Text style={styles.fishDetailLabel}>{t.dashboard.targetZoneDepth}</Text>
                       <Text style={styles.fishDetailValue}>
                         📍 {fish.distance} | 🌊 {fish.depth}
                       </Text>
                     </View>
 
                     <View style={styles.fishDetailItem}>
-                      <Text style={styles.fishDetailLabel}>PEAK CATCH TIME</Text>
+                      <Text style={styles.fishDetailLabel}>{t.dashboard.peakCatchTime}</Text>
                       <Text style={styles.fishDetailValue}>⏰ {fish.peakTime}</Text>
                     </View>
 
                     <View style={styles.fishDetailItem}>
-                      <Text style={styles.fishDetailLabel}>RECOMMENDED GEAR</Text>
+                      <Text style={styles.fishDetailLabel}>{t.dashboard.recommendedGear}</Text>
                       <Text style={styles.fishDetailValue}>🕸️ {fish.gear}</Text>
                     </View>
                   </View>
@@ -649,7 +661,7 @@ export function DashboardScreen({ navigation }: any) {
             onPress={() => navigation.navigate('PFZ')}
           >
             <MaterialCommunityIcons name="fish" size={18} color={colors.white} />
-            <Text style={styles.actionBtnTextPrimary}>Inspect Fishing Zones</Text>
+            <Text style={styles.actionBtnTextPrimary}>{t.dashboard.inspectFishingZones}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -657,7 +669,7 @@ export function DashboardScreen({ navigation }: any) {
             onPress={() => navigation.navigate('Chat')}
           >
             <MaterialCommunityIcons name="chat-processing-outline" size={18} color={colors.primary} />
-            <Text style={styles.actionBtnTextSecondary}>Ask AI Assistant</Text>
+            <Text style={styles.actionBtnTextSecondary}>{t.dashboard.askAiAssistant}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

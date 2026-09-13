@@ -255,22 +255,22 @@ export function ChatScreen({ navigation }: any) {
 
   const renderRiskBadge = (riskLevel: string, confidence?: number) => {
     let bgColor = '#16A34A'; // Green for LOW risk
-    let title = 'LOW RISK';
+    let title = t.chat.lowRisk;
     let sub = langInfo.uiText.safeVoyage;
-    let score = `${confidence ?? 92}/100 SAFETY INDEX`;
+    let score = `${confidence ?? 92}${t.chat.safetyIndexSuffix}`;
     let iconName = 'verified';
 
     if (riskLevel === 'MODERATE') {
       bgColor = '#D97706'; // Amber for MODERATE
-      title = 'MODERATE RISK';
+      title = t.chat.moderateRisk;
       sub = langInfo.uiText.moderateRisk;
-      score = `${confidence ?? 60}/100 SAFETY INDEX`;
+      score = `${confidence ?? 60}${t.chat.safetyIndexSuffix}`;
       iconName = 'warning';
     } else if (riskLevel === 'HIGH') {
       bgColor = '#DC2626'; // Red for HIGH risk
-      title = 'HIGH RISK';
+      title = t.chat.highRisk;
       sub = langInfo.uiText.highRisk;
-      score = `${confidence ?? 25}/100 SAFETY INDEX`;
+      score = `${confidence ?? 25}${t.chat.safetyIndexSuffix}`;
       iconName = 'error';
     }
 
@@ -309,7 +309,7 @@ export function ChatScreen({ navigation }: any) {
             </View>
             <View style={styles.offlineChip}>
               <Ionicons name="checkmark-circle" size={12} color={colors.white} />
-              <Text style={styles.offlineChipText}>ONLINE</Text>
+              <Text style={styles.offlineChipText}>{t.chat.onlineLabel}</Text>
             </View>
           </View>
           <View style={styles.gpsStripRow}>
@@ -346,17 +346,11 @@ export function ChatScreen({ navigation }: any) {
 
             <TouchableOpacity
               style={[styles.presetChip, { borderColor: colors.primary, backgroundColor: 'rgba(0,102,153,0.08)' }]}
-              onPress={() =>
-                handleSend(
-                  language === 'hi'
-                    ? 'वर्तमान डेटा कितना पुराना है? यदि 6 घंटे से अधिक पुराना है तो री-फ़ेच करें।'
-                    : 'How old is the currently fetched data? If it is more than 6 hours old, re-fetch it.'
-                )
-              }
+              onPress={() => handleSend(t.chat.freshnessQuery)}
             >
               <MaterialCommunityIcons name="clock-check-outline" size={14} color={colors.primary} style={{ marginRight: 4 }} />
               <Text style={[styles.presetChipText, { color: colors.primary, fontWeight: '700' }]}>
-                {language === 'hi' ? 'डेटा ताज़ा स्थिति (<6h)' : 'Data Freshness (<6h)'}
+                {t.chat.freshnessButtonLabel}
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -371,7 +365,7 @@ export function ChatScreen({ navigation }: any) {
                   <Text style={styles.userText}>{msg.text}</Text>
                 </View>
                 <View style={styles.msgFooter}>
-                  <Text style={styles.msgTime}>You • {msg.time}</Text>
+                  <Text style={styles.msgTime}>{t.chat.youLabel} • {msg.time}</Text>
                   <Ionicons name="checkmark-done" size={14} color={colors.secondary} />
                 </View>
               </View>
@@ -403,7 +397,7 @@ export function ChatScreen({ navigation }: any) {
                     <View style={styles.offlineBanner}>
                       <Ionicons name="cloud-offline-outline" size={14} color={colors.tertiary} />
                       <Text style={styles.offlineBannerText}>
-                        OFFLINE mode (last updated: {formatRelativeTime(data.bundle_created_at)})
+                        {t.chat.offlineModePrefix} {formatRelativeTime(data.bundle_created_at)})
                       </Text>
                     </View>
                   )}
@@ -430,10 +424,14 @@ export function ChatScreen({ navigation }: any) {
                           data.data_freshness.refreshed ? { color: '#B45309' } : { color: '#166534' },
                         ]}
                       >
-                        Data Age: {data.data_freshness.age_hours !== null ? `${data.data_freshness.age_hours.toFixed(1)}h` : '0.0h'}
-                        {data.data_freshness.refreshed ? ' • Auto-Refreshed' : ' • Fresh (<6h)'}
+                        {/* grid_age_hours (not age_hours — that field never
+                            existed on the real API response, a pre-existing
+                            type error) missing means "unknown", not "just
+                            refreshed"; same for point_count. */}
+                        {t.dashboard.ageLabel}: {data.data_freshness.grid_age_hours != null ? `${data.data_freshness.grid_age_hours.toFixed(1)}${t.dashboard.hAgoSuffix}` : t.pfz.notAvailable}
+                        {data.data_freshness.refreshed ? ` • ${t.chat.autoRefreshedLabel}` : ` • ${t.dashboard.freshnessFresh}`}
                         {' • '}
-                        {data.data_freshness.metadata?.point_count ?? 595} Points
+                        {data.data_freshness.metadata?.point_count ?? t.pfz.notAvailable} {t.dashboard.marinePoints}
                       </Text>
                     </View>
                   )}
@@ -474,7 +472,7 @@ export function ChatScreen({ navigation }: any) {
         {loading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color={colors.primaryContainer} />
-            <Text style={styles.loadingText}>Fetching localized ocean conditions...</Text>
+            <Text style={styles.loadingText}>{t.chat.loadingText}</Text>
           </View>
         )}
       </ScrollView>

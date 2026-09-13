@@ -430,7 +430,10 @@ export function MapScreen({ navigation }: any) {
                 <Marker
                   coordinate={{ latitude: portInfo.latitude, longitude: portInfo.longitude }}
                   title={`MY VESSEL (${operatingPort})`}
-                  description="8.4 KTS • 285° WNW"
+                  // No description — this marks the operating PORT, not a
+                  // live GPS fix (the app has no real vessel-position feed).
+                  // A fixed "8.4 KTS • 285° WNW" used to be shown here as if
+                  // it were live telemetry, for every port, always.
                   tracksViewChanges={false}
                 >
                   <View style={styles.vesselMarker}>

@@ -15,8 +15,12 @@ from src.services.copernicus_service import lookup_nearest as lookup_sst_chl
 
 CACHE_SECONDS = 1800
 
-_cache: Optional[dict] = None
-_cache_time: float = 0.0
+# Keyed by resolution_deg — a single unkeyed cache slot used to return a
+# stale result at the WRONG resolution whenever two different resolutions
+# were requested within the same 30-minute window (e.g. a 0.25 deg request
+# silently getting back a previously-cached 1.0 deg result).
+_cache: dict[float, dict] = {}
+_cache_time: dict[float, float] = {}
 
 
 def _score_point(wind_kmh: float, wave_m: float, rain_mm: float,
@@ -66,11 +70,12 @@ def _risk_opacity(score: int) -> float:
 
 
 def generate_risk_heatmap(resolution_deg: float = 1.0, force_refresh: bool = False) -> dict:
-    global _cache, _cache_time
     now = time.time()
-    if not force_refresh and _cache is not None and (now - _cache_time) < CACHE_SECONDS:
-        print(f"[risk_heatmap] Returning cached result ({int(now - _cache_time)}s old).")
-        return _cache
+    cached = _cache.get(resolution_deg)
+    cached_at = _cache_time.get(resolution_deg, 0.0)
+    if not force_refresh and cached is not None and (now - cached_at) < CACHE_SECONDS:
+        print(f"[risk_heatmap] Returning cached result for {resolution_deg} deg ({int(now - cached_at)}s old).")
+        return cached
 
     print("[risk_heatmap] Generating new heatmap...")
     start = time.time()
@@ -192,6 +197,6 @@ def generate_risk_heatmap(resolution_deg: float = 1.0, force_refresh: bool = Fal
         },
     }
 
-    _cache = result
-    _cache_time = now
+    _cache[resolution_deg] = result
+    _cache_time[resolution_deg] = now
     return result

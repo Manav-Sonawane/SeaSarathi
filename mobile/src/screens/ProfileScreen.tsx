@@ -68,7 +68,7 @@ export function ProfileScreen() {
 
   const handleDownloadBundle = async () => {
     if (!isOnline) {
-      setBundleError('You need an internet connection to download the offline bundle.');
+      setBundleError(t.profile.toastNeedInternet);
       return;
     }
     setDownloadingBundle(true);
@@ -77,11 +77,11 @@ export function ProfileScreen() {
       const meta = await downloadOfflineBundle(portInfo.latitude, portInfo.longitude, 5);
       setBundleMeta(meta);
       getMapCacheMeta().then(setMapCacheMeta);
-      setToastMessage(`Offline bundle ready (${meta.sizeMb} MB, valid ${new Date(meta.validUntil).toLocaleDateString()}).`);
+      setToastMessage(`${t.profile.toastBundleReady} (${meta.sizeMb} MB, ${new Date(meta.validUntil).toLocaleDateString()}).`);
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3500);
     } catch {
-      setBundleError('Could not download — check your connection and try again before sailing.');
+      setBundleError(t.profile.toastCouldNotDownload);
     } finally {
       setDownloadingBundle(false);
     }
@@ -114,7 +114,7 @@ export function ProfileScreen() {
     setSaving(true);
     await syncWithBackend();
     setSaving(false);
-    setToastMessage('Profile preferences saved successfully!');
+    setToastMessage(t.profile.toastProfileSaved);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 3500);
   };
@@ -122,7 +122,7 @@ export function ProfileScreen() {
   const handleResetProfile = async () => {
     try {
       await profileAPI.deleteProfile(deviceId);
-      setToastMessage('Profile preferences reset successfully.');
+      setToastMessage(t.profile.toastProfileReset);
       setSavedSuccess(true);
       setTimeout(() => setSavedSuccess(false), 3500);
     } catch {
@@ -143,7 +143,7 @@ export function ProfileScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.profileName}>{t.profile.title}</Text>
             <Text style={styles.profileSub}>
-              Active Port: {portInfo.name} ({portInfo.state}) • Range: {getVesselRangeKm()} km
+              {t.profile.activePort}: {portInfo.name} ({portInfo.state}) • {t.pfz.rangeLabel}: {getVesselRangeKm()} km
             </Text>
             <Text style={styles.deviceIdText}>
               ID: <Text style={{ fontFamily: 'monospace' }}>{deviceId}</Text>
@@ -166,7 +166,7 @@ export function ProfileScreen() {
             <Text style={styles.cardTitle}>{t.profile.vesselSection}</Text>
           </View>
           <Text style={styles.cardDesc}>
-            Current Operating Limit: <Text style={styles.boldText}>{getVesselRangeKm()} km offshore</Text>
+            {t.profile.operatingLimit}: <Text style={styles.boldText}>{getVesselRangeKm()} km offshore</Text>
           </Text>
 
           <View style={styles.optionsGrid}>
@@ -180,10 +180,10 @@ export function ProfileScreen() {
                 color={vesselType === 'small' ? colors.white : colors.primary}
               />
               <Text style={[styles.vesselTitle, vesselType === 'small' && styles.vesselTitleActive]}>
-                Small Boat (Non-Mechanised)
+                {t.profile.vesselSmallName}
               </Text>
               <Text style={[styles.vesselSub, vesselType === 'small' && styles.vesselSubActive]}>
-                9 km limit
+                9 {t.profile.kmLimitSuffix}
               </Text>
             </TouchableOpacity>
 
@@ -197,10 +197,10 @@ export function ProfileScreen() {
                 color={vesselType === 'medium' ? colors.white : colors.primary}
               />
               <Text style={[styles.vesselTitle, vesselType === 'medium' && styles.vesselTitleActive]}>
-                Medium Boat (Mechanised)
+                {t.profile.vesselMediumName}
               </Text>
               <Text style={[styles.vesselSub, vesselType === 'medium' && styles.vesselSubActive]}>
-                22 km limit
+                22 {t.profile.kmLimitSuffix}
               </Text>
             </TouchableOpacity>
 
@@ -214,10 +214,10 @@ export function ProfileScreen() {
                 color={vesselType === 'large' ? colors.white : colors.primary}
               />
               <Text style={[styles.vesselTitle, vesselType === 'large' && styles.vesselTitleActive]}>
-                Large Trawler (Indiviual or Crew)
+                {t.profile.vesselLargeName}
               </Text>
               <Text style={[styles.vesselSub, vesselType === 'large' && styles.vesselSubActive]}>
-                370 km limit
+                370 {t.profile.kmLimitSuffix}
               </Text>
             </TouchableOpacity>
 
@@ -231,10 +231,10 @@ export function ProfileScreen() {
                 color={vesselType === 'union' ? colors.white : colors.primary}
               />
               <Text style={[styles.vesselTitle, vesselType === 'union' && styles.vesselTitleActive]}>
-                Union Fleet (Multiple vessels)
+                {t.profile.vesselUnionName}
               </Text>
               <Text style={[styles.vesselSub, vesselType === 'union' && styles.vesselSubActive]}>
-                500 km limit
+                500 {t.profile.kmLimitSuffix}
               </Text>
             </TouchableOpacity>
           </View>
@@ -247,7 +247,7 @@ export function ProfileScreen() {
             <Text style={styles.cardTitle}>{t.profile.portSection}</Text>
           </View>
           <Text style={styles.cardDesc}>
-            Selected Port:{' '}
+            {t.profile.selectedPort}:{' '}
             <Text style={styles.boldText}>
               📍 {portInfo.name} ({portInfo.state} • {portInfo.sea})
             </Text>
@@ -311,10 +311,10 @@ export function ProfileScreen() {
             <MaterialCommunityIcons name="compass-rose" size={20} color={colors.primary} />
             <View style={{ flex: 1 }}>
               <Text style={styles.portBannerTitle}>
-                {portInfo.name} Port Reticle ({portInfo.latitude.toFixed(2)}° N, {portInfo.longitude.toFixed(2)}° E)
+                {portInfo.name} ({portInfo.latitude.toFixed(2)}° N, {portInfo.longitude.toFixed(2)}° E)
               </Text>
               <Text style={styles.portBannerSub}>
-                Region: {portInfo.region} • Sea: {portInfo.sea}
+                {t.profile.region}: {portInfo.region} • {t.profile.sea}: {portInfo.sea}
               </Text>
             </View>
           </View>
@@ -335,7 +335,7 @@ export function ProfileScreen() {
                 onPress={() => setRiskTolerance(r)}
               >
                 <Text style={[styles.segmentText, riskTolerance === r && styles.segmentTextActive]}>
-                  {r.toUpperCase()}
+                  {t.profile[r].toUpperCase()}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -355,7 +355,7 @@ export function ProfileScreen() {
               onPress={() => setRole('fisherman')}
             >
               <Text style={[styles.segmentText, role === 'fisherman' && styles.segmentTextActive]}>
-                INDIVIDUAL FISHERMAN
+                {t.profile.individualFisherman.toUpperCase()}
               </Text>
             </TouchableOpacity>
 
@@ -364,7 +364,7 @@ export function ProfileScreen() {
               onPress={() => setRole('union_leader')}
             >
               <Text style={[styles.segmentText, role === 'union_leader' && styles.segmentTextActive]}>
-                UNION LEADER
+                {t.profile.unionLeader.toUpperCase()}
               </Text>
             </TouchableOpacity>
           </View>
@@ -404,18 +404,12 @@ export function ProfileScreen() {
             <MaterialCommunityIcons name="cloud-download-outline" size={20} color={colors.primary} />
             <Text style={styles.cardTitle}>{t.profile.offlineBundleSection}</Text>
           </View>
-          <Text style={styles.cardDesc}>
-            50+ km offshore there is usually no signal. Download a bundle before sailing so chat and
-            fishing zones still work with cached data — live answers are always used first whenever
-            there's a connection; this only kicks in if a live request fails.
-          </Text>
+          <Text style={styles.cardDesc}>{t.profile.offlineBundleDesc}</Text>
 
           {!isOnline && (
             <View style={styles.bundleOfflineNotice}>
               <Ionicons name="cloud-offline-outline" size={14} color={colors.tertiary} />
-              <Text style={styles.bundleOfflineNoticeText}>
-                No connection — reconnect to download or refresh the bundle.
-              </Text>
+              <Text style={styles.bundleOfflineNoticeText}>{t.profile.noConnectionBundle}</Text>
             </View>
           )}
 
@@ -424,10 +418,10 @@ export function ProfileScreen() {
               <Ionicons name="checkmark-circle" size={16} color={colors.secondary} />
               <View style={{ flex: 1 }}>
                 <Text style={styles.bundleStatusTitle}>
-                  {bundleMeta.sizeMb} MB cached • {bundleMeta.tripDays}-day forecast
+                  {bundleMeta.sizeMb} MB {t.profile.cachedSuffix} • {bundleMeta.tripDays} {t.profile.dayForecastSuffix}
                 </Text>
                 <Text style={styles.bundleStatusSub}>
-                  Last updated: {formatRelativeTime(bundleMeta.createdAt)} • Valid until{' '}
+                  {t.profile.lastUpdated}: {formatRelativeTime(bundleMeta.createdAt)} • {t.profile.validUntil}{' '}
                   {new Date(bundleMeta.validUntil).toLocaleDateString()}
                 </Text>
               </View>
@@ -435,7 +429,7 @@ export function ProfileScreen() {
           ) : (
             <View style={styles.bundleStatusBox}>
               <Ionicons name="alert-circle-outline" size={16} color={colors.onSurfaceVariant} />
-              <Text style={styles.bundleStatusSub}>No offline bundle downloaded yet.</Text>
+              <Text style={styles.bundleStatusSub}>{t.profile.noBundleYet}</Text>
             </View>
           )}
 
@@ -443,8 +437,8 @@ export function ProfileScreen() {
             <View style={[styles.bundleStatusBox, { marginTop: 6 }]}>
               <MaterialCommunityIcons name="database-outline" size={16} color={colors.secondary} />
               <Text style={styles.bundleStatusSub}>
-                Map data in local SQLite: {mapCacheMeta.pfzCount} PFZ zones, {mapCacheMeta.boundaryCount} boundaries,{' '}
-                {mapCacheMeta.landingCount} landing centers
+                {t.profile.mapDataPrefix}: {mapCacheMeta.pfzCount} {t.profile.pfzZonesWord}, {mapCacheMeta.boundaryCount} {t.profile.boundariesWord},{' '}
+                {mapCacheMeta.landingCount} {t.profile.landingCentersWord}
               </Text>
             </View>
           )}

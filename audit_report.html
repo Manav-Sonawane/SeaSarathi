@@ -1,0 +1,915 @@
+<title>SeaSarathi Audit</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+  :root {
+    --bg: #F6F8FA;
+    --surface: #FFFFFF;
+    --surface-2: #EEF2F6;
+    --border: #D8E0E8;
+    --text: #101B26;
+    --text-muted: #4B5F70;
+    --text-faint: #7C8FA0;
+    --accent: #0B6E8C;
+    --accent-soft: #E4F1F5;
+    --accent-ink: #054457;
+    --critical: #8B1E1E;
+    --critical-soft: #FBE7E6;
+    --high: #C0392B;
+    --high-soft: #FDEEEC;
+    --medium: #96660F;
+    --medium-soft: #FBF1DE;
+    --low: #46586A;
+    --low-soft: #E9EEF2;
+    --clean: #2F7D5D;
+    --clean-soft: #E6F3ED;
+    --shadow: 0 1px 2px rgba(16,27,38,0.04), 0 6px 20px rgba(16,27,38,0.05);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0B141C;
+      --surface: #101B26;
+      --surface-2: #16232F;
+      --border: #223140;
+      --text: #E7EEF3;
+      --text-muted: #9FB2C0;
+      --text-faint: #6E869A;
+      --accent: #5FC1DE;
+      --accent-soft: #10303A;
+      --accent-ink: #BFEAF6;
+      --critical: #F0857E;
+      --critical-soft: #2E1414;
+      --high: #F0917F;
+      --high-soft: #2C1712;
+      --medium: #E4B25C;
+      --medium-soft: #2A2110;
+      --low: #A9BAC9;
+      --low-soft: #172230;
+      --clean: #7FD1AC;
+      --clean-soft: #12271F;
+      --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 6px 24px rgba(0,0,0,0.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #0B141C;
+    --surface: #101B26;
+    --surface-2: #16232F;
+    --border: #223140;
+    --text: #E7EEF3;
+    --text-muted: #9FB2C0;
+    --text-faint: #6E869A;
+    --accent: #5FC1DE;
+    --accent-soft: #10303A;
+    --accent-ink: #BFEAF6;
+    --critical: #F0857E;
+    --critical-soft: #2E1414;
+    --high: #F0917F;
+    --high-soft: #2C1712;
+    --medium: #E4B25C;
+    --medium-soft: #2A2110;
+    --low: #A9BAC9;
+    --low-soft: #172230;
+    --clean: #7FD1AC;
+    --clean-soft: #12271F;
+    --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 6px 24px rgba(0,0,0,0.35);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    padding: 0 20px;
+  }
+  .page { max-width: 860px; margin: 0 auto; padding-block: 48px 80px; }
+
+  h1, h2, h3 { font-family: 'Fraunces', Georgia, serif; text-wrap: balance; }
+
+  /* Masthead */
+  .masthead { margin-bottom: 40px; }
+  .eyebrow {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 500;
+  }
+  h1 {
+    font-size: clamp(32px, 5vw, 44px);
+    font-weight: 600;
+    margin: 8px 0 6px;
+    color: var(--text);
+  }
+  .subtitle { color: var(--text-muted); font-size: 16px; max-width: 60ch; }
+  .meta-row {
+    display: flex; flex-wrap: wrap; gap: 6px 18px;
+    margin-top: 16px; font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px; color: var(--text-faint);
+  }
+
+  /* Stat strip */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-top: 28px;
+  }
+  .stat {
+    background: var(--surface);
+    padding: 14px 12px;
+    text-align: center;
+  }
+  .stat .n {
+    font-family: 'Fraunces', serif;
+    font-size: 28px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+  .stat .l {
+    font-size: 10.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    margin-top: 6px;
+  }
+  .stat.critical .n { color: var(--critical); }
+  .stat.high .n { color: var(--high); }
+  .stat.medium .n { color: var(--medium); }
+  .stat.low .n { color: var(--low); }
+  .stat.total .n { color: var(--text); }
+
+  /* Nav */
+  nav.toc {
+    display: flex; flex-wrap: wrap; gap: 8px;
+    margin: 28px 0 0;
+    padding: 14px 16px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  nav.toc a {
+    font-size: 12.5px; font-weight: 500; color: var(--text-muted);
+    text-decoration: none; padding: 4px 10px;
+    border-radius: 6px; border: 1px solid transparent;
+  }
+  nav.toc a:hover { color: var(--accent); border-color: var(--border); background: var(--surface); }
+
+  /* Sections */
+  section.area { margin-top: 56px; }
+  .area-head {
+    display: flex; align-items: baseline; gap: 12px;
+    border-bottom: 2px solid var(--text);
+    padding-bottom: 10px; margin-bottom: 6px;
+  }
+  .area-head h2 { font-size: 24px; font-weight: 600; margin: 0; }
+  .area-head .area-note { font-size: 12.5px; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace; }
+
+  .cat {
+    margin-top: 28px;
+  }
+  .cat h3 {
+    font-family: 'IBM Plex Sans', sans-serif;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent-ink);
+    background: var(--accent-soft);
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 5px;
+    margin: 0 0 12px;
+  }
+
+  .finding {
+    display: grid;
+    grid-template-columns: 84px 1fr;
+    gap: 4px 16px;
+    padding: 14px 0;
+    border-top: 1px solid var(--border);
+  }
+  .cat > .finding:first-of-type { border-top: none; }
+
+  .sev {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    padding: 3px 0;
+    border-radius: 4px;
+    text-align: center;
+    height: fit-content;
+    align-self: start;
+    margin-top: 3px;
+  }
+  .sev.critical { background: var(--critical-soft); color: var(--critical); }
+  .sev.high { background: var(--high-soft); color: var(--high); }
+  .sev.medium { background: var(--medium-soft); color: var(--medium); }
+  .sev.low { background: var(--low-soft); color: var(--low); }
+  .sev.clean { background: var(--clean-soft); color: var(--clean); }
+
+  .finding .ref {
+    font-family: 'IBM Plex Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 3px;
+    word-break: break-word;
+  }
+  .finding .title { font-weight: 600; margin: 0 0 4px; }
+  .finding .desc { color: var(--text-muted); font-size: 13.5px; margin: 0 0 6px; }
+  .finding .fix {
+    font-size: 13px; color: var(--text);
+    background: var(--surface-2);
+    border-left: 2px solid var(--accent);
+    padding: 6px 10px;
+    border-radius: 0 6px 6px 0;
+  }
+  .finding .fix b { color: var(--accent-ink); font-weight: 600; }
+
+  @media (max-width: 560px) {
+    .finding { grid-template-columns: 1fr; }
+    .sev { justify-self: start; width: fit-content; padding: 3px 8px; }
+    .stats { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  /* Feature audit table */
+  .feat-table { width: 100%; border-collapse: collapse; margin-top: 14px; font-size: 13.5px; }
+  .feat-table th {
+    text-align: left; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
+    color: var(--text-faint); font-weight: 600; padding: 8px 10px; border-bottom: 2px solid var(--text);
+  }
+  .feat-table td { padding: 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .feat-table tr:last-child td { border-bottom: none; }
+  .feat-table .feat-name { font-weight: 600; }
+  .pill {
+    display: inline-block; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px;
+    font-weight: 500; padding: 2px 8px; border-radius: 20px; white-space: nowrap;
+  }
+  .pill.shipped { background: var(--clean-soft); color: var(--clean); }
+  .pill.partial { background: var(--medium-soft); color: var(--medium); }
+  .pill.buggy { background: var(--high-soft); color: var(--high); }
+  .feat-note { color: var(--text-muted); }
+  .tbl-wrap { overflow-x: auto; }
+
+  footer {
+    margin-top: 64px; padding-top: 20px; border-top: 1px solid var(--border);
+    font-size: 12px; color: var(--text-faint); font-family: 'IBM Plex Mono', monospace;
+  }
+</style>
+
+<div class="page">
+
+  <div class="masthead">
+    <div class="eyebrow">Full-stack code audit</div>
+    <h1>SeaSarathi Audit</h1>
+    <p class="subtitle">A pass over the backend, mobile app, and project docs — bugs, stale/fabricated data, irregularities, and how well the shipped feature set tracks PRD.md, EXECUTION.md and DESIGN.md.</p>
+    <div class="meta-row">
+      <span>2026-09-14</span>
+      <span>·</span>
+      <span>4 areas reviewed</span>
+      <span>·</span>
+      <span>backend + mobile/src + config/docs</span>
+    </div>
+
+    <div class="stats">
+      <div class="stat critical"><div class="n">1</div><div class="l">Critical</div></div>
+      <div class="stat high"><div class="n">11</div><div class="l">High</div></div>
+      <div class="stat medium"><div class="n">18</div><div class="l">Medium</div></div>
+      <div class="stat low"><div class="n">17</div><div class="l">Low</div></div>
+      <div class="stat total"><div class="n">47</div><div class="l">Total findings</div></div>
+    </div>
+
+    <nav class="toc">
+      <a href="#critical-top">⚠ Fix first</a>
+      <a href="#backend">Backend</a>
+      <a href="#screens">Mobile screens</a>
+      <a href="#services">Services &amp; state</a>
+      <a href="#config">Config &amp; docs</a>
+      <a href="#features">Feature audit</a>
+    </nav>
+  </div>
+
+  <!-- ============ FIX FIRST ============ -->
+  <section class="area" id="critical-top">
+    <div class="area-head">
+      <h2>Fix first</h2>
+      <span class="area-note">the ones worth stopping for</span>
+    </div>
+
+    <div class="cat">
+      <div class="finding">
+        <span class="sev critical">Critical</span>
+        <div>
+          <span class="ref">mobile/src/store/userStore.ts:9-23 — getDeviceId()</span>
+          <p class="title">Every real device shares one hardcoded profile ID</p>
+          <p class="desc">The device-ID generator checks <code>window.localStorage</code> to decide whether it can mint a real per-install ID — that global doesn't exist in React Native, so on every Android/iOS device the check fails and the function falls through to a single hardcoded string, <code>device_seasarathi_default_01</code>. Every fisherman who installs the app writes their vessel type, home port, and language to the <em>same</em> backend profile record, overwriting whoever set it last. This has presumably been true since the profile feature shipped.</p>
+          <p class="fix"><b>Fix:</b> generate a real UUID with <code>expo-crypto</code> or similar, persist it via AsyncStorage (already a dependency, used in offlineService.ts) on first launch, and use that. Web can keep the localStorage path as a fallback.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <span class="sev high">High</span>
+        <div>
+          <span class="ref">backend/requirements.txt</span>
+          <p class="title">Five imported packages are missing from requirements.txt</p>
+          <p class="desc"><code>copernicusmarine</code>, <code>openmeteo_requests</code>, <code>requests_cache</code>, <code>retry_requests</code>, <code>xarray</code> are all imported by weather_service.py / the Copernicus grid fetch, but absent from the file. The app only works today because they happen to already be installed in this dev venv — a clean checkout (a teammate, CI, a redeploy) breaks on the first weather or grid call.</p>
+          <p class="fix"><b>Fix:</b> <code>pip freeze</code> the current venv and reconcile requirements.txt against it.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <span class="sev high">High</span>
+        <div>
+          <span class="ref">mobile/src/services/voiceService.ts:23-37 — playOneClip()</span>
+          <p class="title">One bad TTS clip permanently disables the speaker button on every message</p>
+          <p class="desc">Playback only resolves on a <code>didJustFinish</code> event — there's no error listener and no timeout. If a WAV clip ever fails to decode on a given device, that promise never settles. Because ChatScreen gates the speak button on a single shared <code>speakingMessageId !== null</code>, one stuck clip locks the button for <em>every</em> message, not just the one that failed, with no visible error and no way to recover short of restarting the app.</p>
+          <p class="fix"><b>Fix:</b> add an error/status listener (or race against a timeout) that also resolves the promise, so the caller's try/catch and its <code>finally</code> can actually clear the stuck state.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <span class="sev high">High</span>
+        <div>
+          <span class="ref">mobile/src/screens/MapScreen.tsx:432-433</span>
+          <p class="title">The vessel marker on the map shows fabricated speed and heading</p>
+          <p class="desc">The "MY VESSEL" marker's description is a fixed literal — <code>"8.4 KTS • 285° WNW"</code> — displayed as if it were live telemetry, for every port, every time, regardless of whether the boat is even moving. This is exactly the class of fabricated-data-shown-as-real issue that was deliberately scrubbed from PFZScreen/AlertsScreen/IndiaMapCanvas earlier — missed here.</p>
+          <p class="fix"><b>Fix:</b> drop the fabricated numbers; show only what's real (vessel name/port), or omit the description entirely until real GPS speed/heading is wired up.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ BACKEND ============ -->
+  <section class="area" id="backend">
+    <div class="area-head">
+      <h2>Backend</h2>
+      <span class="area-note">main.py · src/services · src/agents · src/utils</span>
+    </div>
+
+    <div class="cat">
+      <h3>Bugs</h3>
+      <div class="finding">
+        <span class="sev high">High</span>
+        <div>
+          <span class="ref">src/services/risk_heatmap.py:18-19, 71-73</span>
+          <p class="title">Risk heatmap cache isn't keyed by resolution</p>
+          <p class="desc">The module-level cache stores one result regardless of the requested <code>resolution_deg</code>. A call at 0.25° within 30 minutes of a prior 1.0° call silently returns the wrong-resolution grid.</p>
+          <p class="fix"><b>Fix:</b> key the cache dict by <code>resolution_deg</code>.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev high">High</span>
+        <div>
+          <span class="ref">src/services/copernicus_service.py:37-94</span>
+          <p class="title">Nearest-point lookup is an unindexed O(n) scan over 30,398 grid points, run synchronously</p>
+          <p class="desc"><code>lookup_nearest()</code>/<code>find_within_radius()</code> do a linear haversine scan on every call, with no spatial index, inside an <code>async def</code> handler — no <code>asyncio.to_thread</code>. <code>/pfz/nearest</code> calls this up to 5× per request (~150K haversine computations), blocking the event loop for every other concurrent request meanwhile.</p>
+          <p class="fix"><b>Fix:</b> build a <code>scipy.spatial.cKDTree</code> once inside <code>_load_grid()</code>'s existing <code>lru_cache</code>, and wrap the handler body in <code>asyncio.to_thread</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <h3>Security</h3>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">main.py:55-72</span>
+          <p class="title">CORS allows every origin with credentials enabled</p>
+          <p class="desc">Self-flagged in a comment ("hackathon dev — restrict in prod"), but with zero authentication anywhere in the API, any web origin can currently make credentialed requests to every endpoint.</p>
+          <p class="fix"><b>Fix:</b> restrict <code>allow_origins</code> before any real deployment.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">main.py:227-267 — POST/DELETE /profile</span>
+          <p class="title">Profile write/delete has no ownership check</p>
+          <p class="desc">Anyone who knows or intercepts a <code>device_id</code> can overwrite or delete that profile — no auth on a state-mutating endpoint.</p>
+          <p class="fix"><b>Fix:</b> at minimum, pair with a real per-device ID (see the userStore bug above) and consider a lightweight device token.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">main.py:658-676 — POST /voice/tts</span>
+          <p class="title">No length cap on TTS request text</p>
+          <p class="desc">A large payload silently fans out into many sequential Sarvam API calls (see the chunking in sarvam_client.py) with no upper bound — a cost/quota exposure with no client-side reason to ever send that much text.</p>
+          <p class="fix"><b>Fix:</b> reject (422) text over a sane limit, e.g. 5–10K characters, before chunking.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <h3>Efficiency</h3>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">main.py — /geojson/pfz, /geojson/boundaries, /landing/nearest</span>
+          <p class="title">Static GeoJSON re-read and re-parsed from disk on every request</p>
+          <p class="desc">These files never change at runtime, yet are <code>json.load</code>'d synchronously inside the handler every single call — the same codebase already has the right pattern one file over (<code>copernicus_service._load_grid</code>'s <code>lru_cache</code>), just not applied here.</p>
+          <p class="fix"><b>Fix:</b> wrap a <code>_load_geojson(path)</code> helper in <code>@lru_cache</code>.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev medium">Medium-High</span>
+        <div>
+          <span class="ref">main.py:432-522 — GET /alerts</span>
+          <p class="title">Synchronous weather fetch blocks the event loop</p>
+          <p class="desc"><code>weather_service.fetch_combined_forecasts_for_grid</code> uses a synchronous <code>openmeteo_requests</code> client (retry-wrapped, up to 5 retries with backoff) directly inside the async handler — network I/O blocking is worse than the disk-I/O case above.</p>
+          <p class="fix"><b>Fix:</b> wrap in <code>asyncio.to_thread</code>, same as the freshness refresh path already does elsewhere.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <h3>Irregularities</h3>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">main.py:597-629 vs 679-713</span>
+          <p class="title">/data/freshness?auto_refresh and /data/refresh do near-identical work</p>
+          <p class="desc">Two endpoints, inverted param semantics (<code>auto_refresh</code> vs <code>force</code>), different response shapes, for essentially the same staleness-check-and-refresh operation.</p>
+          <p class="fix"><b>Fix:</b> consolidate to one endpoint with a single clear param.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">src/services/sarvam_client.py:113-149</span>
+          <p class="title">STT wrapper discards fields Sarvam already returns</p>
+          <p class="desc"><code>language_probability</code> and per-word <code>timestamps</code> come back from the API but aren't surfaced — <code>language_probability</code> in particular would be a cheap confidence signal for the STT UI.</p>
+          <p class="fix"><b>Fix:</b> not a bug, just an easy win — pass it through if a confidence indicator is ever wanted.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ MOBILE SCREENS ============ -->
+  <section class="area" id="screens">
+    <div class="area-head">
+      <h2>Mobile screens</h2>
+      <span class="area-note">Chat · Dashboard · Map · PFZ · Alerts · Profile</span>
+    </div>
+
+    <div class="cat">
+      <h3>Bugs</h3>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">AlertsScreen.tsx:74, 302-316</span>
+          <p class="title">"Acknowledge" is one shared boolean for every alert</p>
+          <p class="desc">Acknowledging one critical alert flips the label/icon on every critical alert card at once, since <code>acknowledged</code> is a single <code>useState(false)</code> instead of per-alert.</p>
+          <p class="fix"><b>Fix:</b> key it by alert id — <code>acknowledgedIds: Set&lt;string&gt;</code>.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">ChatScreen.tsx — handleMicPress / handleSpeakPress</span>
+          <p class="title">No unmount guard on voice operations</p>
+          <p class="desc">Navigating away mid-recording, mid-transcription, or mid-playback still fires the pending state updates after unmount, and compounds the playOneClip hang above (no cleanup on the in-flight player/subscription).</p>
+          <p class="fix"><b>Fix:</b> track a mounted ref, or clean up in a <code>useEffect</code> return.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">ChatScreen.tsx:433-436, DashboardScreen.tsx:372</span>
+          <p class="title">Missing data-freshness numbers fall back to fabricated placeholders</p>
+          <p class="desc"><code>age_hours</code> falling back to <code>'0.0h'</code> and <code>point_count</code> falling back to a hardcoded <code>595</code> both claim a real, fresh number when the actual value is <code>null</code>/unavailable — precisely the pattern removed from PFZScreen earlier this session, reintroduced in code added afterward.</p>
+          <p class="fix"><b>Fix:</b> show "N/A" (there's already a <code>t.pfz.notAvailable</code> string for this) instead of a plausible-looking fake number.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low-Medium</span>
+        <div>
+          <span class="ref">ChatScreen.tsx — handleMicPress</span>
+          <p class="title">recorder.stop() sits outside the try block</p>
+          <p class="desc"><code>isRecording</code> is set false before <code>await recorder.stop()</code>, which itself isn't wrapped in the surrounding try/catch — if it throws, the catch never runs and <code>transcribing</code> can be left stuck true.</p>
+          <p class="fix"><b>Fix:</b> move the try boundary to start before <code>recorder.stop()</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <h3>Stale / hardcoded / untranslated</h3>
+      <div class="finding">
+        <span class="sev high">High</span>
+        <div>
+          <span class="ref">ProfileScreen.tsx</span>
+          <p class="title">The least-translated screen in the app — only section headers got the earlier pass</p>
+          <p class="desc">"Active Port:", "Current Operating Limit:", all four vessel-type names and their range descriptions, "Selected Port:", risk-tolerance labels shown as raw uppercase enums (CONSERVATIVE/MODERATE/AGGRESSIVE), "INDIVIDUAL FISHERMAN"/"UNION LEADER", the entire offline-bundle paragraph and its status/error strings, and every toast message are all still hardcoded English.</p>
+          <p class="fix"><b>Fix:</b> extend <code>screenTranslations.ts</code>'s <code>profile</code> block with the remaining ~20 strings — same pattern already used for the section headers.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev high">High</span>
+        <div>
+          <span class="ref">DashboardScreen.tsx</span>
+          <p class="title">Large untranslated surface — header, freshness card, safety warnings, species guide</p>
+          <p class="desc">"DAILY MARINE DASHBOARD", the live-status chip, the whole "Data Freshness" card, "SAFETY WARNINGS", "REGIONAL SPECIES GUIDE" and its disclaimer, fish detail labels, and both bottom nav buttons are English-only. The negative-branch metric statuses ("Strong Wind Warning", "Rough Sea", etc.) were a known gap before this session and remain one.</p>
+          <p class="fix"><b>Fix:</b> same treatment as PFZ/Alerts/Map got — add a <code>dashboard</code> block to screenTranslations.ts.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev high">High</span>
+        <div>
+          <span class="ref">ChatScreen.tsx (data-freshness pill, risk badges, chrome)</span>
+          <p class="title">Everything added after the multi-language pass is untranslated</p>
+          <p class="desc">"Data Age:", "Auto-Refreshed", risk badge titles ("LOW RISK" etc.) and the "{x}/100 SAFETY INDEX" line, "You •", the "ONLINE" chip, and the loading text are all English-only. The "Data Freshness (&lt;6h)" preset chip only special-cases Hindi vs. English — the other 8 languages silently fall through to English.</p>
+          <p class="fix"><b>Fix:</b> extend the existing <code>langInfo.uiText</code>/<code>screenTranslations</code> coverage to these newer strings.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">AlertsScreen.tsx:52-54</span>
+          <p class="title">Alert type/title and sub-labels are never localized</p>
+          <p class="desc">Alert titles come straight from the backend's enum string via <code>.replace(/_/g, ' ')</code> — always English regardless of app language. "BOUNDARY: …" / "WEATHER ADVISORY" sub-labels are hardcoded too.</p>
+          <p class="fix"><b>Fix:</b> map alert <code>type</code> through a translation table before display.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">PFZScreen.tsx:57, 81, 114</span>
+          <p class="title">"BOAT"/"PORT"/"Sector #"/"(cached)" left hardcoded</p>
+          <p class="desc">Scattered English words interleaved with otherwise-translated strings.</p>
+          <p class="fix"><b>Fix:</b> pull into the existing <code>t.pfz</code> block.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">MapScreen.tsx:347, 638, 642, 646</span>
+          <p class="title">Missed reuse of strings that already exist</p>
+          <p class="desc">"Maritime Boundary" and the zone card's "DISTANCE"/"SST TEMP"/"CHLOROPHYLL" labels are hardcoded here even though <code>t.pfz.distance</code>/<code>t.pfz.sstTemp</code>/<code>t.pfz.chlorophyll</code> already exist and are used identically in PFZScreen.</p>
+          <p class="fix"><b>Fix:</b> swap in the existing keys — no new translation work needed.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">MapScreen.tsx:82, 92, 152</span>
+          <p class="title">Cache/risk error strings hardcoded English</p>
+          <p class="desc">"Connect to the internet to cache this area…", "Could not cache map data…", "Could not load risk overlay." all untranslated.</p>
+          <p class="fix"><b>Fix:</b> add to <code>t.map</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <h3>Irregularities</h3>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">ProfileScreen.tsx:217</span>
+          <p class="title">Typo: "Large Trawler (Indiviual or Crew)"</p>
+          <p class="desc">Should read "Individual".</p>
+          <p class="fix"><b>Fix:</b> one-word fix.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">PFZScreen.tsx:735-774</span>
+          <p class="title">Seven orphaned style definitions from the removed fabricated graphic</p>
+          <p class="desc"><code>graphCanvas</code>, <code>graphHeaderTitle</code>, <code>depthLayerSurface/Pelagic/Seabed</code>, <code>pelagicText</code>, <code>depthText</code> — none referenced in JSX anymore, left over from the "Water Column Stratification" removal.</p>
+          <p class="fix"><b>Fix:</b> delete.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">AlertsScreen.tsx:368-372</span>
+          <p class="title">Unused <code>latencyText</code> style</p>
+          <p class="desc">Leftover from the removed "DGPS LOCK OK" line.</p>
+          <p class="fix"><b>Fix:</b> delete.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <h3>Performance &amp; UX correctness</h3>
+      <div class="finding">
+        <span class="sev clean">Verified OK</span>
+        <div>
+          <span class="ref">MapScreen.tsx</span>
+          <p class="title">Earlier drag-lag fix is intact, not regressed by later edits</p>
+          <p class="desc"><code>pfzFeatures</code>/<code>boundaryFeatures</code>/segments are still correctly <code>useMemo</code>'d, <code>tracksViewChanges={false}</code> is present on both Markers, and the PanResponder's <code>setPanOffset</code> is still gated to web-only.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev medium">Medium (UX)</span>
+        <div>
+          <span class="ref">ChatScreen.tsx:118-152</span>
+          <p class="title">Changing vessel type or port mid-chat silently wipes the conversation</p>
+          <p class="desc">The welcome-message effect depends on <code>[language, portInfo.name, vesselRange]</code> and unconditionally resets <code>messages</code> — a fisherman who tweaks their profile mid-conversation loses all prior messages with no warning.</p>
+          <p class="fix"><b>Fix:</b> only seed the welcome message when <code>messages</code> is empty, or make the reset an explicit action.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">DashboardScreen.tsx:162-255</span>
+          <p class="title"><code>availableFishList</code> rebuilt on every render</p>
+          <p class="desc">A fixed, prop/state-independent array declared inline inside the component body.</p>
+          <p class="fix"><b>Fix:</b> hoist to module scope — it doesn't depend on anything inside the component.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ SERVICES & STATE ============ -->
+  <section class="area" id="services">
+    <div class="area-head">
+      <h2>Services &amp; state</h2>
+      <span class="area-note">services · store · utils · constants · map components</span>
+    </div>
+
+    <div class="cat">
+      <h3>Bugs</h3>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">userStore.ts (whole store)</span>
+          <p class="title">No persistence, and the backend profile only ever loads from one screen</p>
+          <p class="desc">Vessel type, risk tolerance, port, role and language are plain in-memory Zustand state — nothing survives a cold start except by re-fetching, and <code>loadFromBackend()</code> is only ever called from ProfileScreen's own effect, not at app root. A cold start landing on any other tab runs on hardcoded defaults (English, Kochi) until Profile is visited. Compounds the device-ID bug above.</p>
+          <p class="fix"><b>Fix:</b> wrap the store in Zustand's <code>persist</code> middleware with an AsyncStorage adapter, and/or call <code>loadFromBackend()</code> once at root mount.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">mapCacheDb.ts:143-146</span>
+          <p class="title">One bad PFZ row rolls back the entire offline-cache save</p>
+          <p class="desc">PFZ row id is <code>String(props.UID ?? i)</code> — a duplicate/missing UID in the source GeoJSON throws a primary-key violation inside the transaction, which rolls back PFZ + boundaries + landing centers together. No partial-success path; the whole cache silently fails to save.</p>
+          <p class="fix"><b>Fix:</b> use <code>INSERT OR REPLACE</code>, matching the pattern already used for <code>map_cache_meta</code>.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">mapCacheDb.ts — landing_centers</span>
+          <p class="title">Same collision class as above</p>
+          <p class="desc"><code>props.LC_UNIQUE_ ?? i</code> — same fragility if that property is ever null/duplicated.</p>
+          <p class="fix"><b>Fix:</b> same as above.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <h3>Language / translation consistency</h3>
+      <div class="finding">
+        <span class="sev clean">Verified clean</span>
+        <div>
+          <span class="ref">screenTranslations.ts, portsAndLanguages.ts, languageDetection.ts, sarvam_client.py</span>
+          <p class="title">All 10 language codes are fully consistent end to end</p>
+          <p class="desc">Every language block has all 5 sections (pfz/alerts/map/profile/voice) with no missing keys; the mobile BCP-47 reverse map and the backend's forward map agree exactly, including the Odia <code>or ↔ od-IN</code> special-case. No silent English fallback found at this layer — the gaps found in this audit are all screens that haven't been wired to these tables yet, not the tables themselves.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <h3>API layer &amp; hygiene</h3>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">components/GoogleMapContainer.tsx:33-34</span>
+          <p class="title">A live Google Maps API key is hardcoded as a source fallback</p>
+          <p class="desc">Even with no restrictions on that key today, a real credential checked into version control can't be rotated without a code change and is now permanently in git history.</p>
+          <p class="fix"><b>Fix:</b> drop the fallback; fail into the existing "Could not load Google Maps" error state if the env var is unset.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">MapScreen.tsx:159-166 — nearestRiskFeatures</span>
+          <p class="title">Risk-marker list recomputed and reallocated on every render</p>
+          <p class="desc">Unlike <code>pfzFeatures</code>/<code>boundaryFeatures</code> (already memoized), this sort+slice runs fresh every render — new array/object references cascade into needless re-renders of every native risk Circle, the web overlay-redraw effect, and the Static-Maps image URL/reload. Same category as the drag-lag bug fixed earlier this session, on a different array.</p>
+          <p class="fix"><b>Fix:</b> wrap in <code>useMemo</code> keyed on <code>[riskData, portInfo.latitude, portInfo.longitude]</code>.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">api.ts — voiceAPI.tts</span>
+          <p class="title">Client TTS timeout (30s) can be tighter than the backend's own worst case</p>
+          <p class="desc">Long advisories get chunked into multiple sequential Sarvam calls server-side; a long enough response could exceed 30s server-side before the client's own timeout fires, surfacing as a silent "nothing happened."</p>
+          <p class="fix"><b>Fix:</b> raise the client timeout to ~60s, or cap total server-side chunks.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">IndiaMapCanvas.tsx:123-132, 186-193</span>
+          <p class="title">Vector-canvas geometry unmemoized; one fake decorative curve remains</p>
+          <p class="desc"><code>pfzLines</code>/<code>boundaryLines</code> re-run <code>geometryToSegments</code>+<code>projectCoord</code> every render of "India Map" mode. Separately, the "Bathymetry Isobaths" path is still a fixed hand-drawn curve rendered unconditionally regardless of real depth data — same category as the PFZ-polygon fabrication fixed elsewhere in this file, missed in that pass, and its layer toggle was already removed so it can't even be hidden.</p>
+          <p class="fix"><b>Fix:</b> memoize the geometry; remove the fake bathymetry curve (same call made for the fake "Wind Flow Streamlines" toggle earlier) or replace it with real data.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">api.ts:18-22 — detectDevServerHost</span>
+          <p class="title">IPv6 dev-host edge case</p>
+          <p class="desc"><code>hostUri.split(':')[0]</code> would return <code>[</code> for an IPv6 literal host. Unlikely in practice (Expo dev hosts are normally IPv4 LAN).</p>
+          <p class="fix"><b>Fix:</b> low priority — guard for a leading <code>[</code> if it ever comes up.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ CONFIG & DOCS ============ -->
+  <section class="area" id="config">
+    <div class="area-head">
+      <h2>Config &amp; documentation</h2>
+      <span class="area-note">PRD/EXECUTION/DESIGN adherence · build config · git hygiene</span>
+    </div>
+
+    <div class="cat">
+      <h3>PRD / design adherence</h3>
+      <div class="finding">
+        <span class="sev medium">Medium (docs)</span>
+        <div>
+          <span class="ref">PRD.md:239-241</span>
+          <p class="title">PRD still marks voice and multilingual UI "out of scope for MVP" — both have since shipped</p>
+          <p class="desc">Per CLAUDE.md's own rule ("point out discrepancy to the user before generating code"), this wasn't flagged when the work was requested — reasonably, since the user explicitly asked for it — but PRD.md is now stale relative to what's actually built.</p>
+          <p class="fix"><b>Fix:</b> update PRD.md's scope section to reflect what shipped, so it stays a trustworthy anchor document.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">DESIGN.md:427 vs theme/colors.ts:4</span>
+          <p class="title">Primary button color has drifted from spec</p>
+          <p class="desc">DESIGN.md specifies <code>#0066CC</code> for primary buttons; the color actually shipped and used everywhere is <code>#004D99</code> (<code>colors.primaryContainer</code>, aka <code>colors.oceanBlue</code>). The literal spec value survives only as an unused token.</p>
+          <p class="fix"><b>Fix:</b> reconcile one way or the other — update DESIGN.md to the shipped value, or restore it in code.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">DESIGN.md vs theme/colors.ts</span>
+          <p class="title">DESIGN.md doesn't document the Material-3-style token system actually in use</p>
+          <p class="desc">colors.ts's primary/primaryContainer/onPrimaryContainer/secondary/tertiary/inverseSurface system — the palette most screens actually draw from — has no counterpart in DESIGN.md, which only specifies the flat legacy palette.</p>
+          <p class="fix"><b>Fix:</b> document the token system as the current source of truth.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <h3>Build config</h3>
+      <div class="finding">
+        <span class="sev medium">Medium</span>
+        <div>
+          <span class="ref">mobile/app.config.js — ios block, eas.json</span>
+          <p class="title">No iOS bundle identifier or iOS build profile</p>
+          <p class="desc">Only <code>android.package</code> is set. PRD/EXECUTION both target iOS + Android from one codebase; an iOS EAS build would fail immediately as configured today.</p>
+          <p class="fix"><b>Fix:</b> add <code>ios.bundleIdentifier</code> (e.g. <code>com.seasarathi.app</code>) before the first iOS build.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low-Medium</span>
+        <div>
+          <span class="ref">mobile/.env.example</span>
+          <p class="title">Doesn't document EXPO_PUBLIC_GOOGLE_MAPS_API_KEY</p>
+          <p class="desc">app.config.js requires it for both platforms' map config, but the example file only documents EXPO_PUBLIC_API_URL — a new developer following it alone gets a blank/broken map with no clue why.</p>
+          <p class="fix"><b>Fix:</b> add it with a note on enabling "Maps SDK for Android"/"Maps JavaScript API".</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">backend/requirements.txt</span>
+          <p class="title">Two unused ghost dependencies</p>
+          <p class="desc"><code>httpx2==2.12.0</code> and <code>httpcore2==2.12.0</code> are installed and listed but never imported anywhere — only plain <code>httpx</code> is used.</p>
+          <p class="fix"><b>Fix:</b> <code>pip uninstall httpx2 httpcore2</code>, remove from requirements.txt.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low</span>
+        <div>
+          <span class="ref">backend/.gitignore</span>
+          <p class="title">Empty file (0 bytes)</p>
+          <p class="desc">Root .gitignore already covers it, but an empty backend-local one implies rules that don't exist.</p>
+          <p class="fix"><b>Fix:</b> delete it, or populate with <code>venv/</code>/<code>__pycache__/</code> for clarity.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="cat">
+      <h3>Git &amp; secrets hygiene</h3>
+      <div class="finding">
+        <span class="sev clean">Verified clean</span>
+        <div>
+          <span class="ref">git status, .gitignore, .env / .env.example</span>
+          <p class="title">Nothing uncommitted, no secrets tracked</p>
+          <p class="desc"><code>git status --short</code> is empty. Only the two placeholder <code>.env.example</code> files are tracked — confirmed no real keys inside them. Root .gitignore correctly excludes real <code>.env</code>/<code>.env.*</code> repo-wide. EAS project ID, Android package name, and generated build.gradle all agree with each other.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <span class="sev low">Low (note, not a bug)</span>
+        <div>
+          <span class="ref">GoogleMapContainer.tsx — Static Maps fallback branch</span>
+          <p class="title">Looks dead, isn't — it's the Expo Go fallback path</p>
+          <p class="desc">The Static-Maps-API + &lt;Image&gt; branch looks like a pre-rewrite leftover at a glance, but it's the live fallback for native platforms when <code>react-native-maps</code> fails to load (e.g. plain Expo Go without the dev-client build). Don't remove it without confirming Expo Go is no longer a supported way to open the app.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ FEATURE AUDIT ============ -->
+  <section class="area" id="features">
+    <div class="area-head">
+      <h2>Feature audit</h2>
+      <span class="area-note">what's actually shipped, against what was asked for</span>
+    </div>
+
+    <div class="tbl-wrap">
+      <table class="feat-table">
+        <thead>
+          <tr><th>Feature</th><th>Status</th><th>Notes</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="feat-name">Multi-language chat (query in → reply in same language)</td>
+            <td><span class="pill shipped">Shipped</span></td>
+            <td class="feat-note">Backend prompt fix + client script-detection working; verified live in both directions.</td>
+          </tr>
+          <tr>
+            <td class="feat-name">Multi-language UI — Chat &amp; Dashboard</td>
+            <td><span class="pill partial">Partial</span></td>
+            <td class="feat-note">Core chrome translated; newer additions (data-freshness pill, some Dashboard sections) fell outside the pass — see Screens findings above.</td>
+          </tr>
+          <tr>
+            <td class="feat-name">Multi-language UI — Map, PFZ, Alerts</td>
+            <td><span class="pill shipped">Shipped</span></td>
+            <td class="feat-note">Full <code>screenTranslations.ts</code> coverage across all 10 languages; a handful of strings missed reusing existing keys (see above) but no missing translations.</td>
+          </tr>
+          <tr>
+            <td class="feat-name">Multi-language UI — Profile</td>
+            <td><span class="pill buggy">Mostly untranslated</span></td>
+            <td class="feat-note">Only section headers were wired up; the bulk of the screen's copy is still English-only.</td>
+          </tr>
+          <tr>
+            <td class="feat-name">Data freshness auto-refresh (6h staleness check + startup fetch)</td>
+            <td><span class="pill shipped">Shipped</span></td>
+            <td class="feat-note">Background loop verified working; UI surfacing it (Chat/Dashboard) has fabricated-fallback and translation gaps noted above.</td>
+          </tr>
+          <tr>
+            <td class="feat-name">Offline bundle (pre-fetch for deep-sea trips)</td>
+            <td><span class="pill shipped">Shipped</span></td>
+            <td class="feat-note">Download/cache/fallback flow intact; PFZ-cache-save has the transaction-rollback bug noted above.</td>
+          </tr>
+          <tr>
+            <td class="feat-name">Map — native (react-native-maps)</td>
+            <td><span class="pill shipped">Shipped</span></td>
+            <td class="feat-note">Real PFZ/boundary/risk overlays; earlier drag-lag and crash fixes verified still intact.</td>
+          </tr>
+          <tr>
+            <td class="feat-name">Map — web (Google Maps JS API)</td>
+            <td><span class="pill shipped">Shipped</span></td>
+            <td class="feat-note">Real vector overlays via WebGoogleMap.tsx; the earlier <code>loading=async</code> bug stays fixed.</td>
+          </tr>
+          <tr>
+            <td class="feat-name">Map — "India Map" vector-canvas fallback mode</td>
+            <td><span class="pill partial">Shipped, one gap remains</span></td>
+            <td class="feat-note">Fake PFZ polygons were fixed earlier this session; a fake decorative bathymetry curve was missed in that same pass (see above).</td>
+          </tr>
+          <tr>
+            <td class="feat-name">Voice — speech-to-text</td>
+            <td><span class="pill shipped">Shipped</span></td>
+            <td class="feat-note">Verified end-to-end against live Sarvam API; auto-language-detect fix (Marathi/Hindi) confirmed correct on re-read.</td>
+          </tr>
+          <tr>
+            <td class="feat-name">Voice — text-to-speech</td>
+            <td><span class="pill buggy">Shipped, one hang risk</span></td>
+            <td class="feat-note">Verified working against live Sarvam API; the missing-error-listener bug above can wedge the speaker button app-wide until restart.</td>
+          </tr>
+          <tr>
+            <td class="feat-name">Per-user profile persistence</td>
+            <td><span class="pill buggy">Broken on native</span></td>
+            <td class="feat-note">The device-ID bug at the top of this report means every native install currently shares one backend profile.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    SeaSarathi — full-stack audit · backend, mobile/src, config &amp; docs · no fixes applied, read-only pass
+  </footer>
+
+</div>

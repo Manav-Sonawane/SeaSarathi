@@ -329,6 +329,14 @@ async def get_nearest_pfz(latitude: float = 8.5, longitude: float = 76.2, limit:
     Each zone includes name, distance, compass direction, confidence score,
     and SST/Chlorophyll placeholders (Copernicus integration pending).
     """
+    # The zone search + per-zone Copernicus grid lookups are synchronous CPU
+    # work (a numpy scan over 30K+ grid points, up to `limit` times) — run
+    # off the event loop so one request doesn't stall every other concurrent
+    # request for the duration.
+    return await asyncio.to_thread(_compute_nearest_pfz, latitude, longitude, limit)
+
+
+def _compute_nearest_pfz(latitude: float, longitude: float, limit: int) -> dict:
     from src.utils.geo import find_nearest_zones
     from src.services.copernicus_service import lookup_nearest as lookup_sst_chl
     import math
