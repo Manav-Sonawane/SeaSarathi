@@ -57,6 +57,25 @@ def get_grid_age_hours() -> Optional[float]:
         return None
 
 
+def get_grid_metadata() -> Optional[dict]:
+    """Returns metadata about the currently precomputed grid, or None if missing."""
+    path = os.path.abspath(GRID_PATH)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        return {
+            "generated_at": data.get("generated_at"),
+            "source": data.get("source"),
+            "point_count": data.get("point_count"),
+            "sst_dataset_id": data.get("sst_dataset_id"),
+            "chl_dataset_id": data.get("chl_dataset_id"),
+        }
+    except Exception:
+        return None
+
+
 def is_grid_stale(max_age_hours: float = DEFAULT_MAX_AGE_HOURS) -> bool:
     """True if the grid is missing, unreadable, or older than max_age_hours."""
     age = get_grid_age_hours()
@@ -65,7 +84,7 @@ def is_grid_stale(max_age_hours: float = DEFAULT_MAX_AGE_HOURS) -> bool:
 
 def _refresh_grid_blocking() -> bool:
     """
-    The actual (slow, network-bound) Copernicus fetch. Only ever call this
+    The actual Copernicus / Open-Meteo marine fetch. Only ever call this
     from a background thread/task (asyncio.to_thread) — never inline on a
     request handler or directly in an async function's main flow.
     """
@@ -79,6 +98,15 @@ def _refresh_grid_blocking() -> bool:
         # memory until the process restarts.
         from src.services.copernicus_service import _load_grid
         _load_grid.cache_clear()
+
+        # Clean expired openmeteo cached entries as well
+        try:
+            import requests_cache
+            cache_path = os.path.join(os.path.dirname(__file__), "..", "..", ".cache", "openmeteo_cache")
+            session = requests_cache.CachedSession(cache_path)
+            session.cache.delete(expired=True)
+        except Exception:
+            pass
 
         return True
     except Exception as e:

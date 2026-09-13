@@ -12,7 +12,7 @@ import {
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/userStore';
-import { chatAPI, ChatResponse, Alert } from '../services/api';
+import { chatAPI, ChatResponse, Alert, freshnessAPI, DataFreshnessInfo } from '../services/api';
 import { getCachedBundleForOffline, buildOfflineChatAnswer, formatRelativeTime } from '../services/offlineService';
 import { useNetworkStore } from '../store/networkStore';
 
@@ -50,10 +50,57 @@ export function DashboardScreen({ navigation }: any) {
   const [isOfflineData, setIsOfflineData] = useState(false);
   const [offlineAsOf, setOfflineAsOf] = useState<string | null>(null);
   const [conditions, setConditions] = useState<ChatResponse | null>(null);
+  const [freshness, setFreshness] = useState<DataFreshnessInfo | null>(null);
+  const [refreshingData, setRefreshingData] = useState(false);
+  const [syncBannerMessage, setSyncBannerMessage] = useState<string | null>(null);
 
   useEffect(() => {
     loadConditions();
+    checkDataFreshness(true);
+
+    const timer = setInterval(() => {
+      checkDataFreshness(true);
+    }, 5 * 60 * 1000);
+    return () => clearInterval(timer);
   }, [portInfo.name]);
+
+  const checkDataFreshness = async (triggerAutoRefresh = true) => {
+    try {
+      if (!isOnline) return;
+      const data = await freshnessAPI.getFreshness(triggerAutoRefresh);
+      setFreshness(data);
+      if (data.refreshed) {
+        setSyncBannerMessage('Ocean data was >6h old — Auto-refreshed live!');
+        setTimeout(() => setSyncBannerMessage(null), 5000);
+      }
+    } catch (err) {
+      console.warn('[DashboardScreen] Freshness check failed:', err);
+    }
+  };
+
+  const handleManualReFetch = async () => {
+    if (refreshingData) return;
+    setRefreshingData(true);
+    try {
+      const res = await freshnessAPI.refreshData(true);
+      if (res.metadata) {
+        setFreshness({
+          grid_age_hours: res.new_age_hours,
+          stale: res.stale,
+          max_age_hours: 6.0,
+          grid_exists: true,
+          metadata: res.metadata,
+        });
+      }
+      setSyncBannerMessage('Live data re-fetch complete! (0.0h age)');
+      setTimeout(() => setSyncBannerMessage(null), 4000);
+      await loadConditions();
+    } catch (err) {
+      console.error('[DashboardScreen] Manual re-fetch failed:', err);
+    } finally {
+      setRefreshingData(false);
+    }
+  };
 
   const loadConditions = async () => {
     setLoading(true);
@@ -262,6 +309,92 @@ export function DashboardScreen({ navigation }: any) {
           <Text style={styles.gpsCoords}>
             📍 {portInfo.name} Harbor ({portInfo.latitude.toFixed(4)}° N, {portInfo.longitude.toFixed(4)}° E)
           </Text>
+        </View>
+
+        {/* Data Freshness & 6-Hour Auto-Sync Monitor */}
+        <View style={styles.freshnessCard}>
+          <View style={styles.freshnessCardRow}>
+            <View
+              style={[
+                styles.freshnessIconBox,
+                freshness?.stale ? { backgroundColor: '#F59E0B' } : { backgroundColor: colors.primaryContainer },
+              ]}
+            >
+              {refreshingData ? (
+                <ActivityIndicator size="small" color={colors.white} />
+              ) : (
+                <MaterialCommunityIcons
+                  name={freshness?.stale ? 'cloud-refresh' : 'shield-sync'}
+                  size={20}
+                  color={colors.white}
+                />
+              )}
+            </View>
+
+            <View style={styles.freshnessTextCol}>
+              <View style={styles.freshnessTitleRow}>
+                <Text style={styles.freshnessTitle}>DATA FRESHNESS</Text>
+                <View
+                  style={[
+                    styles.freshnessBadge,
+                    freshness?.stale
+                      ? { backgroundColor: '#FEF3C7' }
+                      : { backgroundColor: '#DCFCE7' },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.freshnessBadgeText,
+                      freshness?.stale ? { color: '#B45309' } : { color: '#15803D' },
+                    ]}
+                  >
+                    {refreshingData
+                      ? 'SYNCING...'
+                      : freshness?.stale
+                      ? 'STALE (>6h)'
+                      : 'FRESH (<6h)'}
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.freshnessAgeText}>
+                Age:{' '}
+                <Text style={{ fontWeight: '800', color: colors.onSurface }}>
+                  {freshness?.grid_age_hours !== null && freshness?.grid_age_hours !== undefined
+                    ? freshness.grid_age_hours < 0.1
+                      ? 'Live (0.0h)'
+                      : freshness.grid_age_hours < 1.0
+                      ? `${Math.round(freshness.grid_age_hours * 60)} min ago`
+                      : `${freshness.grid_age_hours.toFixed(1)}h ago`
+                    : 'Live (0.0h)'}
+                </Text>
+                {' • '}
+                {freshness?.metadata?.point_count ?? 595} Marine Points
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.reFetchBtn, refreshingData && { opacity: 0.6 }]}
+              onPress={handleManualReFetch}
+              disabled={refreshingData}
+            >
+              {refreshingData ? (
+                <ActivityIndicator size="small" color={colors.primary} />
+              ) : (
+                <>
+                  <Ionicons name="refresh" size={13} color={colors.primary} />
+                  <Text style={styles.reFetchBtnText}>Re-fetch</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {syncBannerMessage && (
+            <View style={styles.freshnessBannerToast}>
+              <Ionicons name="checkmark-circle" size={14} color="#15803D" />
+              <Text style={styles.freshnessBannerToastText}>{syncBannerMessage}</Text>
+            </View>
+          )}
         </View>
 
         {/* Telemetry Header */}
@@ -921,4 +1054,91 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.primary,
   },
+  freshnessCard: {
+    backgroundColor: colors.surface,
+    borderRadius: 14,
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerHigh,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  freshnessCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  freshnessIconBox: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  freshnessTextCol: {
+    flex: 1,
+  },
+  freshnessTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 2,
+  },
+  freshnessTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.onSurface,
+    letterSpacing: 0.4,
+  },
+  freshnessBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  freshnessBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  freshnessAgeText: {
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+    fontWeight: '500',
+  },
+  reFetchBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.surfaceContainerHigh,
+    borderWidth: 1,
+    borderColor: 'rgba(0,102,153,0.15)',
+  },
+  reFetchBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primary,
+  },
+  freshnessBannerToast: {
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: colors.surfaceContainerHigh,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  freshnessBannerToastText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803D',
+  },
 });
+

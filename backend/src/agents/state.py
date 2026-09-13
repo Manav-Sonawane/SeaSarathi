@@ -32,4 +32,5 @@ class AgentState(TypedDict):
     recommendation: str
     confidence: int
     sources: list[str]
+    data_freshness: dict | None
 

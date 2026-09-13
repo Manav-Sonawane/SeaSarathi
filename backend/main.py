@@ -136,6 +136,7 @@ class ChatResponse(BaseModel):
     recommendation: str
     confidence: int             # 0-100
     sources: list[str]
+    data_freshness: dict | None = None
 
 
 # ─── Health Check ──────────────────────────────────────────────────────────────
@@ -191,6 +192,7 @@ async def chat(request: ChatRequest):
                 "recommendation": "",
                 "confidence": 0,
                 "sources": [],
+                "data_freshness": None,
             }
             result = await agent.ainvoke(initial_state)
             return ChatResponse(**result)
@@ -593,20 +595,37 @@ async def data_status():
 
 
 @app.get("/data/freshness", summary="Copernicus Grid Freshness")
-async def data_freshness():
+async def data_freshness(auto_refresh: bool = False):
     """
     Age of the precomputed SST/Chlorophyll grid and whether it's due for a
-    refresh (see src/utils/data_freshness.py). A background loop already
-    keeps this from staying stale on its own — this is for visibility, not
-    something the app needs to poll to trigger anything.
+    refresh (see src/utils/data_freshness.py). If auto_refresh=True and the data
+    is stale (>6 hours old or missing), triggers an automatic background re-fetch.
     """
-    from src.utils.data_freshness import get_grid_age_hours, is_grid_stale, DEFAULT_MAX_AGE_HOURS
+    from src.utils.data_freshness import (
+        get_grid_age_hours,
+        is_grid_stale,
+        get_grid_metadata,
+        refresh_grid_if_stale,
+        DEFAULT_MAX_AGE_HOURS,
+    )
     age = get_grid_age_hours()
+    stale = is_grid_stale()
+
+    refreshed = False
+    if auto_refresh and stale:
+        res = await refresh_grid_if_stale()
+        refreshed = res.get("refreshed", False)
+        age = get_grid_age_hours()
+        stale = is_grid_stale()
+
+    meta = get_grid_metadata()
     return {
         "grid_age_hours": round(age, 2) if age is not None else None,
-        "stale": is_grid_stale(),
+        "stale": stale,
         "max_age_hours": DEFAULT_MAX_AGE_HOURS,
         "grid_exists": age is not None,
+        "refreshed": refreshed,
+        "metadata": meta,
     }
 
 
@@ -655,3 +674,41 @@ async def voice_tts(request: TTSRequest):
         raise HTTPException(status_code=502, detail=f"Text-to-speech failed: {e}")
 
     return {"audios": audios, "language_code": bcp47}
+
+
+@app.post("/data/refresh", summary="Trigger Data Refresh")
+async def data_refresh(force: bool = False):
+    """
+    Refreshes the SST/Chlorophyll grid.
+    If force=False, only refreshes if current data is older than 6 hours (or missing).
+    If force=True, forces an immediate unconditional re-fetch.
+    """
+    from src.utils.data_freshness import (
+        get_grid_age_hours,
+        is_grid_stale,
+        get_grid_metadata,
+        refresh_grid_if_stale,
+        refresh_grid_now,
+    )
+    prev_age = get_grid_age_hours()
+
+    if force:
+        ok = await refresh_grid_now()
+    else:
+        res = await refresh_grid_if_stale()
+        ok = res.get("refreshed", False)
+
+    new_age = get_grid_age_hours()
+    return {
+        "success": ok,
+        "previous_age_hours": round(prev_age, 2) if prev_age is not None else None,
+        "new_age_hours": round(new_age, 2) if new_age is not None else None,
+        "stale": is_grid_stale(),
+        "metadata": get_grid_metadata(),
+        "message": (
+            "Data successfully re-fetched and updated."
+            if ok
+            else "Data is already fresh (< 6 hours old). Set force=true to override."
+        ),
+    }
+

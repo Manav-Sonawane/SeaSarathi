@@ -253,24 +253,24 @@ export function ChatScreen({ navigation }: any) {
     }
   };
 
-  const renderRiskBadge = (riskLevel: string) => {
+  const renderRiskBadge = (riskLevel: string, confidence?: number) => {
     let bgColor = '#16A34A'; // Green for LOW risk
     let title = 'LOW RISK';
     let sub = langInfo.uiText.safeVoyage;
-    let score = '92/100 SAFETY INDEX';
+    let score = `${confidence ?? 92}/100 SAFETY INDEX`;
     let iconName = 'verified';
 
     if (riskLevel === 'MODERATE') {
       bgColor = '#D97706'; // Amber for MODERATE
       title = 'MODERATE RISK';
       sub = langInfo.uiText.moderateRisk;
-      score = '60/100 SAFETY INDEX';
+      score = `${confidence ?? 60}/100 SAFETY INDEX`;
       iconName = 'warning';
     } else if (riskLevel === 'HIGH') {
       bgColor = '#DC2626'; // Red for HIGH risk
       title = 'HIGH RISK';
       sub = langInfo.uiText.highRisk;
-      score = '25/100 SAFETY INDEX';
+      score = `${confidence ?? 25}/100 SAFETY INDEX`;
       iconName = 'error';
     }
 
@@ -343,6 +343,22 @@ export function ChatScreen({ navigation }: any) {
             >
               <Text style={styles.presetChipText}>{langInfo.presets.cyclone}</Text>
             </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.presetChip, { borderColor: colors.primary, backgroundColor: 'rgba(0,102,153,0.08)' }]}
+              onPress={() =>
+                handleSend(
+                  language === 'hi'
+                    ? 'वर्तमान डेटा कितना पुराना है? यदि 6 घंटे से अधिक पुराना है तो री-फ़ेच करें।'
+                    : 'How old is the currently fetched data? If it is more than 6 hours old, re-fetch it.'
+                )
+              }
+            >
+              <MaterialCommunityIcons name="clock-check-outline" size={14} color={colors.primary} style={{ marginRight: 4 }} />
+              <Text style={[styles.presetChipText, { color: colors.primary, fontWeight: '700' }]}>
+                {language === 'hi' ? 'डेटा ताज़ा स्थिति (<6h)' : 'Data Freshness (<6h)'}
+              </Text>
+            </TouchableOpacity>
           </ScrollView>
         </View>
 
@@ -392,7 +408,35 @@ export function ChatScreen({ navigation }: any) {
                     </View>
                   )}
 
-                  {renderRiskBadge(data.risk_level)}
+                  {renderRiskBadge(data.risk_level, data.confidence)}
+
+                  {data.data_freshness && (
+                    <View
+                      style={[
+                        styles.freshnessChatPill,
+                        data.data_freshness.refreshed
+                          ? { backgroundColor: '#FEF3C7', borderColor: '#FDE68A' }
+                          : { backgroundColor: '#DCFCE7', borderColor: '#BBF7D0' },
+                      ]}
+                    >
+                      <MaterialCommunityIcons
+                        name={data.data_freshness.refreshed ? 'cloud-refresh' : 'shield-check'}
+                        size={14}
+                        color={data.data_freshness.refreshed ? '#B45309' : '#15803D'}
+                      />
+                      <Text
+                        style={[
+                          styles.freshnessChatPillText,
+                          data.data_freshness.refreshed ? { color: '#B45309' } : { color: '#166534' },
+                        ]}
+                      >
+                        Data Age: {data.data_freshness.age_hours !== null ? `${data.data_freshness.age_hours.toFixed(1)}h` : '0.0h'}
+                        {data.data_freshness.refreshed ? ' • Auto-Refreshed' : ' • Fresh (<6h)'}
+                        {' • '}
+                        {data.data_freshness.metadata?.point_count ?? 595} Points
+                      </Text>
+                    </View>
+                  )}
 
                   {/* Fisherman-Friendly High-Visibility Advisory Card */}
                   <View style={styles.recBox}>
@@ -794,8 +838,22 @@ const styles = StyleSheet.create({
   },
   actionBtnTextSecondary: {
     fontSize: 13,
-    fontWeight: '700',
+    fontWeight: '800',
     color: colors.primary,
+  },
+  freshnessChatPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    marginBottom: 8,
+    borderWidth: 1,
+  },
+  freshnessChatPillText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   loadingContainer: {
     flexDirection: 'row',

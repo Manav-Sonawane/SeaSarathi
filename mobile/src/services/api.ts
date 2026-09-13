@@ -38,6 +38,21 @@ export const api = axios.create({
   timeout: 60000,
 });
 
+export interface DataFreshnessInfo {
+  grid_age_hours: number | null;
+  stale: boolean;
+  max_age_hours: number;
+  grid_exists: boolean;
+  refreshed?: boolean;
+  metadata?: {
+    generated_at?: string;
+    source?: string;
+    point_count?: number;
+    sst_dataset_id?: string;
+    chl_dataset_id?: string;
+  } | null;
+}
+
 export interface ChatResponse {
   risk_level: 'LOW' | 'MODERATE' | 'HIGH';
   wind_kmh: number;
@@ -51,6 +66,7 @@ export interface ChatResponse {
   sst_c: number | null;
   chlorophyll_mg_m3: number | null;
   alerts: Alert[];
+  data_freshness?: DataFreshnessInfo | null;
 }
 
 export const chatAPI = {
@@ -77,9 +93,30 @@ export const chatAPI = {
           sst_c: typeof raw.sst_c === 'number' ? raw.sst_c : null,
           chlorophyll_mg_m3: typeof raw.chlorophyll_mg_m3 === 'number' ? raw.chlorophyll_mg_m3 : null,
           alerts: Array.isArray(raw.alerts) ? raw.alerts : [],
+          data_freshness: raw.data_freshness ?? null,
         } as ChatResponse;
       }),
 };
+
+export const freshnessAPI = {
+  getFreshness: (autoRefresh = false) =>
+    api
+      .get<DataFreshnessInfo>('/data/freshness', { params: { auto_refresh: autoRefresh } })
+      .then((res) => res.data),
+
+  refreshData: (force = false) =>
+    api
+      .post<{
+        success: boolean;
+        previous_age_hours: number | null;
+        new_age_hours: number | null;
+        stale: boolean;
+        metadata?: any;
+        message: string;
+      }>('/data/refresh', null, { params: { force } })
+      .then((res) => res.data),
+};
+
 
 export interface PFZZone {
   name: string;

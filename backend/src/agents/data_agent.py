@@ -6,6 +6,13 @@ from src.agents.state import AgentState
 from src.services.weather_service import fetch_combined_forecasts_for_grid, generate_grid_point_id
 from src.services.copernicus_service import lookup_nearest as lookup_sst_chl
 from src.services.fishing_zone_estimator import estimate_local_fishing_zones
+from src.utils.data_freshness import (
+    get_grid_age_hours,
+    is_grid_stale,
+    refresh_grid_if_stale,
+    refresh_grid_now,
+    get_grid_metadata,
+)
 
 # Mock data fallback (used when APIs are unavailable)
 MOCK_DATA = {
@@ -327,6 +334,31 @@ async def data_agent(state: AgentState) -> AgentState:
         "max_route_wave_m": round(max_path_wave, 2),
     }
 
+    # ── 7. Data Freshness & Staleness Auto-Sync Check ────────────────────────
+    grid_age = get_grid_age_hours()
+    stale = is_grid_stale(6.0)
+    refreshed = False
+
+    # If data is stale (> 6 hours old) or user explicitly requested FRESHNESS:
+    if stale or state.get("intent") == "FRESHNESS":
+        q_lower = (state.get("query") or "").lower()
+        needs_force = any(k in q_lower for k in ["re-fetch", "refetch", "refresh", "री-फ़ेच", "रिफ्रेश", "force"])
+        if needs_force:
+            refreshed = await refresh_grid_now()
+        elif stale:
+            res_refresh = await refresh_grid_if_stale(6.0)
+            refreshed = res_refresh.get("refreshed", False)
+        grid_age = get_grid_age_hours()
+        stale = is_grid_stale(6.0)
+
+    data_freshness_dict = {
+        "age_hours": round(grid_age, 2) if grid_age is not None else None,
+        "stale": stale,
+        "max_age_hours": 6.0,
+        "refreshed": refreshed,
+        "metadata": get_grid_metadata(),
+    }
+
     return {
         **state,
         "wind_speed_10m": wind_speed_10m,
@@ -346,6 +378,7 @@ async def data_agent(state: AgentState) -> AgentState:
         "landing_options": landing_options,
         "route_summary": route_summary,
         "alerts": alerts,
+        "data_freshness": data_freshness_dict,
         "sources": list(dict.fromkeys(sources)),
     }
 
