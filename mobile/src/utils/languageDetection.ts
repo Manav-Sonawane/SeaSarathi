@@ -45,3 +45,26 @@ export function detectQueryLanguage(text: string): string {
   }
   return 'en';
 }
+
+// Sarvam STT (backend's /voice/stt) returns the BCP-47 code it actually
+// detected from the AUDIO — unlike script-based text detection above, this
+// can tell Marathi and Hindi apart (they share Devanagari script, so
+// detectQueryLanguage can't). Voice queries should prefer this over
+// re-guessing from the transcript text. Mirrors backend's LANGUAGE_BCP47.
+const BCP47_TO_APP_LANGUAGE: Record<string, string> = {
+  'en-IN': 'en',
+  'hi-IN': 'hi',
+  'ml-IN': 'ml',
+  'ta-IN': 'ta',
+  'te-IN': 'te',
+  'bn-IN': 'bn',
+  'gu-IN': 'gu',
+  'mr-IN': 'mr',
+  'od-IN': 'or',
+  'kn-IN': 'kn',
+};
+
+export function bcp47ToAppLanguage(bcp47: string | null | undefined): string | null {
+  if (!bcp47) return null;
+  return BCP47_TO_APP_LANGUAGE[bcp47] ?? null;
+}

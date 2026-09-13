@@ -18,7 +18,7 @@ import { chatAPI, ChatResponse, voiceAPI } from '../services/api';
 import { useUserStore } from '../store/userStore';
 import { getCachedBundleForOffline, buildOfflineChatAnswer, formatRelativeTime } from '../services/offlineService';
 import { useNetworkStore } from '../store/networkStore';
-import { detectQueryLanguage } from '../utils/languageDetection';
+import { detectQueryLanguage, bcp47ToAppLanguage } from '../utils/languageDetection';
 import { INDIAN_LANGUAGES } from '../constants/portsAndLanguages';
 import { getScreenText } from '../constants/screenTranslations';
 import { playTtsClips } from '../services/voiceService';
@@ -48,6 +48,11 @@ export function ChatScreen({ navigation }: any) {
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
   const [isRecording, setIsRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
+  // prepareToRecordAsync() must only be called once per recorder instance —
+  // calling it again after a stop() throws "AudioRecorder has already been
+  // prepared" (confirmed on-device). record() alone works fine on later
+  // presses since the recorder stays prepared for its whole lifetime here.
+  const hasPreparedRecorderRef = React.useRef(false);
 
   // Voice output (TTS) — which message's advisory is currently being
   // synthesized/played, so only one plays at a time and the button can show
@@ -64,9 +69,16 @@ export function ChatScreen({ navigation }: any) {
       try {
         const ext = Platform.OS === 'web' ? 'webm' : 'm4a';
         const mime = Platform.OS === 'web' ? 'audio/webm' : 'audio/m4a';
-        const result = await voiceAPI.stt(uri, `voice.${ext}`, mime, language);
+        // No language hint — let Sarvam auto-detect purely from audio.
+        // Hinting with the profile's saved language biased both the
+        // transcription AND the returned language_code toward that language
+        // even when a different one was actually spoken (e.g. Marathi
+        // getting hinted/tagged as Hindi because the profile was set to
+        // Hindi) — auto-detect is what makes bcp47ToAppLanguage() below
+        // trustworthy.
+        const result = await voiceAPI.stt(uri, `voice.${ext}`, mime);
         if (result.transcript?.trim()) {
-          handleSend(result.transcript.trim());
+          handleSend(result.transcript.trim(), bcp47ToAppLanguage(result.language_code) || undefined);
         }
       } catch (err) {
         console.error('[ChatScreen] Speech-to-text failed:', err);
@@ -82,7 +94,10 @@ export function ChatScreen({ navigation }: any) {
       return;
     }
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
-    await recorder.prepareToRecordAsync();
+    if (!hasPreparedRecorderRef.current) {
+      await recorder.prepareToRecordAsync();
+      hasPreparedRecorderRef.current = true;
+    }
     recorder.record();
     setIsRecording(true);
   };
@@ -136,7 +151,7 @@ export function ChatScreen({ navigation }: any) {
     setMessages(initialMsgs);
   }, [language, portInfo.name, vesselRange]);
 
-  const handleSend = async (userText?: string) => {
+  const handleSend = async (userText?: string, overrideLanguage?: string) => {
     const textToSend = userText || query;
     if (!textToSend.trim() || loading) return;
 
@@ -151,11 +166,14 @@ export function ChatScreen({ navigation }: any) {
     setQuery('');
     setLoading(true);
 
-    // Respond in whatever language this message was actually typed in — not
+    // Respond in whatever language this message was actually in — not
     // necessarily the profile's saved default (a fisherman might type one
-    // question in Malayalam and the next in English). Deterministic script
-    // detection, see languageDetection.ts.
-    const queryLanguage = detectQueryLanguage(textToSend);
+    // question in Malayalam and the next in English). For voice input,
+    // `overrideLanguage` carries Sarvam STT's own audio-detected language
+    // (see handleMicPress) instead of re-guessing from the transcript text —
+    // script-based detection can't tell Hindi and Marathi apart (same
+    // Devanagari script), but Sarvam heard which one was actually spoken.
+    const queryLanguage = overrideLanguage || detectQueryLanguage(textToSend);
     const queryLangInfo = INDIAN_LANGUAGES.find((l) => l.code === queryLanguage) || langInfo;
 
     try {
