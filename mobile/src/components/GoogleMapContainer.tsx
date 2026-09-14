@@ -31,7 +31,7 @@ interface GoogleMapContainerProps {
 }
 
 const GOOGLE_MAPS_KEY =
-  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? 'AIzaSyDAipJLXbPfmpSdi91j_4mcWHbFSfmjq4c';
+  process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 export function GoogleMapContainer({
   activePort,
