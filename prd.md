@@ -236,8 +236,14 @@ A React Native mobile app for Indian coastal fishermen providing **real-time saf
 
 ### 2.2 Out of Scope (Phase 2+)
 
-- Voice input/output (Sarvam STT/TTS)
-- Multilingual UI (only English MVP)
+- ~~Voice input/output (Sarvam STT/TTS)~~ — **shipped**: query-in/response-out
+  voice via Sarvam saaras:v3 (STT) and bulbul:v3 (TTS), see backend's
+  `/voice/stt` and `/voice/tts`.
+- ~~Multilingual UI (only English MVP)~~ — **shipped**: full UI translation
+  across all 10 supported languages (en, hi, ml, ta, te, bn, gu, mr, or, kn),
+  see `mobile/src/constants/screenTranslations.ts` and `portsAndLanguages.ts`.
+  Chat also detects and responds in whichever language a query was actually
+  typed/spoken in, not just the profile default.
 - User accounts / login
 - Trip logging / history
 - Social features

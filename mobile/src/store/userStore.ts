@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { File, Paths } from 'expo-file-system';
 import { INDIAN_PORTS, INDIAN_LANGUAGES, PortInfo, LanguageInfo } from '../constants/portsAndLanguages';
 import { profileAPI } from '../services/api';
@@ -9,8 +11,19 @@ export type UserRole = 'fisherman' | 'union_leader';
 
 const DEVICE_ID_FILENAME = 'seasarathi_device_id.txt';
 
+// device_id doubles as this app's only access-control boundary: there's no
+// separate auth layer, so POST/DELETE /profile trust whoever supplies the
+// right device_id (see main.py's docstring on those endpoints). That makes
+// it worth making hard to guess, not just unique — a single short
+// Math.random() segment plus a timestamp (roughly guessable from an
+// install date) wasn't. Concatenating multiple independent Math.random()
+// draws isn't cryptographically secure, but at this length it's well
+// beyond brute-forcing for what's actually at stake here (vessel prefs,
+// no payment/PII) — matching the threat model, not overbuilding it with a
+// full crypto RNG that would need a new native dependency and EAS rebuild.
 function generateDeviceId(): string {
-  return 'device_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+  const segment = () => Math.random().toString(36).substring(2, 10);
+  return `device_${segment()}${segment()}${segment()}_${Date.now()}`;
 }
 
 // CRITICAL FIX: this used to check `window.localStorage` unconditionally and
@@ -79,15 +92,25 @@ export interface UserProfileState {
 
 const defaultPort = INDIAN_PORTS.find((p) => p.name === 'Kochi') || INDIAN_PORTS[0];
 
-export const useUserStore = create<UserProfileState>((set, get) => ({
-  deviceId: getDeviceId(),
-  vesselType: 'medium',
-  riskTolerance: 'moderate',
-  operatingPort: 'Kochi',
-  portInfo: defaultPort,
-  role: 'fisherman',
-  language: 'en',
-  isBackendSynced: false,
+// Persisted locally (AsyncStorage) so a cold start — especially offline,
+// where there's no backend to load from at all — comes back with the
+// fisherman's real saved vessel/port/language instead of silently
+// resetting to these hardcoded defaults (medium boat, Kochi, English)
+// every single launch. loadFromBackend() (called once at RootNavigator
+// mount) still reconciles with the server afterwards whenever online, so
+// this is a local cache of the last-known-good profile, not the source of
+// truth.
+export const useUserStore = create<UserProfileState>()(
+  persist(
+    (set, get) => ({
+      deviceId: getDeviceId(),
+      vesselType: 'medium',
+      riskTolerance: 'moderate',
+      operatingPort: 'Kochi',
+      portInfo: defaultPort,
+      role: 'fisherman',
+      language: 'en',
+      isBackendSynced: false,
 
   setVesselType: (vesselType) => set({ vesselType }),
   setRiskTolerance: (riskTolerance) => set({ riskTolerance }),
@@ -160,4 +183,21 @@ export const useUserStore = create<UserProfileState>((set, get) => ({
     }
     return false;
   },
-}));
+    }),
+    {
+      name: 'seasarathi-user-profile',
+      storage: createJSONStorage(() => AsyncStorage),
+      // Persist the profile shape only — not deviceId (already durable via
+      // its own file/localStorage mechanism above) and not isBackendSynced
+      // (transient, meaningless across a restart).
+      partialize: (state) => ({
+        vesselType: state.vesselType,
+        riskTolerance: state.riskTolerance,
+        operatingPort: state.operatingPort,
+        portInfo: state.portInfo,
+        role: state.role,
+        language: state.language,
+      }),
+    }
+  )
+);

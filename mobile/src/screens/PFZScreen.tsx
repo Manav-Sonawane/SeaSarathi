@@ -54,7 +54,7 @@ export function PFZScreen({ navigation }: any) {
         const formatted = data.map((z, idx) => ({
           id: (idx + 1).toString(),
           name: z.name || `PFZ-${portInfo.name.substring(0, 3).toUpperCase()}-${(idx + 1) * 6}`,
-          subtitle: `${portInfo.name} Sector #${idx + 1}`,
+          subtitle: `${portInfo.name} ${t.pfz.sectorWord} #${idx + 1}`,
           distance: z.distance,
           bearing: z.bearing,
           estArrival: z.distance != null ? `${Math.round((z.distance / 11) * 60)}m @ 11 kts` : '—',
@@ -78,7 +78,7 @@ export function PFZScreen({ navigation }: any) {
             const formatted = nearest.map((z, idx) => ({
               id: (idx + 1).toString(),
               name: z.name,
-              subtitle: `${portInfo.name} Sector #${idx + 1} (cached)`,
+              subtitle: `${portInfo.name} ${t.pfz.sectorWord} #${idx + 1} (${t.profile.cachedSuffix})`,
               distance: z.distance_km,
               bearing: '—',
               estArrival: `${Math.round((z.distance_km / 11) * 60)}m @ 11 kts`,
@@ -111,7 +111,7 @@ export function PFZScreen({ navigation }: any) {
             <MaterialCommunityIcons name="sail-boat" size={20} color={colors.white} />
             <View>
               <Text style={styles.vesselBarTitle}>
-                {vesselType.toUpperCase()} BOAT • {operatingPort.toUpperCase()} PORT ({portInfo.state.toUpperCase()})
+                {vesselType.toUpperCase()} {t.pfz.boatWord} • {operatingPort.toUpperCase()} {t.pfz.portWord} ({portInfo.state.toUpperCase()})
               </Text>
               <Text style={styles.vesselBarSub}>{t.pfz.operatingRange}: Max {maxRangeKm} km offshore</Text>
             </View>

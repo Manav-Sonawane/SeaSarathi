@@ -42,16 +42,21 @@ function severityToCategory(severity: string): 'critical' | 'advisory' | 'naviga
   return 'navigational';
 }
 
-function alertToCard(a: Alert, idx: number, portInfo: any) {
+function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof getScreenText>) {
   const category = severityToCategory(a.severity);
   const meta = a.metadata || {};
   const distance = meta.distance_km != null ? `${meta.distance_km} km` : '—';
+  // Falls back to the raw backend code (readable, just untranslated) for
+  // any alert type not yet in alertTypes — never crashes on a new one.
+  const typeLabel = t.alerts.alertTypes[a.type] || a.type.replace(/_/g, ' ');
   return {
     id: `${a.type}-${idx}`,
     category,
-    type: a.type.replace(/_/g, ' '),
-    title: a.type.replace(/_/g, ' '),
-    sub: a.source === 'geofence' || a.source === 'geofence-cache' ? `BOUNDARY: ${meta.boundary || 'Unknown'}` : 'WEATHER ADVISORY',
+    type: typeLabel,
+    title: typeLabel,
+    sub: a.source === 'geofence' || a.source === 'geofence-cache'
+      ? `${t.alerts.boundaryPrefix} ${meta.boundary || 'Unknown'}`
+      : t.alerts.weatherAdvisory,
     distText: distance,
     vector: meta.wind_speed_10m != null ? `${Math.round(Number(meta.wind_speed_10m))} km/h` : '—',
     breachTime: meta.wave_height_m != null ? `Hs ${Number(meta.wave_height_m).toFixed(1)} m` : '—',
@@ -71,13 +76,19 @@ export function AlertsScreen({ navigation }: any) {
   const [isOfflineData, setIsOfflineData] = useState(false);
   const [offlineAsOf, setOfflineAsOf] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'critical' | 'advisory' | 'navigational'>('all');
-  const [acknowledged, setAcknowledged] = useState(false);
+  // Per-alert, not a single shared boolean — that used to make acknowledging
+  // one critical alert flip the "Acknowledged" label on every critical
+  // alert card at once.
+  const [acknowledgedIds, setAcknowledgedIds] = useState<Set<string>>(new Set());
 
   const [alertsList, setAlertsList] = useState<any[]>(PLACEHOLDER_ALERTS(portInfo, operatingPort, t.alerts.fetching));
 
   useEffect(() => {
     loadAlerts();
-  }, [operatingPort]);
+    // Also re-run on language change — alertToCard translates the type/sub
+    // labels using `t`, so switching language without changing port would
+    // otherwise leave already-loaded cards showing the old language.
+  }, [operatingPort, langInfo.code]);
 
   const loadAlerts = async () => {
     setLoading(true);
@@ -86,7 +97,7 @@ export function AlertsScreen({ navigation }: any) {
       const data = await alertsAPI.getAlerts(portInfo.latitude, portInfo.longitude);
       // Show the backend's real alert list as-is (empty list = no active alerts,
       // which is a valid, meaningful result — not treated as a failure).
-      setAlertsList(data.map((a, idx) => alertToCard(a, idx, portInfo)));
+      setAlertsList(data.map((a, idx) => alertToCard(a, idx, portInfo, t)));
       setIsOfflineData(false);
     } catch (err) {
       console.error('[AlertsScreen] Live /alerts call failed, trying offline cache:', err);
@@ -94,7 +105,7 @@ export function AlertsScreen({ navigation }: any) {
         const bundle = await getCachedBundleForOffline();
         if (bundle) {
           const offlineAlerts = buildOfflineAlerts(bundle, portInfo.latitude, portInfo.longitude);
-          setAlertsList(offlineAlerts.map((a, idx) => alertToCard(a as unknown as Alert, idx, portInfo)));
+          setAlertsList(offlineAlerts.map((a, idx) => alertToCard(a as unknown as Alert, idx, portInfo, t)));
           setIsOfflineData(true);
           setOfflineAsOf(bundle.metadata.created);
         }
@@ -302,15 +313,22 @@ export function AlertsScreen({ navigation }: any) {
                   {item.category === 'critical' && (
                     <TouchableOpacity
                       style={styles.actionBtnAck}
-                      onPress={() => setAcknowledged(!acknowledged)}
+                      onPress={() =>
+                        setAcknowledgedIds((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(item.id)) next.delete(item.id);
+                          else next.add(item.id);
+                          return next;
+                        })
+                      }
                     >
                       <Ionicons
-                        name={acknowledged ? 'checkmark-circle' : 'bookmark-outline'}
+                        name={acknowledgedIds.has(item.id) ? 'checkmark-circle' : 'bookmark-outline'}
                         size={16}
                         color={colors.primary}
                       />
                       <Text style={styles.actionBtnAckText}>
-                        {acknowledged ? t.alerts.acknowledged : t.alerts.acknowledgeBuffer}
+                        {acknowledgedIds.has(item.id) ? t.alerts.acknowledged : t.alerts.acknowledgeBuffer}
                       </Text>
                     </TouchableOpacity>
                   )}

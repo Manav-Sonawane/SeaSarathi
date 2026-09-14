@@ -59,31 +59,46 @@ export function ChatScreen({ navigation }: any) {
   // a loading/playing state.
   const [speakingMessageId, setSpeakingMessageId] = useState<string | null>(null);
 
+  // Guards state updates after an await against firing once this screen has
+  // unmounted (e.g. the user navigates away mid-recording, mid-transcription,
+  // or mid-playback) — React logs a warning for a setState on an unmounted
+  // component, and without this a stale update could also clobber whatever
+  // the next-mounted instance of this screen is doing.
+  const isMountedRef = React.useRef(true);
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   const handleMicPress = async () => {
     if (isRecording) {
       setIsRecording(false);
-      await recorder.stop();
-      const uri = recorder.uri;
-      if (!uri) return;
-      setTranscribing(true);
       try {
-        const ext = Platform.OS === 'web' ? 'webm' : 'm4a';
-        const mime = Platform.OS === 'web' ? 'audio/webm' : 'audio/m4a';
-        // No language hint — let Sarvam auto-detect purely from audio.
-        // Hinting with the profile's saved language biased both the
-        // transcription AND the returned language_code toward that language
-        // even when a different one was actually spoken (e.g. Marathi
-        // getting hinted/tagged as Hindi because the profile was set to
-        // Hindi) — auto-detect is what makes bcp47ToAppLanguage() below
-        // trustworthy.
-        const result = await voiceAPI.stt(uri, `voice.${ext}`, mime);
-        if (result.transcript?.trim()) {
-          handleSend(result.transcript.trim(), bcp47ToAppLanguage(result.language_code) || undefined);
+        await recorder.stop();
+        const uri = recorder.uri;
+        if (!uri || !isMountedRef.current) return;
+        setTranscribing(true);
+        try {
+          const ext = Platform.OS === 'web' ? 'webm' : 'm4a';
+          const mime = Platform.OS === 'web' ? 'audio/webm' : 'audio/m4a';
+          // No language hint — let Sarvam auto-detect purely from audio.
+          // Hinting with the profile's saved language biased both the
+          // transcription AND the returned language_code toward that language
+          // even when a different one was actually spoken (e.g. Marathi
+          // getting hinted/tagged as Hindi because the profile was set to
+          // Hindi) — auto-detect is what makes bcp47ToAppLanguage() below
+          // trustworthy.
+          const result = await voiceAPI.stt(uri, `voice.${ext}`, mime);
+          if (isMountedRef.current && result.transcript?.trim()) {
+            handleSend(result.transcript.trim(), bcp47ToAppLanguage(result.language_code) || undefined);
+          }
+        } finally {
+          if (isMountedRef.current) setTranscribing(false);
         }
       } catch (err) {
         console.error('[ChatScreen] Speech-to-text failed:', err);
-      } finally {
-        setTranscribing(false);
+        if (isMountedRef.current) setTranscribing(false);
       }
       return;
     }
@@ -93,11 +108,14 @@ export function ChatScreen({ navigation }: any) {
       console.warn('[ChatScreen] Microphone permission denied');
       return;
     }
+    if (!isMountedRef.current) return;
     await setAudioModeAsync({ allowsRecording: true, playsInSilentMode: true });
+    if (!isMountedRef.current) return;
     if (!hasPreparedRecorderRef.current) {
       await recorder.prepareToRecordAsync();
       hasPreparedRecorderRef.current = true;
     }
+    if (!isMountedRef.current) return;
     recorder.record();
     setIsRecording(true);
   };
@@ -107,48 +125,57 @@ export function ChatScreen({ navigation }: any) {
     setSpeakingMessageId(msg.id);
     try {
       const result = await voiceAPI.tts(msg.data.recommendation, msg.language || language);
+      if (!isMountedRef.current) return;
       await playTtsClips(result.audios);
     } catch (err) {
       console.error('[ChatScreen] Text-to-speech failed:', err);
     } finally {
-      setSpeakingMessageId(null);
+      if (isMountedRef.current) setSpeakingMessageId(null);
     }
   };
 
-  // Generate localized initial welcome message whenever language or port changes
+  // Seed the localized welcome message — but only while the conversation is
+  // still empty. This used to unconditionally reset `messages` whenever
+  // language/port/vesselRange changed, which meant a fisherman mid-chat who
+  // simply switched vessel type (which changes vesselRange) or home port in
+  // Profile would come back to find their entire conversation wiped. Now it
+  // only (re-)seeds the greeting for a fresh/never-touched chat — e.g. right
+  // after first mount, or if the language changes before the user has sent
+  // anything — and leaves an in-progress conversation alone.
   useEffect(() => {
-    const initialAdv = langInfo.getAdvisory(portInfo.name, 'LOW', 16, 1.1, vesselRange);
+    setMessages((prev) => {
+      if (prev.length > 0) return prev;
 
-    const initialMsgs: Message[] = [
-      {
-        id: '1',
-        sender: 'user',
-        text: `${langInfo.presets.safety} (${portInfo.name})`,
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
-      },
-      {
-        id: '2',
-        sender: 'system',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
-        language: langInfo.code,
-        data: {
-          risk_level: 'LOW',
-          wind_kmh: 16,
-          wave_m: 1.1,
-          rainfall_mm: 0.0,
-          lightning: false,
-          cyclone: false,
-          recommendation: initialAdv,
-          confidence: 89,
-          sources: [],
-          sst_c: null,
-          chlorophyll_mg_m3: null,
-          alerts: [],
+      const initialAdv = langInfo.getAdvisory(portInfo.name, 'LOW', 16, 1.1, vesselRange);
+      return [
+        {
+          id: '1',
+          sender: 'user',
+          text: `${langInfo.presets.safety} (${portInfo.name})`,
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
         },
-      },
-    ];
-
-    setMessages(initialMsgs);
+        {
+          id: '2',
+          sender: 'system',
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
+          language: langInfo.code,
+          data: {
+            risk_level: 'LOW',
+            wind_kmh: 16,
+            wave_m: 1.1,
+            rainfall_mm: 0.0,
+            lightning: false,
+            cyclone: false,
+            recommendation: initialAdv,
+            confidence: 89,
+            sources: [],
+            sst_c: null,
+            chlorophyll_mg_m3: null,
+            alerts: [],
+          },
+        },
+      ];
+    });
   }, [language, portInfo.name, vesselRange]);
 
   const handleSend = async (userText?: string, overrideLanguage?: string) => {

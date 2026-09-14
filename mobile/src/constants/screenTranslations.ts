@@ -27,6 +27,9 @@ export interface ScreenText {
     operatingRange: string;
     nearestSuffix: string;
     rangeLabel: string;
+    sectorWord: string;
+    boatWord: string;
+    portWord: string;
   };
   alerts: {
     sentryActive: string;
@@ -44,6 +47,13 @@ export interface ScreenText {
     openMap: string;
     acknowledgeBuffer: string;
     acknowledged: string;
+    boundaryPrefix: string; // "BOUNDARY:"
+    weatherAdvisory: string; // "WEATHER ADVISORY"
+    // Backend alert `type` codes (see backend/main.py's /alerts and
+    // src/utils/geofence.py) — used as-is (raw code) if a type isn't in
+    // this map, so a new backend alert type degrades gracefully instead of
+    // crashing.
+    alertTypes: Record<string, string>;
   };
   map: {
     layers: string;
@@ -57,6 +67,7 @@ export interface ScreenText {
     cachedLabel: string;
     offlineLabel: string;
     inspectZoneDetails: string;
+    maritimeBoundaryTitle: string;
   };
   profile: {
     title: string;
@@ -191,6 +202,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       operatingRange: 'Operating Range',
       nearestSuffix: 'NM nearest',
       rangeLabel: 'Range',
+      sectorWord: 'Sector',
+      boatWord: 'BOAT',
+      portWord: 'PORT',
     },
     alerts: {
       sentryActive: 'SAFETY WATCH ACTIVE',
@@ -208,6 +222,21 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       openMap: 'Open Map',
       acknowledgeBuffer: 'Acknowledge',
       acknowledged: 'Acknowledged',
+      boundaryPrefix: 'BOUNDARY:',
+      weatherAdvisory: 'WEATHER ADVISORY',
+      alertTypes: {
+        HIGH_WIND: 'HIGH WIND',
+        MODERATE_WIND: 'MODERATE WIND',
+        HEAVY_RAIN: 'HEAVY RAIN',
+        LOW_VISIBILITY: 'LOW VISIBILITY',
+        THUNDERSTORM: 'THUNDERSTORM',
+        DANGEROUS_WAVES: 'DANGEROUS WAVES',
+        HIGH_WAVES: 'HIGH WAVES',
+        GEOFENCE_DANGER: 'BOUNDARY DANGER',
+        GEOFENCE_WARNING: 'BOUNDARY WARNING',
+        INTERNATIONAL_WATERS: 'INTERNATIONAL WATERS',
+        SYSTEM: 'SYSTEM',
+      },
     },
     map: {
       layers: 'Layers',
@@ -221,6 +250,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       cachedLabel: 'Cached',
       offlineLabel: 'Offline',
       inspectZoneDetails: 'Inspect Fishing Zone Details',
+      maritimeBoundaryTitle: 'Maritime Boundary',
     },
     profile: {
       title: 'Fisherman Profile & Settings',
@@ -353,6 +383,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       operatingRange: 'പ്രവർത്തന പരിധി',
       nearestSuffix: 'NM ഏറ്റവും അടുത്ത്',
       rangeLabel: 'പരിധി',
+      sectorWord: 'സെക്ടർ',
+      boatWord: 'ബോട്ട്',
+      portWord: 'തുറമുഖം',
     },
     alerts: {
       sentryActive: 'സുരക്ഷാ നിരീക്ഷണം സജീവം',
@@ -370,6 +403,21 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       openMap: 'മാപ്പ് തുറക്കുക',
       acknowledgeBuffer: 'അറിയിപ്പ് സ്ഥിരീകരിക്കുക',
       acknowledged: 'സ്ഥിരീകരിച്ചു',
+      boundaryPrefix: 'അതിർത്തി:',
+      weatherAdvisory: 'കാലാവസ്ഥാ മുന്നറിയിപ്പ്',
+      alertTypes: {
+        HIGH_WIND: 'ശക്തമായ കാറ്റ്',
+        MODERATE_WIND: 'മിതമായ കാറ്റ്',
+        HEAVY_RAIN: 'കനത്ത മഴ',
+        LOW_VISIBILITY: 'കുറഞ്ഞ ദൃശ്യപരത',
+        THUNDERSTORM: 'ഇടിമിന്നൽ',
+        DANGEROUS_WAVES: 'അപകടകരമായ തിരമാല',
+        HIGH_WAVES: 'ഉയർന്ന തിരമാല',
+        GEOFENCE_DANGER: 'അതിർത്തി അപകടം',
+        GEOFENCE_WARNING: 'അതിർത്തി മുന്നറിയിപ്പ്',
+        INTERNATIONAL_WATERS: 'അന്താരാഷ്ട്ര ജലം',
+        SYSTEM: 'സിസ്റ്റം',
+      },
     },
     map: {
       layers: 'ലെയറുകൾ',
@@ -383,6 +431,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       cachedLabel: 'സൂക്ഷിച്ചത്',
       offlineLabel: 'ഓഫ്‌ലൈൻ',
       inspectZoneDetails: 'മേഖലയുടെ വിശദാംശങ്ങൾ കാണുക',
+      maritimeBoundaryTitle: 'സമുദ്ര അതിർത്തി',
     },
     profile: {
       title: 'മത്സ്യത്തൊഴിലാളി പ്രൊഫൈൽ & ക്രമീകരണങ്ങൾ',
@@ -515,6 +564,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       operatingRange: 'இயக்க வரம்பு',
       nearestSuffix: 'NM மிக அருகில்',
       rangeLabel: 'வரம்பு',
+      sectorWord: 'செக்டார்',
+      boatWord: 'படகு',
+      portWord: 'துறைமுகம்',
     },
     alerts: {
       sentryActive: 'பாதுகாப்பு கண்காணிப்பு செயலில்',
@@ -532,6 +584,21 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       openMap: 'வரைபடத்தை திற',
       acknowledgeBuffer: 'உறுதிப்படுத்து',
       acknowledged: 'உறுதிப்படுத்தப்பட்டது',
+      boundaryPrefix: 'எல்லை:',
+      weatherAdvisory: 'வானிலை ஆலோசனை',
+      alertTypes: {
+        HIGH_WIND: 'பலத்த காற்று',
+        MODERATE_WIND: 'மிதமான காற்று',
+        HEAVY_RAIN: 'கனமழை',
+        LOW_VISIBILITY: 'குறைந்த தெரிவுநிலை',
+        THUNDERSTORM: 'இடி மின்னல்',
+        DANGEROUS_WAVES: 'ஆபத்தான அலைகள்',
+        HIGH_WAVES: 'உயர் அலைகள்',
+        GEOFENCE_DANGER: 'எல்லை ஆபத்து',
+        GEOFENCE_WARNING: 'எல்லை எச்சரிக்கை',
+        INTERNATIONAL_WATERS: 'சர்வதேச நீர்பரப்பு',
+        SYSTEM: 'சிஸ்டம்',
+      },
     },
     map: {
       layers: 'அடுக்குகள்',
@@ -545,6 +612,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       cachedLabel: 'சேமிக்கப்பட்டது',
       offlineLabel: 'ஆஃப்லைன்',
       inspectZoneDetails: 'மண்டல விவரங்களை காண்க',
+      maritimeBoundaryTitle: 'கடல் எல்லை',
     },
     profile: {
       title: 'மீனவர் சுயவிவரம் & அமைப்புகள்',
@@ -677,6 +745,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       operatingRange: 'పరిధి',
       nearestSuffix: 'NM సమీపంలో',
       rangeLabel: 'పరిధి',
+      sectorWord: 'సెక్టార్',
+      boatWord: 'పడవ',
+      portWord: 'నౌకాశ్రయం',
     },
     alerts: {
       sentryActive: 'భద్రతా పర్యవేక్షణ యాక్టివ్',
@@ -694,6 +765,21 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       openMap: 'మ్యాప్ తెరవండి',
       acknowledgeBuffer: 'నిర్ధారించండి',
       acknowledged: 'నిర్ధారించబడింది',
+      boundaryPrefix: 'సరిహద్దు:',
+      weatherAdvisory: 'వాతావరణ సూచన',
+      alertTypes: {
+        HIGH_WIND: 'తీవ్రమైన గాలి',
+        MODERATE_WIND: 'మధ్యస్థ గాలి',
+        HEAVY_RAIN: 'భారీ వర్షం',
+        LOW_VISIBILITY: 'తక్కువ దృశ్యత',
+        THUNDERSTORM: 'ఉరుములు మెరుపులు',
+        DANGEROUS_WAVES: 'ప్రమాదకర అలలు',
+        HIGH_WAVES: 'ఎత్తైన అలలు',
+        GEOFENCE_DANGER: 'సరిహద్దు ప్రమాదం',
+        GEOFENCE_WARNING: 'సరిహద్దు హెచ్చరిక',
+        INTERNATIONAL_WATERS: 'అంతర్జాతీయ జలాలు',
+        SYSTEM: 'సిస్టమ్',
+      },
     },
     map: {
       layers: 'లేయర్లు',
@@ -707,6 +793,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       cachedLabel: 'సేవ్ చేయబడింది',
       offlineLabel: 'ఆఫ్‌లైన్',
       inspectZoneDetails: 'మండల వివరాలు చూడండి',
+      maritimeBoundaryTitle: 'సముద్ర సరిహద్దు',
     },
     profile: {
       title: 'జాలరి ప్రొఫైల్ & సెట్టింగ్‌లు',
@@ -839,6 +926,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       operatingRange: 'পরিসীমা',
       nearestSuffix: 'NM নিকটতম',
       rangeLabel: 'পরিসর',
+      sectorWord: 'সেক্টর',
+      boatWord: 'নৌকা',
+      portWord: 'বন্দর',
     },
     alerts: {
       sentryActive: 'নিরাপত্তা নজরদারি সক্রিয়',
@@ -856,6 +946,21 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       openMap: 'মানচিত্র খুলুন',
       acknowledgeBuffer: 'নিশ্চিত করুন',
       acknowledged: 'নিশ্চিত করা হয়েছে',
+      boundaryPrefix: 'সীমানা:',
+      weatherAdvisory: 'আবহাওয়া পরামর্শ',
+      alertTypes: {
+        HIGH_WIND: 'প্রবল বাতাস',
+        MODERATE_WIND: 'মাঝারি বাতাস',
+        HEAVY_RAIN: 'ভারী বৃষ্টি',
+        LOW_VISIBILITY: 'কম দৃশ্যমানতা',
+        THUNDERSTORM: 'বজ্রঝড়',
+        DANGEROUS_WAVES: 'বিপজ্জনক ঢেউ',
+        HIGH_WAVES: 'উঁচু ঢেউ',
+        GEOFENCE_DANGER: 'সীমানা বিপদ',
+        GEOFENCE_WARNING: 'সীমানা সতর্কতা',
+        INTERNATIONAL_WATERS: 'আন্তর্জাতিক জলসীমা',
+        SYSTEM: 'সিস্টেম',
+      },
     },
     map: {
       layers: 'স্তর',
@@ -869,6 +974,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       cachedLabel: 'সংরক্ষিত',
       offlineLabel: 'অফলাইন',
       inspectZoneDetails: 'অঞ্চলের বিবরণ দেখুন',
+      maritimeBoundaryTitle: 'সামুদ্রিক সীমানা',
     },
     profile: {
       title: 'জেলে প্রোফাইল ও সেটিংস',
@@ -1001,6 +1107,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       operatingRange: 'કાર્યકારી રેન્જ',
       nearestSuffix: 'NM સૌથી નજીક',
       rangeLabel: 'રેન્જ',
+      sectorWord: 'સેક્ટર',
+      boatWord: 'બોટ',
+      portWord: 'બંદર',
     },
     alerts: {
       sentryActive: 'સુરક્ષા દેખરેખ સક્રિય',
@@ -1018,6 +1127,21 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       openMap: 'નકશો ખોલો',
       acknowledgeBuffer: 'સ્વીકારો',
       acknowledged: 'સ્વીકારાયું',
+      boundaryPrefix: 'સીમા:',
+      weatherAdvisory: 'હવામાન સલાહ',
+      alertTypes: {
+        HIGH_WIND: 'તીવ્ર પવન',
+        MODERATE_WIND: 'મધ્યમ પવન',
+        HEAVY_RAIN: 'ભારે વરસાદ',
+        LOW_VISIBILITY: 'ઓછી દૃશ્યતા',
+        THUNDERSTORM: 'વાવાઝોડું',
+        DANGEROUS_WAVES: 'ખતરનાક મોજા',
+        HIGH_WAVES: 'ઊંચા મોજા',
+        GEOFENCE_DANGER: 'સીમા ખતરો',
+        GEOFENCE_WARNING: 'સીમા ચેતવણી',
+        INTERNATIONAL_WATERS: 'આંતરરાષ્ટ્રીય જળસીમા',
+        SYSTEM: 'સિસ્ટમ',
+      },
     },
     map: {
       layers: 'સ્તરો',
@@ -1031,6 +1155,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       cachedLabel: 'સાચવેલ',
       offlineLabel: 'ઓફલાઇન',
       inspectZoneDetails: 'ઝોનની વિગતો જુઓ',
+      maritimeBoundaryTitle: 'દરિયાઈ સીમા',
     },
     profile: {
       title: 'માછીમાર પ્રોફાઇલ અને સેટિંગ્સ',
@@ -1163,6 +1288,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       operatingRange: 'कार्यक्षेत्र मर्यादा',
       nearestSuffix: 'NM सर्वात जवळ',
       rangeLabel: 'श्रेणी',
+      sectorWord: 'सेक्टर',
+      boatWord: 'बोट',
+      portWord: 'बंदर',
     },
     alerts: {
       sentryActive: 'सुरक्षा निगराणी सक्रिय',
@@ -1180,6 +1308,21 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       openMap: 'नकाशा उघडा',
       acknowledgeBuffer: 'मान्य करा',
       acknowledged: 'मान्य केले',
+      boundaryPrefix: 'सीमा:',
+      weatherAdvisory: 'हवामान सल्ला',
+      alertTypes: {
+        HIGH_WIND: 'तीव्र वारा',
+        MODERATE_WIND: 'मध्यम वारा',
+        HEAVY_RAIN: 'मुसळधार पाऊस',
+        LOW_VISIBILITY: 'कमी दृश्यमानता',
+        THUNDERSTORM: 'वादळ विजांसह',
+        DANGEROUS_WAVES: 'धोकादायक लाटा',
+        HIGH_WAVES: 'उंच लाटा',
+        GEOFENCE_DANGER: 'सीमा धोका',
+        GEOFENCE_WARNING: 'सीमा इशारा',
+        INTERNATIONAL_WATERS: 'आंतरराष्ट्रीय सागरी हद्द',
+        SYSTEM: 'सिस्टम',
+      },
     },
     map: {
       layers: 'स्तर',
@@ -1193,6 +1336,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       cachedLabel: 'साठवले',
       offlineLabel: 'ऑफलाइन',
       inspectZoneDetails: 'क्षेत्राचे तपशील पहा',
+      maritimeBoundaryTitle: 'सागरी सीमा',
     },
     profile: {
       title: 'मच्छीमार प्रोफाइल आणि सेटिंग्ज',
@@ -1325,6 +1469,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       operatingRange: 'କାର୍ଯ୍ୟ ପରିସର',
       nearestSuffix: 'NM ନିକଟତମ',
       rangeLabel: 'ପରିସର',
+      sectorWord: 'ସେକ୍ଟର',
+      boatWord: 'ଡଙ୍ଗା',
+      portWord: 'ବନ୍ଦର',
     },
     alerts: {
       sentryActive: 'ସୁରକ୍ଷା ନଜର ସକ୍ରିୟ',
@@ -1342,6 +1489,21 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       openMap: 'ମାନଚିତ୍ର ଖୋଲନ୍ତୁ',
       acknowledgeBuffer: 'ସ୍ୱୀକାର କରନ୍ତୁ',
       acknowledged: 'ସ୍ୱୀକୃତ',
+      boundaryPrefix: 'ସୀମା:',
+      weatherAdvisory: 'ପାଣିପାଗ ପରାମର୍ଶ',
+      alertTypes: {
+        HIGH_WIND: 'ପ୍ରବଳ ପବନ',
+        MODERATE_WIND: 'ମଧ୍ୟମ ପବନ',
+        HEAVY_RAIN: 'ପ୍ରବଳ ବର୍ଷା',
+        LOW_VISIBILITY: 'କମ୍ ଦୃଶ୍ୟମାନତା',
+        THUNDERSTORM: 'ବଜ୍ରପାତ',
+        DANGEROUS_WAVES: 'ବିପଜ୍ଜନକ ଲହଡ଼ି',
+        HIGH_WAVES: 'ଉଚ୍ଚ ଲହଡ଼ି',
+        GEOFENCE_DANGER: 'ସୀମା ବିପଦ',
+        GEOFENCE_WARNING: 'ସୀମା ସତର୍କତା',
+        INTERNATIONAL_WATERS: 'ଆନ୍ତର୍ଜାତୀୟ ଜଳସୀମା',
+        SYSTEM: 'ସିଷ୍ଟମ୍',
+      },
     },
     map: {
       layers: 'ସ୍ତର',
@@ -1355,6 +1517,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       cachedLabel: 'ସଂରକ୍ଷିତ',
       offlineLabel: 'ଅଫଲାଇନ',
       inspectZoneDetails: 'ଅଞ୍ଚଳର ବିବରଣୀ ଦେଖନ୍ତୁ',
+      maritimeBoundaryTitle: 'ସାମୁଦ୍ରିକ ସୀମା',
     },
     profile: {
       title: 'ମତ୍ସ୍ୟଜୀବୀ ପ୍ରୋଫାଇଲ୍ ଓ ସେଟିଂସ୍',
@@ -1487,6 +1650,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       operatingRange: 'ಕಾರ್ಯ ವ್ಯಾಪ್ತಿ',
       nearestSuffix: 'NM ಹತ್ತಿರದ',
       rangeLabel: 'ವ್ಯಾಪ್ತಿ',
+      sectorWord: 'ಸೆಕ್ಟರ್',
+      boatWord: 'ದೋಣಿ',
+      portWord: 'ಬಂದರು',
     },
     alerts: {
       sentryActive: 'ಸುರಕ್ಷತಾ ನಿಗಾ ಸಕ್ರಿಯ',
@@ -1504,6 +1670,21 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       openMap: 'ನಕ್ಷೆ ತೆರೆಯಿರಿ',
       acknowledgeBuffer: 'ದೃಢೀಕರಿಸಿ',
       acknowledged: 'ದೃಢೀಕರಿಸಲಾಗಿದೆ',
+      boundaryPrefix: 'ಗಡಿ:',
+      weatherAdvisory: 'ಹವಾಮಾನ ಸಲಹೆ',
+      alertTypes: {
+        HIGH_WIND: 'ತೀವ್ರ ಗಾಳಿ',
+        MODERATE_WIND: 'ಮಧ್ಯಮ ಗಾಳಿ',
+        HEAVY_RAIN: 'ಭಾರೀ ಮಳೆ',
+        LOW_VISIBILITY: 'ಕಡಿಮೆ ಗೋಚರತೆ',
+        THUNDERSTORM: 'ಗುಡುಗು ಮಿಂಚು',
+        DANGEROUS_WAVES: 'ಅಪಾಯಕಾರಿ ಅಲೆಗಳು',
+        HIGH_WAVES: 'ಎತ್ತರದ ಅಲೆಗಳು',
+        GEOFENCE_DANGER: 'ಗಡಿ ಅಪಾಯ',
+        GEOFENCE_WARNING: 'ಗಡಿ ಎಚ್ಚರಿಕೆ',
+        INTERNATIONAL_WATERS: 'ಅಂತರರಾಷ್ಟ್ರೀಯ ಜಲಪ್ರದೇಶ',
+        SYSTEM: 'ಸಿಸ್ಟಂ',
+      },
     },
     map: {
       layers: 'ಲೇಯರ್‌ಗಳು',
@@ -1517,6 +1698,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       cachedLabel: 'ಉಳಿಸಲಾಗಿದೆ',
       offlineLabel: 'ಆಫ್‌ಲೈನ್',
       inspectZoneDetails: 'ವಲಯದ ವಿವರಗಳನ್ನು ನೋಡಿ',
+      maritimeBoundaryTitle: 'ಸಮುದ್ರ ಗಡಿ',
     },
     profile: {
       title: 'ಮೀನುಗಾರ ಪ್ರೊಫೈಲ್ ಮತ್ತು ಸೆಟ್ಟಿಂಗ್‌ಗಳು',
@@ -1649,6 +1831,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       operatingRange: 'परिचालन सीमा',
       nearestSuffix: 'NM निकटतम',
       rangeLabel: 'सीमा',
+      sectorWord: 'सेक्टर',
+      boatWord: 'नाव',
+      portWord: 'बंदरगाह',
     },
     alerts: {
       sentryActive: 'सुरक्षा निगरानी सक्रिय',
@@ -1666,6 +1851,21 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       openMap: 'मानचित्र खोलें',
       acknowledgeBuffer: 'स्वीकार करें',
       acknowledged: 'स्वीकृत',
+      boundaryPrefix: 'सीमा:',
+      weatherAdvisory: 'मौसम सलाह',
+      alertTypes: {
+        HIGH_WIND: 'तेज़ हवा',
+        MODERATE_WIND: 'मध्यम हवा',
+        HEAVY_RAIN: 'भारी बारिश',
+        LOW_VISIBILITY: 'कम दृश्यता',
+        THUNDERSTORM: 'आंधी-तूफान',
+        DANGEROUS_WAVES: 'खतरनाक लहरें',
+        HIGH_WAVES: 'ऊंची लहरें',
+        GEOFENCE_DANGER: 'सीमा खतरा',
+        GEOFENCE_WARNING: 'सीमा चेतावनी',
+        INTERNATIONAL_WATERS: 'अंतर्राष्ट्रीय जलक्षेत्र',
+        SYSTEM: 'सिस्टम',
+      },
     },
     map: {
       layers: 'परतें',
@@ -1679,6 +1879,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       cachedLabel: 'सहेजा गया',
       offlineLabel: 'ऑफलाइन',
       inspectZoneDetails: 'क्षेत्र का विवरण देखें',
+      maritimeBoundaryTitle: 'समुद्री सीमा',
     },
     profile: {
       title: 'मछुआरा प्रोफ़ाइल और सेटिंग्स',

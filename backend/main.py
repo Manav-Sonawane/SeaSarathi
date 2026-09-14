@@ -2,10 +2,25 @@ import os
 import json
 import asyncio
 from contextlib import asynccontextmanager
+from functools import lru_cache
 from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from dotenv import load_dotenv
+
+
+@lru_cache(maxsize=8)
+def _load_geojson(path: str) -> dict:
+    """
+    Loads and parses a static GeoJSON file once per process, not on every
+    request. These files (PFZ zones, EEZ/boundaries, landing centers) never
+    change at runtime — re-reading and re-json.load()ing them on every
+    /geojson/*, /landing/nearest, and /pfz/nearest call was pure waste, and
+    synchronous disk I/O on the event loop besides. Mirrors the pattern
+    already used for the Copernicus grid (copernicus_service._load_grid).
+    """
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
 
 # Load environment variables from backend/.env
 _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -51,22 +66,19 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# CORS: allow React Native and local dev origins
-_cors_origins = [
-    "http://localhost:3000",
-    "http://localhost:8081",   # Expo Metro bundler
-    "http://localhost:19006",  # Expo web
-    "http://10.0.2.2:8000",   # Android emulator → host
-    "*",                       # Allow all for hackathon dev (restrict in prod)
-]
-_client_url = os.getenv("CLIENT_URL")
-if _client_url and _client_url not in _cors_origins:
-    _cors_origins.insert(0, _client_url)
-
+# CORS: intentionally wide open ("*") — the mobile app's dev-server host
+# changes every time the phone switches networks (see api.ts's
+# detectDevServerHost), so a fixed origin allowlist isn't practical here.
+# This is safe specifically because the API has no cookie/session-based
+# auth to leak: `device_id` travels as an explicit request body/query field,
+# never a browser-managed credential. `allow_credentials=True` combined
+# with a wildcard origin is what actually creates risk (it makes browsers
+# send cookies/auth headers cross-origin to any site) — dropped since this
+# API doesn't use cookies at all, so there's nothing for it to protect.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins,
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -300,8 +312,7 @@ async def get_pfz_geojson():
     path = os.path.join(DATA_DIR, "PFZ.geojson")
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="PFZ.geojson not found in /data/static/")
-    with open(path) as f:
-        return json.load(f)
+    return _load_geojson(path)
 
 @app.get("/geojson/boundaries", summary="Maritime Boundaries GeoJSON")
 async def get_boundaries_geojson():
@@ -310,10 +321,8 @@ async def get_boundaries_geojson():
     boundaries_path = os.path.join(DATA_DIR, "INDIAN-WATER-BOUNDARIES.geojson")
     if not os.path.exists(eez_path) or not os.path.exists(boundaries_path):
         raise HTTPException(status_code=404, detail="INDIA-EEZ.geojson or INDIAN-WATER-BOUNDARIES.geojson not found in /data/static/")
-    with open(eez_path) as f:
-        eez = json.load(f)
-    with open(boundaries_path) as f:
-        boundaries = json.load(f)
+    eez = _load_geojson(eez_path)
+    boundaries = _load_geojson(boundaries_path)
     return {
         "type": "FeatureCollection",
         "features": eez.get("features", []) + boundaries.get("features", []),
@@ -344,8 +353,7 @@ def _compute_nearest_pfz(latitude: float, longitude: float, limit: int) -> dict:
     pfz_path = os.path.join(DATA_DIR, "PFZ.geojson")
     if not os.path.exists(pfz_path):
         raise HTTPException(status_code=404, detail="PFZ.geojson not found in /data/static/")
-    with open(pfz_path) as f:
-        pfz_geojson = json.load(f)
+    pfz_geojson = _load_geojson(pfz_path)
 
     nearest = find_nearest_zones(latitude, longitude, pfz_geojson, n=limit)
 
@@ -411,8 +419,7 @@ async def get_nearest_landing(latitude: float = 8.5, longitude: float = 76.2, li
     landing_path = os.path.join(DATA_DIR, "LANDING-LOCATIONS.geojson")
     if not os.path.exists(landing_path):
         raise HTTPException(status_code=404, detail="LANDING-LOCATIONS.geojson not found")
-    with open(landing_path) as f:
-        landing_geojson = json.load(f)
+    landing_geojson = _load_geojson(landing_path)
     sites = find_nearest_landing_sites(latitude, longitude, landing_geojson, n=limit)
     return {"sites": sites, "count": len(sites), "query_lat": latitude, "query_lon": longitude}
 
@@ -443,6 +450,16 @@ async def get_alerts(latitude: float = 8.5, longitude: float = 76.2):
     Unified marine safety alerts combining geofence + weather checks.
     Returns alerts sorted by severity (HIGH first).
     """
+    # fetch_combined_forecasts_for_grid uses a synchronous HTTP client
+    # (openmeteo_requests, retry-wrapped — up to 5 retries with backoff) plus
+    # synchronous pandas processing, run directly here before this fix —
+    # network I/O blocking the event loop is worse than the disk-I/O
+    # blocking fixed elsewhere (see /pfz/nearest), since it can take seconds
+    # and stalls every other concurrent request meanwhile.
+    return await asyncio.to_thread(_compute_alerts, latitude, longitude)
+
+
+def _compute_alerts(latitude: float, longitude: float) -> dict:
     from src.utils.geofence import check_geofence
     from src.services.weather_service import fetch_combined_forecasts_for_grid, generate_grid_point_id
     import numpy as np
@@ -670,10 +687,22 @@ async def voice_tts(request: TTSRequest):
     base64-encoded WAV clips (multiple only if `text` exceeded the per-call
     character cap — see sarvam_client.py) for the client to play in order.
     """
-    from src.services.sarvam_client import sarvam_text_to_speech, LANGUAGE_BCP47
+    from src.services.sarvam_client import sarvam_text_to_speech, LANGUAGE_BCP47, SARVAM_TTS_MAX_CHARS
 
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="text must not be empty")
+
+    # Without a cap, an arbitrarily large request fans out into an
+    # unbounded number of sequential Sarvam API calls (see
+    # sarvam_client.py's chunking) — a real cost/quota exposure with no
+    # legitimate client reason to ever send this much text at once. 4
+    # chunks' worth is already far beyond any real advisory.
+    max_chars = SARVAM_TTS_MAX_CHARS * 4
+    if len(request.text) > max_chars:
+        raise HTTPException(
+            status_code=422,
+            detail=f"text too long ({len(request.text)} chars) — max {max_chars} chars per request",
+        )
 
     bcp47 = LANGUAGE_BCP47.get(request.language, "en-IN")
     try:

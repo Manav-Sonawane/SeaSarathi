@@ -7,6 +7,7 @@ module.exports = {
     icon: "./assets/icon.png",
     userInterfaceStyle: "light",
     ios: {
+      bundleIdentifier: "com.seasarathi.app",
       supportsTablet: true,
       config: {
         googleMapsApiKey: process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY

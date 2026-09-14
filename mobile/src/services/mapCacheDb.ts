@@ -140,8 +140,14 @@ export async function saveMapCacheFromBundle(bundle: OfflineBundle): Promise<Map
         const props = f.properties || {};
         const sector = (props.SECTORNAME || '').trim();
         const name = sector || `PFZ-${props.UID ?? i + 1}`;
+        // OR REPLACE, not plain INSERT: PFZ.geojson's UID isn't guaranteed
+        // unique/present across every zone — a duplicate or missing UID
+        // used to throw a primary-key violation here, which rolled back
+        // this ENTIRE transaction (PFZ + boundaries + landing centers all
+        // silently failed to save together, caught only by the outer
+        // catch below with no partial-success path).
         await db.runAsync(
-          'INSERT INTO pfz_zones (id, name, sector, centroid_lat, centroid_lon, geometry_json) VALUES (?, ?, ?, ?, ?, ?)',
+          'INSERT OR REPLACE INTO pfz_zones (id, name, sector, centroid_lat, centroid_lon, geometry_json) VALUES (?, ?, ?, ?, ?, ?)',
           [String(props.UID ?? i), name, sector, centroid.lat, centroid.lon, JSON.stringify(f.geometry)]
         );
       }
@@ -161,8 +167,10 @@ export async function saveMapCacheFromBundle(bundle: OfflineBundle): Promise<Map
         const centroid = geometryCentroid(f.geometry);
         if (!centroid) continue;
         const props = f.properties || {};
+        // Same fragility class as pfz_zones above — LC_UNIQUE_ isn't
+        // guaranteed collision-free either.
         await db.runAsync(
-          'INSERT INTO landing_centers (id, name, district, lat, lon) VALUES (?, ?, ?, ?, ?)',
+          'INSERT OR REPLACE INTO landing_centers (id, name, district, lat, lon) VALUES (?, ?, ?, ?, ?)',
           [
             String(props.LC_UNIQUE_ ?? i),
             props.LC_NAME || 'Landing Center',

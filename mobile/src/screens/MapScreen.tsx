@@ -156,15 +156,25 @@ export function MapScreen({ navigation }: any) {
   // Nearest points only — keeps the native Static Maps marker URL short and
   // keeps the overlay relevant to where the fisherman actually is, rather
   // than plotting all ~150-800 EEZ-wide grid points at once.
-  const nearestRiskFeatures: RiskHeatmapFeature[] = riskData
-    ? [...riskData.features]
-        .sort(
-          (a, b) =>
-            haversineKm(portInfo.latitude, portInfo.longitude, a.geometry.coordinates[1], a.geometry.coordinates[0]) -
-            haversineKm(portInfo.latitude, portInfo.longitude, b.geometry.coordinates[1], b.geometry.coordinates[0])
-        )
-        .slice(0, MAX_RISK_MARKERS)
-    : [];
+  // Memoized like pfzFeatures/boundaryFeatures below — without this, the
+  // sort+slice reran (and produced new array/object references) on every
+  // render, needlessly re-rendering every native risk Circle, rebuilding
+  // the web overlay redraw effect, and reloading the native Static-Maps
+  // fallback image, on every render rather than only when the underlying
+  // risk data or port actually changes.
+  const nearestRiskFeatures: RiskHeatmapFeature[] = React.useMemo(
+    () =>
+      riskData
+        ? [...riskData.features]
+            .sort(
+              (a, b) =>
+                haversineKm(portInfo.latitude, portInfo.longitude, a.geometry.coordinates[1], a.geometry.coordinates[0]) -
+                haversineKm(portInfo.latitude, portInfo.longitude, b.geometry.coordinates[1], b.geometry.coordinates[0])
+            )
+            .slice(0, MAX_RISK_MARKERS)
+        : [],
+    [riskData, portInfo.latitude, portInfo.longitude]
+  );
 
   // Real PFZ zones + maritime boundaries — fetched for EVERY platform now.
   // Native renders them via react-native-maps' <Polyline>; web renders them
@@ -344,7 +354,7 @@ export function MapScreen({ navigation }: any) {
                     onPress={() =>
                       setSelectedZone({
                         name: b.name,
-                        title: 'Maritime Boundary',
+                        title: t.map.maritimeBoundaryTitle,
                         distance: '—',
                         bearing: '—',
                         confidence: null,
@@ -638,15 +648,15 @@ export function MapScreen({ navigation }: any) {
               <>
                 <View style={styles.zoneMetricsRow}>
                   <View style={styles.zoneMetricItem}>
-                    <Text style={styles.metricLabelText}>DISTANCE</Text>
+                    <Text style={styles.metricLabelText}>{t.pfz.distance}</Text>
                     <Text style={styles.metricValueText}>{selectedZone.distance}</Text>
                   </View>
                   <View style={styles.zoneMetricItem}>
-                    <Text style={styles.metricLabelText}>SST TEMP</Text>
+                    <Text style={styles.metricLabelText}>{t.pfz.sstTemp}</Text>
                     <Text style={styles.metricValueText}>{selectedZone.sst}</Text>
                   </View>
                   <View style={styles.zoneMetricItem}>
-                    <Text style={styles.metricLabelText}>CHLOROPHYLL</Text>
+                    <Text style={styles.metricLabelText}>{t.pfz.chlorophyll}</Text>
                     <Text style={styles.metricValueText}>{selectedZone.chl}</Text>
                   </View>
                 </View>

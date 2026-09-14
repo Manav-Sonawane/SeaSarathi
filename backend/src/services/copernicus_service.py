@@ -53,6 +53,17 @@ def _load_grid() -> Optional[dict]:
     return grid
 
 
+def _nan_to_none(value: float) -> Optional[float]:
+    """
+    numpy arrays can't hold Python None, so building grid['_sst']/['_chl'] as
+    float64 arrays silently turned any missing (None) reading into NaN. That
+    NaN then failed JSON serialization outright (ValueError: Out of range
+    float values are not JSON compliant) instead of encoding as `null` the
+    way a real None would have — caught live via a 500 on /pfz/nearest.
+    """
+    return None if value != value else value  # NaN != NaN is the fast isnan check
+
+
 def _vectorized_haversine_km(lat: float, lon: float, lats: np.ndarray, lons: np.ndarray) -> np.ndarray:
     """Same formula as src/utils/geo.py's haversine(), computed for one query
     point against every grid point at once instead of one at a time."""
@@ -78,8 +89,8 @@ def lookup_nearest(lat: float, lon: float) -> Optional[dict]:
     idx = int(np.argmin(dists))
 
     return {
-        "sst_c": grid["_sst"][idx].item(),
-        "chl_mg_m3": grid["_chl"][idx].item(),
+        "sst_c": _nan_to_none(grid["_sst"][idx].item()),
+        "chl_mg_m3": _nan_to_none(grid["_chl"][idx].item()),
         "distance_km": round(dists[idx].item(), 2),
         "grid_generated_at": grid.get("generated_at"),
         "sst_time": grid.get("sst_time"),
@@ -108,8 +119,8 @@ def find_within_radius(lat: float, lon: float, radius_km: float) -> list[dict]:
         {
             "lat": grid["_lats"][i].item(),
             "lon": grid["_lons"][i].item(),
-            "sst_c": grid["_sst"][i].item(),
-            "chl_mg_m3": grid["_chl"][i].item(),
+            "sst_c": _nan_to_none(grid["_sst"][i].item()),
+            "chl_mg_m3": _nan_to_none(grid["_chl"][i].item()),
             "distance_km": round(dists[i].item(), 2),
         }
         for i in order

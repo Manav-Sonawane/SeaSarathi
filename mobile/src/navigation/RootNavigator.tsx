@@ -11,6 +11,7 @@ import { AlertsScreen } from '../screens/AlertsScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { colors } from '../theme/colors';
 import { useNetworkStore } from '../store/networkStore';
+import { useUserStore } from '../store/userStore';
 import { autoResyncIfNeeded } from '../services/offlineService';
 
 export type RootTabParamList = {
@@ -27,12 +28,22 @@ const Tab = createBottomTabNavigator<RootTabParamList>();
 export function RootNavigator() {
   const isOnline = useNetworkStore((s) => s.isOnline);
   const initListener = useNetworkStore((s) => s.initListener);
+  const loadFromBackend = useUserStore((s) => s.loadFromBackend);
   const wasOnline = useRef(isOnline);
 
   // Start the connectivity listener once for the whole app lifetime.
   useEffect(() => {
     const unsubscribe = initListener();
     return unsubscribe;
+  }, []);
+
+  // Reconcile the local (persisted) profile with the backend's copy once at
+  // app start, regardless of which tab the user lands on first — this used
+  // to only ever run inside ProfileScreen's own effect, so a cold start
+  // landing on any other tab ran on stale/default profile data until the
+  // user happened to visit Profile.
+  useEffect(() => {
+    loadFromBackend();
   }, []);
 
   // "Return to Shore" (UPDATE.md 3.4): detect offline → online and refresh
