@@ -383,11 +383,6 @@ const styles = StyleSheet.create({
     color: colors.secondaryContainer,
     letterSpacing: 0.5,
   },
-  latencyText: {
-    fontSize: 10,
-    color: colors.inverseOnSurface,
-    opacity: 0.7,
-  },
   sentryBody: {
     flexDirection: 'row',
     alignItems: 'center',

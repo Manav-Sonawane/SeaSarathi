@@ -68,6 +68,9 @@ export interface ScreenText {
     offlineLabel: string;
     inspectZoneDetails: string;
     maritimeBoundaryTitle: string;
+    needInternetToCache: string;
+    couldNotCacheMap: string;
+    couldNotLoadRisk: string;
   };
   profile: {
     title: string;
@@ -251,6 +254,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       offlineLabel: 'Offline',
       inspectZoneDetails: 'Inspect Fishing Zone Details',
       maritimeBoundaryTitle: 'Maritime Boundary',
+      needInternetToCache: 'Connect to the internet to cache this area for offline use.',
+      couldNotCacheMap: 'Could not cache map data — try again.',
+      couldNotLoadRisk: 'Could not load risk overlay.',
     },
     profile: {
       title: 'Fisherman Profile & Settings',
@@ -432,6 +438,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       offlineLabel: 'ഓഫ്‌ലൈൻ',
       inspectZoneDetails: 'മേഖലയുടെ വിശദാംശങ്ങൾ കാണുക',
       maritimeBoundaryTitle: 'സമുദ്ര അതിർത്തി',
+      needInternetToCache: 'ഈ പ്രദേശം ഓഫ്‌ലൈനായി സൂക്ഷിക്കാൻ ഇന്റർനെറ്റുമായി ബന്ധിപ്പിക്കുക.',
+      couldNotCacheMap: 'മാപ്പ് വിവരം സൂക്ഷിക്കാനായില്ല — വീണ്ടും ശ്രമിക്കുക.',
+      couldNotLoadRisk: 'അപകടസാധ്യത ഓവർലേ ലഭ്യമാക്കാനായില്ല.',
     },
     profile: {
       title: 'മത്സ്യത്തൊഴിലാളി പ്രൊഫൈൽ & ക്രമീകരണങ്ങൾ',
@@ -613,6 +622,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       offlineLabel: 'ஆஃப்லைன்',
       inspectZoneDetails: 'மண்டல விவரங்களை காண்க',
       maritimeBoundaryTitle: 'கடல் எல்லை',
+      needInternetToCache: 'இந்த பகுதியை ஆஃப்லைனுக்கு சேமிக்க இணையத்துடன் இணைக்கவும்.',
+      couldNotCacheMap: 'வரைபட தரவை சேமிக்க முடியவில்லை — மீண்டும் முயற்சிக்கவும்.',
+      couldNotLoadRisk: 'ஆபத்து ஓவர்லேயை ஏற்ற முடியவில்லை.',
     },
     profile: {
       title: 'மீனவர் சுயவிவரம் & அமைப்புகள்',
@@ -794,6 +806,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       offlineLabel: 'ఆఫ్‌లైన్',
       inspectZoneDetails: 'మండల వివరాలు చూడండి',
       maritimeBoundaryTitle: 'సముద్ర సరిహద్దు',
+      needInternetToCache: 'ఈ ప్రాంతాన్ని ఆఫ్‌లైన్‌లో సేవ్ చేయడానికి ఇంటర్నెట్‌కు కనెక్ట్ చేయండి.',
+      couldNotCacheMap: 'మ్యాప్ డేటాను సేవ్ చేయలేకపోయాము — మళ్లీ ప్రయత్నించండి.',
+      couldNotLoadRisk: 'రిస్క్ ఓవర్‌లేను లోడ్ చేయలేకపోయాము.',
     },
     profile: {
       title: 'జాలరి ప్రొఫైల్ & సెట్టింగ్‌లు',
@@ -975,6 +990,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       offlineLabel: 'অফলাইন',
       inspectZoneDetails: 'অঞ্চলের বিবরণ দেখুন',
       maritimeBoundaryTitle: 'সামুদ্রিক সীমানা',
+      needInternetToCache: 'এই এলাকা অফলাইনের জন্য সংরক্ষণ করতে ইন্টারনেটে সংযুক্ত করুন।',
+      couldNotCacheMap: 'মানচিত্র তথ্য সংরক্ষণ করা যায়নি — আবার চেষ্টা করুন।',
+      couldNotLoadRisk: 'ঝুঁকি ওভারলে লোড করা যায়নি।',
     },
     profile: {
       title: 'জেলে প্রোফাইল ও সেটিংস',
@@ -1156,6 +1174,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       offlineLabel: 'ઓફલાઇન',
       inspectZoneDetails: 'ઝોનની વિગતો જુઓ',
       maritimeBoundaryTitle: 'દરિયાઈ સીમા',
+      needInternetToCache: 'આ વિસ્તાર ઓફલાઇન સાચવવા ઇન્ટરનેટ સાથે કનેક્ટ કરો.',
+      couldNotCacheMap: 'નકશા ડેટા સાચવી શકાયો નથી — ફરી પ્રયાસ કરો.',
+      couldNotLoadRisk: 'જોખમ ઓવરલે લોડ કરી શકાયું નથી.',
     },
     profile: {
       title: 'માછીમાર પ્રોફાઇલ અને સેટિંગ્સ',
@@ -1337,6 +1358,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       offlineLabel: 'ऑफलाइन',
       inspectZoneDetails: 'क्षेत्राचे तपशील पहा',
       maritimeBoundaryTitle: 'सागरी सीमा',
+      needInternetToCache: 'हे क्षेत्र ऑफलाइन साठवण्यासाठी इंटरनेटशी कनेक्ट करा.',
+      couldNotCacheMap: 'नकाशा डेटा साठवता आला नाही — पुन्हा प्रयत्न करा.',
+      couldNotLoadRisk: 'धोका ओव्हरले लोड करता आले नाही.',
     },
     profile: {
       title: 'मच्छीमार प्रोफाइल आणि सेटिंग्ज',
@@ -1518,6 +1542,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       offlineLabel: 'ଅଫଲାଇନ',
       inspectZoneDetails: 'ଅଞ୍ଚଳର ବିବରଣୀ ଦେଖନ୍ତୁ',
       maritimeBoundaryTitle: 'ସାମୁଦ୍ରିକ ସୀମା',
+      needInternetToCache: 'ଏହି ଅଞ୍ଚଳକୁ ଅଫଲାଇନ୍ ପାଇଁ ସଂରକ୍ଷଣ କରିବାକୁ ଇଣ୍ଟରନେଟ୍ ସହିତ ସଂଯୋଗ କରନ୍ତୁ।',
+      couldNotCacheMap: 'ମାନଚିତ୍ର ତଥ୍ୟ ସଂରକ୍ଷଣ ହୋଇପାରିଲା ନାହିଁ — ପୁନଃ ଚେଷ୍ଟା କରନ୍ତୁ।',
+      couldNotLoadRisk: 'ବିପଦ ଓଭରଲେ ଲୋଡ୍ ହୋଇପାରିଲା ନାହିଁ।',
     },
     profile: {
       title: 'ମତ୍ସ୍ୟଜୀବୀ ପ୍ରୋଫାଇଲ୍ ଓ ସେଟିଂସ୍',
@@ -1699,6 +1726,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       offlineLabel: 'ಆಫ್‌ಲೈನ್',
       inspectZoneDetails: 'ವಲಯದ ವಿವರಗಳನ್ನು ನೋಡಿ',
       maritimeBoundaryTitle: 'ಸಮುದ್ರ ಗಡಿ',
+      needInternetToCache: 'ಈ ಪ್ರದೇಶವನ್ನು ಆಫ್‌ಲೈನ್‌ಗಾಗಿ ಉಳಿಸಲು ಇಂಟರ್ನೆಟ್‌ಗೆ ಸಂಪರ್ಕಿಸಿ.',
+      couldNotCacheMap: 'ನಕ್ಷೆ ದತ್ತಾಂಶವನ್ನು ಉಳಿಸಲಾಗಲಿಲ್ಲ — ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+      couldNotLoadRisk: 'ಅಪಾಯ ಓವರ್‌ಲೇ ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ.',
     },
     profile: {
       title: 'ಮೀನುಗಾರ ಪ್ರೊಫೈಲ್ ಮತ್ತು ಸೆಟ್ಟಿಂಗ್‌ಗಳು',
@@ -1880,6 +1910,9 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       offlineLabel: 'ऑफलाइन',
       inspectZoneDetails: 'क्षेत्र का विवरण देखें',
       maritimeBoundaryTitle: 'समुद्री सीमा',
+      needInternetToCache: 'इस क्षेत्र को ऑफलाइन सहेजने के लिए इंटरनेट से कनेक्ट करें।',
+      couldNotCacheMap: 'मानचित्र डेटा सहेजा नहीं जा सका — फिर से प्रयास करें।',
+      couldNotLoadRisk: 'जोखिम ओवरले लोड नहीं हो सका।',
     },
     profile: {
       title: 'मछुआरा प्रोफ़ाइल और सेटिंग्स',

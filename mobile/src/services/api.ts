@@ -18,6 +18,14 @@ import Constants from 'expo-constants';
 function detectDevServerHost(): string | null {
   const hostUri = Constants.expoConfig?.hostUri;
   if (!hostUri) return null;
+  // An IPv6 literal host is bracketed, e.g. "[::1]:8081" — naively
+  // splitting on ':' would return just "[" instead of the host. Expo dev
+  // hosts are practically always IPv4 LAN addresses, but this keeps a
+  // theoretical IPv6 host from silently producing a broken API URL.
+  if (hostUri.startsWith('[')) {
+    const end = hostUri.indexOf(']');
+    if (end !== -1) return hostUri.slice(0, end + 1);
+  }
   return hostUri.split(':')[0];
 }
 
@@ -313,6 +321,7 @@ export const offlineAPI = {
 export interface SttResponse {
   transcript: string;
   language_code: string | null;
+  language_probability: number | null; // Sarvam's own confidence in language_code (0.0-1.0)
 }
 
 export interface TtsResponse {
@@ -336,7 +345,13 @@ export const voiceAPI = {
       })
       .then((res) => res.data);
   },
+  // Longer than STT's timeout above: the backend chunks text over Sarvam's
+  // per-call character cap into multiple SEQUENTIAL API calls (see
+  // sarvam_client.py) — a long advisory's total round-trip could plausibly
+  // exceed 30s server-side even though each individual chunk is fast, which
+  // used to surface as a client-side timeout the user just saw as "nothing
+  // happened."
   tts: (text: string, language: string) =>
-    api.post<TtsResponse>('/voice/tts', { text, language }, { timeout: 30000 }).then((res) => res.data),
+    api.post<TtsResponse>('/voice/tts', { text, language }, { timeout: 60000 }).then((res) => res.data),
 };
 

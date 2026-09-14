@@ -619,6 +619,30 @@ async def data_status():
     return {"static_data": status_static, "dynamic_data": status_dynamic}
 
 
+async def _grid_status(refresh_if_stale: bool) -> dict:
+    """
+    Shared "check age/staleness, optionally refresh, check again" logic
+    behind both /data/freshness and /data/refresh below — those two
+    endpoints used to duplicate this same sequence with slightly different
+    variable names. Each endpoint still shapes its own response (their
+    field names are both live-depended-on by the mobile app's
+    freshnessAPI — see mobile/src/services/api.ts — so the response
+    contracts stay exactly as they were; only the underlying logic is now
+    written once).
+    """
+    from src.utils.data_freshness import get_grid_age_hours, is_grid_stale, get_grid_metadata, refresh_grid_if_stale
+
+    age = get_grid_age_hours()
+    stale = is_grid_stale()
+    refreshed = False
+    if refresh_if_stale and stale:
+        res = await refresh_grid_if_stale()
+        refreshed = res.get("refreshed", False)
+        age = get_grid_age_hours()
+        stale = is_grid_stale()
+    return {"age": age, "stale": stale, "refreshed": refreshed, "metadata": get_grid_metadata()}
+
+
 @app.get("/data/freshness", summary="Copernicus Grid Freshness")
 async def data_freshness(auto_refresh: bool = False):
     """
@@ -626,31 +650,16 @@ async def data_freshness(auto_refresh: bool = False):
     refresh (see src/utils/data_freshness.py). If auto_refresh=True and the data
     is stale (>6 hours old or missing), triggers an automatic background re-fetch.
     """
-    from src.utils.data_freshness import (
-        get_grid_age_hours,
-        is_grid_stale,
-        get_grid_metadata,
-        refresh_grid_if_stale,
-        DEFAULT_MAX_AGE_HOURS,
-    )
-    age = get_grid_age_hours()
-    stale = is_grid_stale()
+    from src.utils.data_freshness import DEFAULT_MAX_AGE_HOURS
 
-    refreshed = False
-    if auto_refresh and stale:
-        res = await refresh_grid_if_stale()
-        refreshed = res.get("refreshed", False)
-        age = get_grid_age_hours()
-        stale = is_grid_stale()
-
-    meta = get_grid_metadata()
+    status = await _grid_status(refresh_if_stale=auto_refresh)
     return {
-        "grid_age_hours": round(age, 2) if age is not None else None,
-        "stale": stale,
+        "grid_age_hours": round(status["age"], 2) if status["age"] is not None else None,
+        "stale": status["stale"],
         "max_age_hours": DEFAULT_MAX_AGE_HOURS,
-        "grid_exists": age is not None,
-        "refreshed": refreshed,
-        "metadata": meta,
+        "grid_exists": status["age"] is not None,
+        "refreshed": status["refreshed"],
+        "metadata": status["metadata"],
     }
 
 
@@ -720,28 +729,26 @@ async def data_refresh(force: bool = False):
     If force=False, only refreshes if current data is older than 6 hours (or missing).
     If force=True, forces an immediate unconditional re-fetch.
     """
-    from src.utils.data_freshness import (
-        get_grid_age_hours,
-        is_grid_stale,
-        get_grid_metadata,
-        refresh_grid_if_stale,
-        refresh_grid_now,
-    )
+    from src.utils.data_freshness import get_grid_age_hours, refresh_grid_now
+
     prev_age = get_grid_age_hours()
 
     if force:
+        # Genuinely distinct from _grid_status's "only if stale" logic —
+        # force means unconditional, so it stays its own path.
         ok = await refresh_grid_now()
+        status = await _grid_status(refresh_if_stale=False)
     else:
-        res = await refresh_grid_if_stale()
-        ok = res.get("refreshed", False)
+        status = await _grid_status(refresh_if_stale=True)
+        ok = status["refreshed"]
 
-    new_age = get_grid_age_hours()
+    new_age = status["age"]
     return {
         "success": ok,
         "previous_age_hours": round(prev_age, 2) if prev_age is not None else None,
         "new_age_hours": round(new_age, 2) if new_age is not None else None,
-        "stale": is_grid_stale(),
-        "metadata": get_grid_metadata(),
+        "stale": status["stale"],
+        "metadata": status["metadata"],
         "message": (
             "Data successfully re-fetched and updated."
             if ok

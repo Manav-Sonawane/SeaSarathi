@@ -122,7 +122,11 @@ def sarvam_speech_to_text(audio_bytes: bytes, filename: str, language_code: str 
             None to let Sarvam auto-detect ("unknown").
 
     Returns:
-        {"transcript": str, "language_code": str | None}
+        {"transcript": str, "language_code": str | None,
+         "language_probability": float | None} — the probability is Sarvam's
+        own confidence in its detected language_code (0.0-1.0), useful if a
+        caller ever wants to show a confidence indicator or fall back to a
+        hint when it's low.
     """
     if not SARVAM_API_KEY:
         raise ValueError("SARVAM_API_KEY is not set in backend/.env")
@@ -143,9 +147,14 @@ def sarvam_speech_to_text(audio_bytes: bytes, filename: str, language_code: str 
         )
         response.raise_for_status()
         result = response.json()
+        # Sarvam also returns per-word `timestamps`, but only when the
+        # request sets with_timestamps=true (we don't — nothing to pass
+        # through unless a caller actually wants word-level timing, e.g.
+        # for a karaoke-style transcript highlight).
         return {
             "transcript": result.get("transcript", ""),
             "language_code": result.get("language_code"),
+            "language_probability": result.get("language_probability"),
         }
 
 

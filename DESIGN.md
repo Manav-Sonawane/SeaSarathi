@@ -20,6 +20,29 @@
 - **Chlorophyll Gradient:** White (low 0) → Green (high 2 mg/m³)
 - **Wind Arrows:** Light gray (#999999)
 
+### Design Tokens (mobile/src/theme/colors.ts)
+
+The palette above is the original flat spec (still present in code as
+`colors.black/white/blue/oceanBlue/lightGray/darkGray/gray`), but most
+screens actually draw from a broader Material-3-style token set added
+since — this is the current source of truth for anything not covered above:
+
+| Token | Value | Used for |
+|---|---|---|
+| `primary` | `#003670` | Primary text/icon accents |
+| `primaryContainer` | `#004D99` | Primary buttons, active states (the real "Primary" color — see Button Styling above) |
+| `onPrimaryContainer` | `#9EC1FF` | Text/icons on `primaryContainer` |
+| `secondary` | `#006E29` | Secondary accents, positive/safe states |
+| `secondaryContainer` | `#75FE8B` | Secondary containers, success badges |
+| `tertiary` / `tertiaryContainer` | `#4E3100` / `#6D4600` | Caution/warning accents |
+| `error` / `errorContainer` | `#BA1A1A` / `#FFDAD6` | Danger states, error banners |
+| `riskLow` / `riskModerate` / `riskHigh` | `#00AA44` / `#FFAA00` / `#DD0000` | Risk badges — same values as the Primary Safety Colors above |
+| `background` / `surface` | `#F9F9FF` | Screen backgrounds |
+| `surfaceContainer*` (4 steps) | `#FFFFFF` → `#E1E8FD` | Card/container backgrounds, layered by elevation |
+| `inverseSurface` | `#293040` | Dark-on-light inverted panels (map chrome, sentry banners) |
+| `onSurface` / `onSurfaceVariant` | `#141B2B` / `#424751` | Primary/secondary text |
+| `outline` / `outlineVariant` | `#727782` / `#C2C6D3` | Borders, dividers |
+
 ---
 
 ## Typography
@@ -423,15 +446,15 @@ shadowRadius: 4
 
 ### Button Styling
 ```
-Primary (Blue):
-  Background: #0066CC
+Primary (Ocean Blue):
+  Background: #004D99   (colors.primaryContainer — see Design Tokens below)
   Text: White
   Height: 48px
   Border radius: 8px
 
 Secondary (Gray):
   Background: #F5F5F5
-  Text: #0066CC
+  Text: #004D99
   Height: 48px
   Border radius: 8px
 
@@ -441,6 +464,10 @@ Danger (Red):
   Height: 48px
   Border radius: 8px
 ```
+Note: an earlier version of this spec listed `#0066CC` (`colors.blue` in
+theme/colors.ts) for primary buttons. What actually shipped and is used for
+every primary CTA across the app is the darker `#004D99` — this section now
+documents the real value rather than a stale spec token.
 
 ### Typography Hierarchy
 ```

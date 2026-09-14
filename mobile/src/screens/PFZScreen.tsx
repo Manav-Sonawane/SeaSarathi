@@ -449,21 +449,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.white,
   },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.surfaceContainerHigh,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  filterText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
   loadingBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -731,46 +716,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.onSurfaceVariant,
     marginTop: 4,
-  },
-  graphCanvas: {
-    backgroundColor: colors.inverseSurface,
-    borderRadius: 12,
-    padding: 14,
-    gap: 10,
-    marginBottom: 14,
-  },
-  graphHeaderTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.inverseOnSurface,
-    marginBottom: 4,
-  },
-  depthLayerSurface: {
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    padding: 10,
-    borderRadius: 6,
-  },
-  depthLayerPelagic: {
-    backgroundColor: colors.secondary,
-    padding: 12,
-    borderRadius: 6,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  pelagicText: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: colors.white,
-  },
-  depthLayerSeabed: {
-    backgroundColor: 'rgba(255,255,255,0.05)',
-    padding: 10,
-    borderRadius: 6,
-  },
-  depthText: {
-    fontSize: 11,
-    color: colors.inverseOnSurface,
   },
   modalAdvisory: {
     flexDirection: 'row',

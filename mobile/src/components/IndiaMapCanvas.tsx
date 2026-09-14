@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Svg, {
   Path,
@@ -120,15 +120,28 @@ export function IndiaMapCanvas({
   // coordinate space — same geometry the native and web map renderers use
   // (see geoJsonToMap.ts), instead of the two fixed-offset fake polygons
   // this component used to draw regardless of actual PFZ data.
-  const pfzLines = pfzFeatures.map((z) =>
-    geometryToSegments(z.geometry).map((segment) =>
-      segment.map((p) => projectCoord(p.latitude, p.longitude, MAP_W, MAP_H))
-    )
+  // Memoized — without this, geometryToSegments()+projectCoord() reran over
+  // every feature on every render of this "India Map" vector mode,
+  // including every drag frame while it's active on web (native's
+  // drag-render-storm fix doesn't cover this path, since it only ever
+  // renders on web or when react-native-maps fails to load).
+  const pfzLines = useMemo(
+    () =>
+      pfzFeatures.map((z) =>
+        geometryToSegments(z.geometry).map((segment) =>
+          segment.map((p) => projectCoord(p.latitude, p.longitude, MAP_W, MAP_H))
+        )
+      ),
+    [pfzFeatures]
   );
-  const boundaryLines = boundaryFeatures.map((b) =>
-    geometryToSegments(b.geometry).map((segment) =>
-      segment.map((p) => projectCoord(p.latitude, p.longitude, MAP_W, MAP_H))
-    )
+  const boundaryLines = useMemo(
+    () =>
+      boundaryFeatures.map((b) =>
+        geometryToSegments(b.geometry).map((segment) =>
+          segment.map((p) => projectCoord(p.latitude, p.longitude, MAP_W, MAP_H))
+        )
+      ),
+    [boundaryFeatures]
   );
 
   return (
@@ -181,16 +194,6 @@ export function IndiaMapCanvas({
           <SvgText x={MAP_W - 95} y={MAP_H - 140} fill="#38BDF8" fontSize="10" fontWeight="bold" opacity="0.6">
             BAY OF BENGAL
           </SvgText>
-
-          {/* Bathymetry Isobaths */}
-          <Path
-            d="M 50 120 Q 90 240 140 370 Q 180 410 240 370 Q 300 240 330 110"
-            fill="none"
-            stroke="#0288D1"
-            strokeWidth="1.2"
-            strokeDasharray="4,4"
-            opacity="0.5"
-          />
 
           {/* India Landmass Polygon */}
           <Path

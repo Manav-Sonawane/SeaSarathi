@@ -79,7 +79,7 @@ export function MapScreen({ navigation }: any) {
 
   const handleCacheMap = async () => {
     if (!isOnline) {
-      setCacheError('Connect to the internet to cache this area for offline use.');
+      setCacheError(t.map.needInternetToCache);
       setTimeout(() => setCacheError(''), 3000);
       return;
     }
@@ -89,7 +89,7 @@ export function MapScreen({ navigation }: any) {
       await downloadOfflineBundle(portInfo.latitude, portInfo.longitude, 5);
       setMapCacheMeta(await getMapCacheMeta());
     } catch {
-      setCacheError('Could not cache map data — try again.');
+      setCacheError(t.map.couldNotCacheMap);
       setTimeout(() => setCacheError(''), 3000);
     } finally {
       setCachingMap(false);
@@ -149,7 +149,7 @@ export function MapScreen({ navigation }: any) {
     geojsonAPI
       .getRisk(1.0)
       .then(setRiskData)
-      .catch(() => setRiskError('Could not load risk overlay.'))
+      .catch(() => setRiskError(t.map.couldNotLoadRisk))
       .finally(() => setRiskLoading(false));
   }, [layers.risk, isOnline]);
 
