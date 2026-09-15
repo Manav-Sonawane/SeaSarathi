@@ -255,7 +255,13 @@ export function IndiaMapCanvas({
             )}
 
           {/* Real fish landing centers (LANDING-LOCATIONS.geojson) — small
-              tappable dots, distinct from the larger port pin badges below. */}
+              dots, distinct from the larger port pin badges below. Visual
+              only in this vector-canvas fallback view: react-native-svg's
+              web Circle doesn't support onPress (crashes on mount), and
+              none of this view's other overlays (PFZ/boundary lines) are
+              tappable either — tap-to-inspect a pin's coords/SST/Chlorophyll
+              is fully supported on the primary satellite (WebGoogleMap) and
+              native MapView paths. */}
           <G>
             {landingFeatures.map((site) => {
               const pt = projectCoord(site.latitude, site.longitude, MAP_W, MAP_H);
@@ -268,7 +274,6 @@ export function IndiaMapCanvas({
                   fill="#FBBF24"
                   stroke="#78350F"
                   strokeWidth={0.5}
-                  onPress={() => onSelectLandingSite?.(site)}
                 />
               );
             })}
