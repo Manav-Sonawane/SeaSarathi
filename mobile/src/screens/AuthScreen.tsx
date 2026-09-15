@@ -30,14 +30,17 @@ export function AuthScreen() {
   const navigateTo = (nextView: AuthView) => {
     setErrorMsg('');
     setSuccessMsg('');
+    if (nextView === 'signup') {
+      setName('');
+    }
     setView(nextView);
   };
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Sign Up Form Fields (Preseeded with authentic default values)
-  const [name, setName] = useState('Ramesh Kumar');
+  // Sign Up Form Fields (Empty name field by default)
+  const [name, setName] = useState('');
   const [selectedPort, setSelectedPort] = useState('Kochi');
   const [vesselType, setVesselType] = useState<VesselType>('medium');
   const [role, setRole] = useState<UserRole>('fisherman');

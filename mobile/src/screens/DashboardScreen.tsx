@@ -321,29 +321,6 @@ export function DashboardScreen({ navigation }: any) {
           </Text>
         </View>
 
-        {/* Emergency Return-to-Shore Compass Quick Action Card */}
-        <TouchableOpacity
-          style={styles.emergencyCompassBanner}
-          onPress={() => navigation.navigate('Compass')}
-          activeOpacity={0.85}
-        >
-          <View style={styles.emergencyCompassIconBox}>
-            <MaterialCommunityIcons name="compass-rose" size={24} color="#38BDF8" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <View style={styles.emergencyCompassHeaderRow}>
-              <Text style={styles.emergencyCompassTitle}>{t.compass.title}</Text>
-              <View style={styles.offlineGpsPill}>
-                <Text style={styles.offlineGpsPillText}>100% OFFLINE</Text>
-              </View>
-            </View>
-            <Text style={styles.emergencyCompassSub}>
-              {t.compass.returnToShoreCta} • {portInfo.name} Harbor
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={18} color="#38BDF8" />
-        </TouchableOpacity>
-
         {/* Data Freshness & 6-Hour Auto-Sync Monitor */}
         <View style={styles.freshnessCard}>
           <View style={styles.freshnessCardRow}>
@@ -1181,51 +1158,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#15803D',
-  },
-  emergencyCompassBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#071A33',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1.5,
-    borderColor: '#38BDF8',
-    marginBottom: 12,
-    gap: 12,
-  },
-  emergencyCompassIconBox: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: 'rgba(56, 189, 248, 0.15)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  emergencyCompassHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  emergencyCompassTitle: {
-    fontSize: 14,
-    fontWeight: '900',
-    color: '#FFFFFF',
-  },
-  offlineGpsPill: {
-    backgroundColor: '#10B981',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  offlineGpsPillText: {
-    fontSize: 9,
-    fontWeight: '900',
-    color: '#041021',
-  },
-  emergencyCompassSub: {
-    fontSize: 11,
-    color: '#94A3B8',
-    marginTop: 2,
   },
 });
 
