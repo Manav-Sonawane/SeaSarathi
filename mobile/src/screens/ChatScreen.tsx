@@ -134,50 +134,16 @@ export function ChatScreen({ navigation }: any) {
     }
   };
 
-  // Seed the localized welcome message — but only while the conversation is
-  // still empty. This used to unconditionally reset `messages` whenever
-  // language/port/vesselRange changed, which meant a fisherman mid-chat who
-  // simply switched vessel type (which changes vesselRange) or home port in
-  // Profile would come back to find their entire conversation wiped. Now it
-  // only (re-)seeds the greeting for a fresh/never-touched chat — e.g. right
-  // after first mount, or if the language changes before the user has sent
-  // anything — and leaves an in-progress conversation alone.
-  useEffect(() => {
-    setMessages((prev) => {
-      const isOnlyInitialSeed = prev.length === 2 && prev[0].id === '1' && prev[1].id === '2';
-      if (prev.length > 0 && !isOnlyInitialSeed) return prev;
-
-      const initialAdv = langInfo.getAdvisory(portInfo.name, 'LOW', 16, 1.1, vesselRange);
-      return [
-        {
-          id: '1',
-          sender: 'user',
-          text: `${langInfo.presets.safety} (${portInfo.name})`,
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
-        },
-        {
-          id: '2',
-          sender: 'system',
-          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
-          language: langInfo.code,
-          data: {
-            risk_level: 'LOW',
-            wind_kmh: 16,
-            wave_m: 1.1,
-            rainfall_mm: 0.0,
-            lightning: false,
-            cyclone: false,
-            recommendation: initialAdv,
-            confidence: 89,
-            sources: [],
-            sst_c: null,
-            chlorophyll_mg_m3: null,
-            alerts: [],
-          },
-        },
-      ];
-    });
-  }, [language, portInfo.name, vesselRange]);
+  // This screen used to seed a fake completed exchange on first mount — a
+  // "user" bubble the fisherman never typed ("Can I sail safely today?
+  // (Port)"), answered by a hardcoded LOW-risk/89%-confidence/"SAFE TO SAIL
+  // TODAY" card built entirely from made-up numbers (wind 16, wave 1.1) via
+  // getAdvisory(), with zero backend or LLM call involved. It was
+  // indistinguishable from a real answer and could show "safe" on a day
+  // with an active IMD warning — a false inference in a safety app. Now the
+  // chat genuinely starts empty; the preset chips above (Ask about sea
+  // safety...) call handleSend() directly, which always goes through the
+  // real POST /chat backend call.
 
   const handleSend = async (userText?: string, overrideLanguage?: string) => {
     const textToSend = userText || query;
@@ -384,6 +350,17 @@ export function ChatScreen({ navigation }: any) {
           </ScrollView>
         </View>
 
+        {/* Empty state — no fake/pre-filled exchange, just a neutral prompt
+            with no data claims (see the note above where this used to be
+            seeded). */}
+        {messages.length === 0 && (
+          <View style={styles.emptyChatState}>
+            <MaterialCommunityIcons name="anchor" size={28} color={colors.secondary} />
+            <Text style={styles.emptyChatText}>{langInfo.greeting}</Text>
+            <Text style={styles.emptyChatSubtext}>{langInfo.uiText.askPlaceholder}</Text>
+          </View>
+        )}
+
         {/* Message Stream */}
         {messages.map((msg) => {
           if (msg.sender === 'user') {
@@ -551,6 +528,23 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 12,
     marginBottom: 12,
+  },
+  emptyChatState: {
+    alignItems: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  emptyChatText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.onSurface,
+    textAlign: 'center',
+  },
+  emptyChatSubtext: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    textAlign: 'center',
   },
   gpsStripRow: {
     flexDirection: 'row',
