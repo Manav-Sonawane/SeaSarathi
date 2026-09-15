@@ -572,6 +572,22 @@ async def imd_cyclone_warnings(date: str | None = None, days: int = 1):
         raise HTTPException(status_code=502, detail=f"IMD cyclone-warnings scrape failed: {e}")
 
 
+# ─── IMD Sea Area Bulletin Archive Endpoint ───────────────────────────────────────────
+# Phase 4 of IMD_IMPLEMENTATION_PLAN.md (src/services/imd_sea_area_archive_scraper.py).
+# Live scrape on every call — no caching/scheduler yet (Phase 6, not implemented).
+# `limit` archived PDFs per sea area get their divisions parsed (default 5, max 20) —
+# fetching/parsing every historical entry would be slow and pointless for a live feed.
+# Expect ~15-20s per parsed entry pair (both sea areas fetched together, one LLM call).
+
+@app.get("/imd/sea-area-archive", summary="IMD Sea Area Bulletin Archive (live scrape)")
+async def imd_sea_area_archive(limit: int = 5):
+    from src.services.imd_sea_area_archive_scraper import scrape_sea_area_archive
+    try:
+        return await scrape_sea_area_archive(limit=limit)
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"IMD sea-area-archive scrape failed: {e}")
+
+
 # ─── Alerts Endpoint ───────────────────────────────────────────────────────────────────
 
 @app.get("/alerts", summary="Marine Safety Alerts")
