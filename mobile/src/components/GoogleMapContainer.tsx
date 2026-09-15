@@ -1,6 +1,5 @@
-import { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, Image, ActivityIndicator } from 'react-native';
-import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { View, Text, StyleSheet, Platform, Image, ActivityIndicator } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { PortInfo } from '../constants/portsAndLanguages';
 import { colors } from '../theme/colors';
 import { IndiaMapCanvas } from './IndiaMapCanvas';
@@ -42,6 +41,11 @@ interface GoogleMapContainerProps {
   // clickable pins on web, coords + SST/Chlorophyll on tap via onSelectLandingSite.
   landingFeatures?: LandingSite[];
   onSelectLandingSite?: (site: LandingSite) => void;
+  // Satellite/vector map-style toggle — owned by MapScreen so its button can
+  // live in one consolidated top-right control cluster instead of a second,
+  // separately-positioned header bar (that second bar used to overlap
+  // MapScreen's own compass/zoom controls at the top-left).
+  mapMode: 'satellite' | 'vector';
 }
 
 const GOOGLE_MAPS_KEY =
@@ -62,9 +66,8 @@ export function GoogleMapContainer({
   boundaryFeatures = [],
   landingFeatures = [],
   onSelectLandingSite,
+  mapMode,
 }: GoogleMapContainerProps) {
-  const [mapMode, setMapMode] = useState<'satellite' | 'vector'>('satellite');
-
   // Compute dynamic center latitude and longitude based on drag pan offset.
   // Only meaningful for the native Static Maps image path below — the real
   // web map (WebGoogleMap) handles its own pan/zoom via native map dragging.
@@ -134,48 +137,6 @@ export function GoogleMapContainer({
 
   return (
     <View style={styles.container}>
-      {/* Map Switcher Header Strip (Hides during map hover/drag) */}
-      {!isMapHovered && (
-        <View style={styles.switcherHeader}>
-          <View style={styles.portLabelGroup}>
-            <MaterialCommunityIcons name="google-maps" size={18} color="#EA4335" />
-            <Text style={styles.portLabelText}>
-              PORT: <Text style={styles.boldText}>{activePort.name.toUpperCase()}</Text> ({centerLat}° N, {centerLon}° E)
-            </Text>
-          </View>
-
-          <View style={styles.btnRow}>
-            <TouchableOpacity
-              style={[styles.modeBtn, mapMode === 'satellite' && styles.modeBtnActive]}
-              onPress={() => setMapMode('satellite')}
-            >
-              <Ionicons
-                name="earth"
-                size={13}
-                color={mapMode === 'satellite' ? colors.white : colors.onSurfaceVariant}
-              />
-              <Text style={[styles.modeBtnText, mapMode === 'satellite' && styles.modeBtnTextActive]}>
-                Satellite
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.modeBtn, mapMode === 'vector' && styles.modeBtnActive]}
-              onPress={() => setMapMode('vector')}
-            >
-              <Ionicons
-                name="map"
-                size={13}
-                color={mapMode === 'vector' ? colors.white : colors.onSurfaceVariant}
-              />
-              <Text style={[styles.modeBtnText, mapMode === 'vector' && styles.modeBtnTextActive]}>
-                India Map
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
       {/* Main Map Content Area */}
       <View style={styles.mapViewport}>
         {mapMode === 'vector' ? (
@@ -207,19 +168,16 @@ export function GoogleMapContainer({
               onSelectZone={onSelectZone}
             />
 
-            {/* Tactical Floating Reticle & Port Highlight Card (Hides during map hover/drag) */}
+            {/* Port label + risk legend — offset clear of MapScreen's own
+                top-left compass/zoom column (absolute, z-index 999 over this
+                whole component) so the two control clusters never overlap. */}
             {!isMapHovered && (
               <View style={styles.overlayOverlay} pointerEvents="box-none">
                 <View style={styles.gpsBanner}>
-                  <Ionicons name="location-sharp" size={16} color="#EA4335" />
-                  <View>
-                    <Text style={styles.gpsBannerTitle}>
-                      📍 PINNED PORT: {activePort.name.toUpperCase()} ({centerLat}° N, {centerLon}° E)
-                    </Text>
-                    <Text style={styles.gpsBannerSub}>
-                      Google Satellite • Zoom: {zoom}x • {activePort.sea}
-                    </Text>
-                  </View>
+                  <Ionicons name="location-sharp" size={14} color="#EA4335" />
+                  <Text style={styles.gpsBannerTitle} numberOfLines={1}>
+                    {activePort.name.toUpperCase()} · {centerLat}°N, {centerLon}°E
+                  </Text>
                 </View>
 
                 {renderRiskLegend()}
@@ -232,9 +190,9 @@ export function GoogleMapContainer({
             {!isMapHovered && (
               <>
                 <View style={styles.gpsBanner}>
-                  <Ionicons name="location-sharp" size={16} color="#EA4335" />
-                  <Text style={styles.gpsBannerTitle}>
-                    {activePort.name} ({centerLat}° N, {centerLon}° E) • Zoom: {zoom}x
+                  <Ionicons name="location-sharp" size={14} color="#EA4335" />
+                  <Text style={styles.gpsBannerTitle} numberOfLines={1}>
+                    {activePort.name} · {centerLat}°N, {centerLon}°E
                   </Text>
                 </View>
                 {renderRiskLegend()}
@@ -252,55 +210,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#0F172A',
   },
-  switcherHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surfaceContainerHigh,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.surfaceContainerHighest,
-  },
-  portLabelGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    flex: 1,
-  },
-  portLabelText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  boldText: {
-    fontWeight: '800',
-    color: colors.primary,
-  },
-  btnRow: {
-    flexDirection: 'row',
-    gap: 6,
-  },
-  modeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: colors.surfaceContainerLow,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-  },
-  modeBtnActive: {
-    backgroundColor: colors.primaryContainer,
-  },
-  modeBtnText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.onSurfaceVariant,
-  },
-  modeBtnTextActive: {
-    color: colors.white,
-  },
   mapViewport: {
     flex: 1,
     position: 'relative',
@@ -312,43 +221,42 @@ const styles = StyleSheet.create({
   overlayOverlay: {
     position: 'absolute',
     top: 0,
-    left: 0,
-    right: 0,
+    // Left padding clears MapScreen's own top-left compass/zoom column
+    // (absolute, ~64px wide, anchored at x:14) so this component's own
+    // in-map labels never sit underneath it.
+    left: 78,
+    right: 12,
     bottom: 0,
-    padding: 12,
-    justifyContent: 'space-between',
+    paddingTop: 14,
+    justifyContent: 'flex-start',
+    gap: 8,
     pointerEvents: 'box-none',
   },
   gpsBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    gap: 6,
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
     borderRadius: 8,
-    padding: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
     alignSelf: 'flex-start',
-    maxWidth: '90%',
+    maxWidth: '100%',
   },
   gpsBannerTitle: {
     fontSize: 11,
     fontWeight: '800',
     color: '#FFFFFF',
   },
-  gpsBannerSub: {
-    fontSize: 10,
-    color: '#38BDF8',
-    marginTop: 1,
-  },
   riskLegendBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+    backgroundColor: 'rgba(15, 23, 42, 0.85)',
     borderRadius: 8,
     padding: 8,
-    marginTop: 8,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.15)',
     alignSelf: 'flex-start',
