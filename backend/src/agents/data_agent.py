@@ -339,6 +339,17 @@ async def data_agent(state: AgentState) -> AgentState:
         imd_alerts = await get_location_imd_alerts(state_name)
         alerts.extend(imd_alerts)
         sources.extend(a["source"] for a in imd_alerts)
+        # `cyclone` (below) was previously hardcoded to MOCK_DATA's False and
+        # never set by anything real — harmless while nothing else ever
+        # showed a genuine cyclone signal, but it started actively
+        # contradicting the real IMD cyclone alerts above the moment those
+        # existed (mobile "Cyclone Watch" widget reading this field would
+        # say SAFE right next to a red IMD cyclone warning card). Tie it to
+        # the two IMD alert types that are genuinely cyclone/storm-labeled —
+        # not the general fisherman squally-weather advisory, which is a
+        # broader category.
+        if any(a["type"] in ("IMD_CYCLONE_WARNING", "IMD_CYCLONE_TTT_WARNING") for a in imd_alerts):
+            cyclone = True
     except Exception as e:
         print(f"[DataAgent] IMD alerts lookup error: {e}")
 
