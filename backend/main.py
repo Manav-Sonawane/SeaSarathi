@@ -643,8 +643,9 @@ async def imd_cache_status():
 @app.get("/alerts", summary="Marine Safety Alerts")
 async def get_alerts(latitude: float = 8.5, longitude: float = 76.2):
     """
-    Unified marine safety alerts combining geofence + weather checks.
-    Returns alerts sorted by severity (HIGH first).
+    Unified marine safety alerts combining geofence + weather + IMD live-feed
+    checks (src/services/imd_alerts.py, cache-backed — never blocks on a
+    live IMD scrape). Returns alerts sorted by severity (HIGH first).
     """
     # fetch_combined_forecasts_for_grid uses a synchronous HTTP client
     # (openmeteo_requests, retry-wrapped — up to 5 retries with backoff) plus
@@ -652,7 +653,31 @@ async def get_alerts(latitude: float = 8.5, longitude: float = 76.2):
     # network I/O blocking the event loop is worse than the disk-I/O
     # blocking fixed elsewhere (see /pfz/nearest), since it can take seconds
     # and stalls every other concurrent request meanwhile.
-    return await asyncio.to_thread(_compute_alerts, latitude, longitude)
+    base = await asyncio.to_thread(_compute_alerts, latitude, longitude)
+
+    from src.services.imd_alerts import get_location_imd_alerts
+    from src.utils.geo import find_nearest_landing_sites
+    state_name = None
+    try:
+        landing_path = os.path.join(DATA_DIR, "LANDING-LOCATIONS.geojson")
+        if os.path.exists(landing_path):
+            nearest = find_nearest_landing_sites(latitude, longitude, _load_geojson(landing_path), n=1)
+            if nearest:
+                state_name = nearest[0]["sector"]
+    except Exception as e:
+        print(f"[Alerts] Nearest-state lookup for IMD alerts failed: {e}")
+
+    imd_alerts = await get_location_imd_alerts(state_name)
+    all_alerts = base["alerts"] + imd_alerts
+    sev_rank = {"HIGH": 0, "MODERATE": 1, "INFO": 2}
+    all_alerts.sort(key=lambda a: sev_rank.get(a["severity"], 99))
+
+    return {
+        **base,
+        "alerts": all_alerts,
+        "alert_count": len(all_alerts),
+        "has_high_severity": any(a["severity"] == "HIGH" for a in all_alerts),
+    }
 
 
 def _compute_alerts(latitude: float, longitude: float) -> dict:

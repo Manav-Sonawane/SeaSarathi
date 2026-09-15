@@ -325,6 +325,23 @@ async def data_agent(state: AgentState) -> AgentState:
             "source": "open-meteo"
         })
 
+    # ── 6b. IMD Live-Feed Alerts (src/services/imd_alerts.py) ──────────────────
+    # Same cache-backed, location-matched IMD alerts (fisherman warning +
+    # cyclone-archive warning + sea-area TTT storm warning) that GET /alerts
+    # surfaces in the app — shared logic so what a fisherman sees on the
+    # Alerts screen and what the chat assistant tells them are the same
+    # underlying data. Never triggers a live scrape on this request path
+    # (see that module's docstring); state matched via `nearest_landing`'s
+    # `sector` field, already computed in step 4 above.
+    try:
+        from src.services.imd_alerts import get_location_imd_alerts
+        state_name = (nearest_landing or {}).get("sector", "").strip()
+        imd_alerts = await get_location_imd_alerts(state_name)
+        alerts.extend(imd_alerts)
+        sources.extend(a["source"] for a in imd_alerts)
+    except Exception as e:
+        print(f"[DataAgent] IMD alerts lookup error: {e}")
+
     route_summary = {
         "start_coordinates": {"latitude": lat, "longitude": lon},
         "destination_coordinates": {"latitude": pfz_lat, "longitude": pfz_lon},
