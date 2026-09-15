@@ -27,7 +27,6 @@ interface GoogleMapContainerProps {
   onSelectZone: (zone: any) => void;
   zoom?: number;
   panOffset?: { x: number; y: number };
-  isMapHovered?: boolean;
   // Risk heatmap overlay (backend/src/services/risk_heatmap.py via /geojson/risk)
   riskPoints?: RiskHeatmapFeature[];
   riskSummary?: { LOW: number; MODERATE: number; HIGH: number } | null;
@@ -57,7 +56,6 @@ export function GoogleMapContainer({
   onSelectZone,
   zoom = 11,
   panOffset = { x: 0, y: 0 },
-  isMapHovered = false,
   riskPoints = [],
   riskSummary = null,
   riskLoading = false,
@@ -170,34 +168,29 @@ export function GoogleMapContainer({
 
             {/* Port label + risk legend — offset clear of MapScreen's own
                 top-left compass/zoom column (absolute, z-index 999 over this
-                whole component) so the two control clusters never overlap. */}
-            {!isMapHovered && (
-              <View style={styles.overlayOverlay} pointerEvents="box-none">
-                <View style={styles.gpsBanner}>
-                  <Ionicons name="location-sharp" size={14} color="#EA4335" />
-                  <Text style={styles.gpsBannerTitle} numberOfLines={1}>
-                    {activePort.name.toUpperCase()} · {centerLat}°N, {centerLon}°E
-                  </Text>
-                </View>
-
-                {renderRiskLegend()}
+                whole component) so the two control clusters never overlap.
+                Always on-screen, including while panning/hovering. */}
+            <View style={styles.overlayOverlay} pointerEvents="box-none">
+              <View style={styles.gpsBanner}>
+                <Ionicons name="location-sharp" size={14} color="#EA4335" />
+                <Text style={styles.gpsBannerTitle} numberOfLines={1}>
+                  {activePort.name.toUpperCase()} · {centerLat}°N, {centerLon}°E
+                </Text>
               </View>
-            )}
+
+              {renderRiskLegend()}
+            </View>
           </View>
         ) : (
           <View style={styles.nativeImageContainer}>
             <Image source={{ uri: staticMapUrl }} style={styles.staticImage} resizeMode="cover" />
-            {!isMapHovered && (
-              <>
-                <View style={styles.gpsBanner}>
-                  <Ionicons name="location-sharp" size={14} color="#EA4335" />
-                  <Text style={styles.gpsBannerTitle} numberOfLines={1}>
-                    {activePort.name} · {centerLat}°N, {centerLon}°E
-                  </Text>
-                </View>
-                {renderRiskLegend()}
-              </>
-            )}
+            <View style={styles.gpsBanner}>
+              <Ionicons name="location-sharp" size={14} color="#EA4335" />
+              <Text style={styles.gpsBannerTitle} numberOfLines={1}>
+                {activePort.name} · {centerLat}°N, {centerLon}°E
+              </Text>
+            </View>
+            {renderRiskLegend()}
           </View>
         )}
       </View>

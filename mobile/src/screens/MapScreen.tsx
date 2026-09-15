@@ -105,27 +105,12 @@ export function MapScreen({ navigation }: any) {
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [bearing, setBearing] = useState(285);
 
-  // Hover / Drag map interaction state
-  const [isMapHovered, setIsMapHovered] = useState(false);
   // Collapsible bottom zone card state
   const [isZoneCardCollapsed, setIsZoneCardCollapsed] = useState(false);
 
   const panOffsetRef = useRef(panOffset);
   panOffsetRef.current = panOffset;
   const panStartRef = useRef({ x: 0, y: 0 });
-  const hoverTimerRef = useRef<any>(null);
-
-  const handleMapTouchStart = () => {
-    setIsMapHovered(true);
-    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-  };
-
-  const handleMapTouchEnd = () => {
-    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-    hoverTimerRef.current = setTimeout(() => {
-      setIsMapHovered(false);
-    }, 2000);
-  };
 
   // Only layers that actually render something (risk circles, PFZ lines,
   // boundary lines) are toggleable. sst/wind/bathymetry were previously
@@ -336,14 +321,12 @@ export function MapScreen({ navigation }: any) {
         onMoveShouldSetPanResponder: (_, gestureState) =>
           Math.abs(gestureState.dx) > 3 || Math.abs(gestureState.dy) > 3,
         onPanResponderGrant: () => {
-          setIsMapHovered(true);
           panStartRef.current = {
             x: panOffsetRef.current.x,
             y: panOffsetRef.current.y,
           };
         },
         onPanResponderMove: (_, gestureState) => {
-          setIsMapHovered(true);
           // Native MapView has its own built-in pan/zoom gestures and never
           // reads panOffset — it's only consumed by the web/GoogleMapContainer
           // fallback. Updating it here on every touch-move event was forcing
@@ -358,12 +341,6 @@ export function MapScreen({ navigation }: any) {
             });
           }
         },
-        onPanResponderRelease: () => {
-          handleMapTouchEnd();
-        },
-        onPanResponderTerminate: () => {
-          handleMapTouchEnd();
-        },
       }),
     []
   );
@@ -371,8 +348,6 @@ export function MapScreen({ navigation }: any) {
   const handleZoomIn = () => setZoom((z) => Math.min(z + 1, 18));
   const handleZoomOut = () => setZoom((z) => Math.max(z - 1, 5));
   const handleRecenter = () => {
-    setIsMapHovered(false);
-    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     setZoom(11);
     setPanOffset({ x: 0, y: 0 });
     panStartRef.current = { x: 0, y: 0 };
@@ -397,16 +372,9 @@ export function MapScreen({ navigation }: any) {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
 
-      {/* Map Viewport with Hover & PanResponder Drag Handlers */}
-      <View
-        style={styles.mapContainer}
-        {...panResponder.panHandlers}
-        // Web hover listeners
-        {...({
-          onMouseEnter: handleMapTouchStart,
-          onMouseLeave: handleMapTouchEnd,
-        } as any)}
-      >
+      {/* Map Viewport with PanResponder Drag Handlers — controls and info
+          cards stay on-screen at all times, including while panning/hovering. */}
+      <View style={styles.mapContainer} {...panResponder.panHandlers}>
         {Platform.OS !== 'web' && MapView ? (
           <MapView
             style={styles.map}
@@ -559,7 +527,6 @@ export function MapScreen({ navigation }: any) {
             onSelectZone={setSelectedZone}
             zoom={zoom}
             panOffset={panOffset}
-            isMapHovered={isMapHovered}
             riskPoints={nearestRiskFeatures}
             riskSummary={riskData?.metadata.risk_counts ?? null}
             riskLoading={riskLoading}
@@ -572,27 +539,25 @@ export function MapScreen({ navigation }: any) {
           />
         )}
 
-        {/* Floating Controls (Top Left) */}
+        {/* Floating Controls (Top Left) — always on-screen, including while
+            panning/hovering the map, so they don't flicker away mid-use. */}
         <View style={styles.topLeftControls} pointerEvents="auto">
-          {/* Compass hides when hovering map */}
-          {!isMapHovered && (
-            <TouchableOpacity
-              style={styles.compassBox}
-              onPress={handleCompassPress}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.compassN}>N</Text>
-              <MaterialCommunityIcons
-                name="compass-outline"
-                size={24}
-                color={colors.inversePrimary}
-                style={{ transform: [{ rotate: `${bearing}deg` }] }}
-              />
-              <Text style={styles.compassBearing}>{bearing}°</Text>
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={styles.compassBox}
+            onPress={handleCompassPress}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.compassN}>N</Text>
+            <MaterialCommunityIcons
+              name="compass-outline"
+              size={24}
+              color={colors.inversePrimary}
+              style={{ transform: [{ rotate: `${bearing}deg` }] }}
+            />
+            <Text style={styles.compassBearing}>{bearing}°</Text>
+          </TouchableOpacity>
 
-          {/* Zoom In (+), Zoom Out (-), and Recenter (locate) ALWAYS remain visible! */}
+          {/* Zoom In (+), Zoom Out (-), and Recenter (locate) */}
           <TouchableOpacity style={styles.iconBtn} onPress={handleZoomIn} activeOpacity={0.7}>
             <Ionicons name="add" size={24} color={colors.onSurface} />
           </TouchableOpacity>
@@ -615,10 +580,9 @@ export function MapScreen({ navigation }: any) {
           </TouchableOpacity>
         </View>
 
-        {/* Floating Layer Controls Drawer (Top Right) - Hides when hovering map */}
-        {!isMapHovered && (
-          <View style={styles.topRightControls}>
-            {/* Satellite/vector map-style toggle — only meaningful on the
+        {/* Floating Layer Controls Drawer (Top Right) — always on-screen */}
+        <View style={styles.topRightControls}>
+          {/* Satellite/vector map-style toggle — only meaningful on the
                 GoogleMapContainer render path (web, or native fallback when
                 react-native-maps isn't available); the real native MapView
                 has no separate "vector" mode to switch to. */}
@@ -758,11 +722,10 @@ export function MapScreen({ navigation }: any) {
                 </TouchableOpacity>
               </View>
             )}
-          </View>
-        )}
+        </View>
 
-        {/* Selected Zone Bottom Card - Collapsible and hides when hovering map */}
-        {!isMapHovered && selectedZone && (
+        {/* Selected Zone Bottom Card - Collapsible, always on-screen when a zone is selected */}
+        {selectedZone && (
           <View style={styles.selectedZoneCard}>
             <TouchableOpacity
               style={[

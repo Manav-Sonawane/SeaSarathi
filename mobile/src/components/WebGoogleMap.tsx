@@ -107,6 +107,19 @@ export function WebGoogleMap({
           disableDefaultUI: false,
           streetViewControl: false,
           fullscreenControl: false,
+          // Google's own map-type ("Map"/"Satellite") and zoom controls
+          // default to the top-right/right-center — the same corner as our
+          // custom Layers/Cache/mode-toggle stack (MapScreen's
+          // topRightControls, rendered on top via absolute position). Moving
+          // Google's own controls to the bottom-right avoids that overlap
+          // instead of having two independent control clusters fight for
+          // the same corner.
+          mapTypeControlOptions: {
+            position: google.maps.ControlPosition.BOTTOM_RIGHT,
+          },
+          zoomControlOptions: {
+            position: google.maps.ControlPosition.BOTTOM_RIGHT,
+          },
         });
         setStatus('ready');
       })
