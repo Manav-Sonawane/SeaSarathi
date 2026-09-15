@@ -551,6 +551,27 @@ async def imd_sea_area_bulletins():
         raise HTTPException(status_code=502, detail=f"IMD sea-area-bulletins scrape failed: {e}")
 
 
+# ─── IMD Cyclone/Fishermen Warning Archive Endpoint ───────────────────────────────────
+# Phase 3 of IMD_IMPLEMENTATION_PLAN.md (src/services/imd_cyclone_warning_scraper.py).
+# Always live-scrapes — this one takes date/days params for arbitrary historical queries,
+# which Phase 6's cache (today's data only) can't serve anyway. 15 regions x `days` dates
+# fetched concurrently (~10-15s for days=1). For today's data cached, see GET /alerts/imd/all.
+
+@app.get("/imd/cyclone-warnings", summary="IMD Cyclone/Fishermen Warning Archive (live scrape)")
+async def imd_cyclone_warnings(date: str | None = None, days: int = 1):
+    """
+    `date`: YYYY-MM-DD, defaults to today. `days`: how many days back from
+    `date` to include (1-3, see imd_cyclone_warning_scraper.MAX_DAYS).
+    """
+    from src.services.imd_cyclone_warning_scraper import scrape_cyclone_warnings
+    try:
+        return await scrape_cyclone_warnings(date_str=date, days=days)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"IMD cyclone-warnings scrape failed: {e}")
+
+
 # ─── Alerts Endpoint ───────────────────────────────────────────────────────────────────
 
 @app.get("/alerts", summary="Marine Safety Alerts")
