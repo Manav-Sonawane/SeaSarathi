@@ -16,6 +16,7 @@ export interface ScreenText {
     estArrival: string;
     sstTemp: string;
     chlorophyll: string;
+    coordinates: string;
     notAvailable: string;
     offlineStatus: string;
     evidenceHeader: string;
@@ -71,6 +72,10 @@ export interface ScreenText {
     needInternetToCache: string;
     couldNotCacheMap: string;
     couldNotLoadRisk: string;
+    landingCentersLayer: string;
+    landingCenterTitle: string;
+    loadingOceanData: string;
+    couldNotLoadLanding: string;
   };
   profile: {
     title: string;
@@ -194,6 +199,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       estArrival: 'EST. ARRIVAL',
       sstTemp: 'SST TEMP',
       chlorophyll: 'CHLOROPHYLL',
+      coordinates: 'Coordinates',
       notAvailable: 'N/A',
       offlineStatus: 'Offline',
       evidenceHeader: 'Ocean Data Telemetry',
@@ -257,6 +263,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       needInternetToCache: 'Connect to the internet to cache this area for offline use.',
       couldNotCacheMap: 'Could not cache map data — try again.',
       couldNotLoadRisk: 'Could not load risk overlay.',
+      landingCentersLayer: 'Landing Centers',
+      landingCenterTitle: 'Fish Landing Center',
+      loadingOceanData: 'Loading ocean data...',
+      couldNotLoadLanding: 'Could not load landing centers.',
     },
     profile: {
       title: 'Fisherman Profile & Settings',
@@ -378,6 +388,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       estArrival: 'എത്തിച്ചേരാൻ സമയം',
       sstTemp: 'സമുദ്ര താപനില',
       chlorophyll: 'ക്ലോറോഫിൽ',
+      coordinates: 'കോർഡിനേറ്റുകൾ',
       notAvailable: 'ലഭ്യമല്ല',
       offlineStatus: 'ഓഫ്‌ലൈൻ',
       evidenceHeader: 'സമുദ്ര വിവര ടെലിമെട്രി',
@@ -441,6 +452,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       needInternetToCache: 'ഈ പ്രദേശം ഓഫ്‌ലൈനായി സൂക്ഷിക്കാൻ ഇന്റർനെറ്റുമായി ബന്ധിപ്പിക്കുക.',
       couldNotCacheMap: 'മാപ്പ് വിവരം സൂക്ഷിക്കാനായില്ല — വീണ്ടും ശ്രമിക്കുക.',
       couldNotLoadRisk: 'അപകടസാധ്യത ഓവർലേ ലഭ്യമാക്കാനായില്ല.',
+      landingCentersLayer: 'ലാൻഡിംഗ് കേന്ദ്രങ്ങൾ',
+      landingCenterTitle: 'മത്സ്യബന്ധന ലാൻഡിംഗ് കേന്ദ്രം',
+      loadingOceanData: 'സമുദ്ര വിവരങ്ങൾ ലോഡ് ചെയ്യുന്നു...',
+      couldNotLoadLanding: 'ലാൻഡിംഗ് കേന്ദ്രങ്ങൾ ലഭ്യമാക്കാനായില്ല.',
     },
     profile: {
       title: 'മത്സ്യത്തൊഴിലാളി പ്രൊഫൈൽ & ക്രമീകരണങ്ങൾ',
@@ -562,6 +577,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       estArrival: 'வந்தடையும் நேரம்',
       sstTemp: 'கடல் வெப்பநிலை',
       chlorophyll: 'பசுமைச் செறிவு',
+      coordinates: 'ஆயத்தொலைவுகள்',
       notAvailable: 'இல்லை',
       offlineStatus: 'ஆஃப்லைன்',
       evidenceHeader: 'கடல் தரவு விவரம்',
@@ -625,6 +641,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       needInternetToCache: 'இந்த பகுதியை ஆஃப்லைனுக்கு சேமிக்க இணையத்துடன் இணைக்கவும்.',
       couldNotCacheMap: 'வரைபட தரவை சேமிக்க முடியவில்லை — மீண்டும் முயற்சிக்கவும்.',
       couldNotLoadRisk: 'ஆபத்து ஓவர்லேயை ஏற்ற முடியவில்லை.',
+      landingCentersLayer: 'இறங்கு மையங்கள்',
+      landingCenterTitle: 'மீன் இறங்கு மையம்',
+      loadingOceanData: 'கடல் தரவு ஏற்றப்படுகிறது...',
+      couldNotLoadLanding: 'இறங்கு மையங்களை ஏற்ற முடியவில்லை.',
     },
     profile: {
       title: 'மீனவர் சுயவிவரம் & அமைப்புகள்',
@@ -746,6 +766,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       estArrival: 'చేరుకునే సమయం',
       sstTemp: 'సముద్ర ఉష్ణోగ్రత',
       chlorophyll: 'క్లోరోఫిల్',
+      coordinates: 'నిర్దేశాంకాలు',
       notAvailable: 'లేదు',
       offlineStatus: 'ఆఫ్‌లైన్',
       evidenceHeader: 'సముద్ర డేటా వివరాలు',
@@ -809,6 +830,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       needInternetToCache: 'ఈ ప్రాంతాన్ని ఆఫ్‌లైన్‌లో సేవ్ చేయడానికి ఇంటర్నెట్‌కు కనెక్ట్ చేయండి.',
       couldNotCacheMap: 'మ్యాప్ డేటాను సేవ్ చేయలేకపోయాము — మళ్లీ ప్రయత్నించండి.',
       couldNotLoadRisk: 'రిస్క్ ఓవర్‌లేను లోడ్ చేయలేకపోయాము.',
+      landingCentersLayer: 'ల్యాండింగ్ కేంద్రాలు',
+      landingCenterTitle: 'చేపల ల్యాండింగ్ కేంద్రం',
+      loadingOceanData: 'సముద్ర డేటా లోడ్ అవుతోంది...',
+      couldNotLoadLanding: 'ల్యాండింగ్ కేంద్రాలను లోడ్ చేయలేకపోయాము.',
     },
     profile: {
       title: 'జాలరి ప్రొఫైల్ & సెట్టింగ్‌లు',
@@ -930,6 +955,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       estArrival: 'পৌঁছানোর সময়',
       sstTemp: 'সমুদ্রের তাপমাত্রা',
       chlorophyll: 'ক্লোরোফিল',
+      coordinates: 'স্থানাঙ্ক',
       notAvailable: 'নেই',
       offlineStatus: 'অফলাইন',
       evidenceHeader: 'সমুদ্র তথ্য বিবরণ',
@@ -993,6 +1019,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       needInternetToCache: 'এই এলাকা অফলাইনের জন্য সংরক্ষণ করতে ইন্টারনেটে সংযুক্ত করুন।',
       couldNotCacheMap: 'মানচিত্র তথ্য সংরক্ষণ করা যায়নি — আবার চেষ্টা করুন।',
       couldNotLoadRisk: 'ঝুঁকি ওভারলে লোড করা যায়নি।',
+      landingCentersLayer: 'ল্যান্ডিং কেন্দ্র',
+      landingCenterTitle: 'মৎস্য অবতরণ কেন্দ্র',
+      loadingOceanData: 'সমুদ্রের তথ্য লোড হচ্ছে...',
+      couldNotLoadLanding: 'ল্যান্ডিং কেন্দ্র লোড করা যায়নি।',
     },
     profile: {
       title: 'জেলে প্রোফাইল ও সেটিংস',
@@ -1114,6 +1144,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       estArrival: 'પહોંચવાનો સમય',
       sstTemp: 'દરિયાનું તાપમાન',
       chlorophyll: 'ક્લોરોફિલ',
+      coordinates: 'અક્ષાંશ-રેખાંશ',
       notAvailable: 'ઉપલબ્ધ નથી',
       offlineStatus: 'ઓફલાઇન',
       evidenceHeader: 'દરિયાઈ માહિતી વિગત',
@@ -1177,6 +1208,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       needInternetToCache: 'આ વિસ્તાર ઓફલાઇન સાચવવા ઇન્ટરનેટ સાથે કનેક્ટ કરો.',
       couldNotCacheMap: 'નકશા ડેટા સાચવી શકાયો નથી — ફરી પ્રયાસ કરો.',
       couldNotLoadRisk: 'જોખમ ઓવરલે લોડ કરી શકાયું નથી.',
+      landingCentersLayer: 'લેન્ડિંગ કેન્દ્રો',
+      landingCenterTitle: 'માછલી લેન્ડિંગ કેન્દ્ર',
+      loadingOceanData: 'દરિયાઈ માહિતી લોડ થઈ રહી છે...',
+      couldNotLoadLanding: 'લેન્ડિંગ કેન્દ્રો લોડ કરી શકાયા નથી.',
     },
     profile: {
       title: 'માછીમાર પ્રોફાઇલ અને સેટિંગ્સ',
@@ -1298,6 +1333,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       estArrival: 'पोहोचण्याची वेळ',
       sstTemp: 'समुद्राचे तापमान',
       chlorophyll: 'क्लोरोफिल',
+      coordinates: 'निर्देशांक',
       notAvailable: 'उपलब्ध नाही',
       offlineStatus: 'ऑफलाइन',
       evidenceHeader: 'सागरी माहिती तपशील',
@@ -1361,6 +1397,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       needInternetToCache: 'हे क्षेत्र ऑफलाइन साठवण्यासाठी इंटरनेटशी कनेक्ट करा.',
       couldNotCacheMap: 'नकाशा डेटा साठवता आला नाही — पुन्हा प्रयत्न करा.',
       couldNotLoadRisk: 'धोका ओव्हरले लोड करता आले नाही.',
+      landingCentersLayer: 'लँडिंग केंद्रे',
+      landingCenterTitle: 'मासे लँडिंग केंद्र',
+      loadingOceanData: 'सागरी डेटा लोड होत आहे...',
+      couldNotLoadLanding: 'लँडिंग केंद्रे लोड करता आली नाहीत.',
     },
     profile: {
       title: 'मच्छीमार प्रोफाइल आणि सेटिंग्ज',
@@ -1482,6 +1522,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       estArrival: 'ପହଞ୍ଚିବା ସମୟ',
       sstTemp: 'ସମୁଦ୍ର ତାପମାତ୍ରା',
       chlorophyll: 'କ୍ଲୋରୋଫିଲ୍',
+      coordinates: 'ସ୍ଥାନାଙ୍କ',
       notAvailable: 'ଉପଲବ୍ଧ ନାହିଁ',
       offlineStatus: 'ଅଫଲାଇନ',
       evidenceHeader: 'ସାମୁଦ୍ରିକ ତଥ୍ୟ ବିବରଣୀ',
@@ -1545,6 +1586,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       needInternetToCache: 'ଏହି ଅଞ୍ଚଳକୁ ଅଫଲାଇନ୍ ପାଇଁ ସଂରକ୍ଷଣ କରିବାକୁ ଇଣ୍ଟରନେଟ୍ ସହିତ ସଂଯୋଗ କରନ୍ତୁ।',
       couldNotCacheMap: 'ମାନଚିତ୍ର ତଥ୍ୟ ସଂରକ୍ଷଣ ହୋଇପାରିଲା ନାହିଁ — ପୁନଃ ଚେଷ୍ଟା କରନ୍ତୁ।',
       couldNotLoadRisk: 'ବିପଦ ଓଭରଲେ ଲୋଡ୍ ହୋଇପାରିଲା ନାହିଁ।',
+      landingCentersLayer: 'ଲ୍ୟାଣ୍ଡିଂ କେନ୍ଦ୍ର',
+      landingCenterTitle: 'ମାଛ ଲ୍ୟାଣ୍ଡିଂ କେନ୍ଦ୍ର',
+      loadingOceanData: 'ସମୁଦ୍ର ତଥ୍ୟ ଲୋଡ୍ ହେଉଛି...',
+      couldNotLoadLanding: 'ଲ୍ୟାଣ୍ଡିଂ କେନ୍ଦ୍ର ଲୋଡ୍ ହୋଇପାରିଲା ନାହିଁ।',
     },
     profile: {
       title: 'ମତ୍ସ୍ୟଜୀବୀ ପ୍ରୋଫାଇଲ୍ ଓ ସେଟିଂସ୍',
@@ -1666,6 +1711,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       estArrival: 'ತಲುಪುವ ಸಮಯ',
       sstTemp: 'ಸಮುದ್ರ ತಾಪಮಾನ',
       chlorophyll: 'ಕ್ಲೋರೊಫಿಲ್',
+      coordinates: 'ನಿರ್ದೇಶಾಂಕಗಳು',
       notAvailable: 'ಲಭ್ಯವಿಲ್ಲ',
       offlineStatus: 'ಆಫ್‌ಲೈನ್',
       evidenceHeader: 'ಸಮುದ್ರ ದತ್ತಾಂಶ ವಿವರ',
@@ -1729,6 +1775,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       needInternetToCache: 'ಈ ಪ್ರದೇಶವನ್ನು ಆಫ್‌ಲೈನ್‌ಗಾಗಿ ಉಳಿಸಲು ಇಂಟರ್ನೆಟ್‌ಗೆ ಸಂಪರ್ಕಿಸಿ.',
       couldNotCacheMap: 'ನಕ್ಷೆ ದತ್ತಾಂಶವನ್ನು ಉಳಿಸಲಾಗಲಿಲ್ಲ — ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
       couldNotLoadRisk: 'ಅಪಾಯ ಓವರ್‌ಲೇ ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ.',
+      landingCentersLayer: 'ಲ್ಯಾಂಡಿಂಗ್ ಕೇಂದ್ರಗಳು',
+      landingCenterTitle: 'ಮೀನು ಲ್ಯಾಂಡಿಂಗ್ ಕೇಂದ್ರ',
+      loadingOceanData: 'ಸಮುದ್ರ ಡೇಟಾ ಲೋಡ್ ಆಗುತ್ತಿದೆ...',
+      couldNotLoadLanding: 'ಲ್ಯಾಂಡಿಂಗ್ ಕೇಂದ್ರಗಳನ್ನು ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ.',
     },
     profile: {
       title: 'ಮೀನುಗಾರ ಪ್ರೊಫೈಲ್ ಮತ್ತು ಸೆಟ್ಟಿಂಗ್‌ಗಳು',
@@ -1850,6 +1900,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       estArrival: 'पहुंचने का समय',
       sstTemp: 'समुद्र तापमान',
       chlorophyll: 'क्लोरोफिल',
+      coordinates: 'निर्देशांक',
       notAvailable: 'उपलब्ध नहीं',
       offlineStatus: 'ऑफलाइन',
       evidenceHeader: 'समुद्री डेटा विवरण',
@@ -1913,6 +1964,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       needInternetToCache: 'इस क्षेत्र को ऑफलाइन सहेजने के लिए इंटरनेट से कनेक्ट करें।',
       couldNotCacheMap: 'मानचित्र डेटा सहेजा नहीं जा सका — फिर से प्रयास करें।',
       couldNotLoadRisk: 'जोखिम ओवरले लोड नहीं हो सका।',
+      landingCentersLayer: 'लैंडिंग केंद्र',
+      landingCenterTitle: 'मछली लैंडिंग केंद्र',
+      loadingOceanData: 'समुद्री डेटा लोड हो रहा है...',
+      couldNotLoadLanding: 'लैंडिंग केंद्र लोड नहीं हो सके।',
     },
     profile: {
       title: 'मछुआरा प्रोफ़ाइल और सेटिंग्स',

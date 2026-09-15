@@ -217,9 +217,28 @@ export interface GeoJsonFeatureCollection {
 export const geojsonAPI = {
   getPFZ: () => api.get<GeoJsonFeatureCollection>('/geojson/pfz').then((res) => res.data),
   getBoundaries: () => api.get<GeoJsonFeatureCollection>('/geojson/boundaries').then((res) => res.data),
+  getLanding: () => api.get<GeoJsonFeatureCollection>('/geojson/landing').then((res) => res.data),
   getRisk: (resolution = 1.0) =>
     api
       .get<RiskHeatmapResponse>('/geojson/risk', { params: { resolution } })
+      .then((res) => res.data),
+};
+
+export interface OceanPointResponse {
+  available: boolean;
+  sst_c: number | null;
+  chlorophyll_mg_m3: number | null;
+  grid_distance_km?: number;
+  sst_time?: string;
+  chl_time?: string;
+  query_lat: number;
+  query_lon: number;
+}
+
+export const oceanAPI = {
+  getPoint: (latitude: number, longitude: number) =>
+    api
+      .get<OceanPointResponse>('/ocean/point', { params: { latitude, longitude } })
       .then((res) => res.data),
 };
 

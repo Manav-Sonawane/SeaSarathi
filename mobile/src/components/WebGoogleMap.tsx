@@ -19,6 +19,15 @@ import { colors } from '../theme/colors';
 import { geometryToSegments, NamedFeature } from '../utils/geoJsonToMap';
 import { RiskHeatmapFeature } from '../services/api';
 
+interface LandingSite {
+  id: string;
+  name: string;
+  district: string;
+  sector: string;
+  latitude: number;
+  longitude: number;
+}
+
 interface WebGoogleMapProps {
   apiKey: string;
   center: { lat: number; lng: number };
@@ -26,6 +35,8 @@ interface WebGoogleMapProps {
   pfzFeatures: NamedFeature[];
   boundaryFeatures: NamedFeature[];
   riskPoints: RiskHeatmapFeature[];
+  landingFeatures?: LandingSite[];
+  onSelectLandingSite?: (site: LandingSite) => void;
   onSelectZone: (zone: any) => void;
 }
 
@@ -69,6 +80,8 @@ export function WebGoogleMap({
   pfzFeatures,
   boundaryFeatures,
   riskPoints,
+  landingFeatures = [],
+  onSelectLandingSite,
   onSelectZone,
 }: WebGoogleMapProps) {
   const mapDivRef = useRef<HTMLDivElement | null>(null);
@@ -176,7 +189,25 @@ export function WebGoogleMap({
       });
       overlaysRef.current.push(circle);
     });
-  }, [status, pfzFeatures, boundaryFeatures, riskPoints]);
+
+    // Fish landing centers (LANDING-LOCATIONS.geojson) — small circle markers
+    // rather than google.maps.Marker so ~1223 points stay cheap to draw/clear.
+    landingFeatures.forEach((site) => {
+      const marker = new google.maps.Circle({
+        center: { lat: site.latitude, lng: site.longitude },
+        radius: 700,
+        fillColor: '#FBBF24',
+        fillOpacity: 0.9,
+        strokeColor: '#78350F',
+        strokeOpacity: 0.9,
+        strokeWeight: 1,
+        clickable: true,
+        map,
+      });
+      marker.addListener('click', () => onSelectLandingSite?.(site));
+      overlaysRef.current.push(marker);
+    });
+  }, [status, pfzFeatures, boundaryFeatures, riskPoints, landingFeatures]);
 
   if (status === 'error') {
     return (

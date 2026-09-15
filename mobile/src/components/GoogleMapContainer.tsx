@@ -8,12 +8,22 @@ import { WebGoogleMap } from './WebGoogleMap';
 import { RiskHeatmapFeature } from '../services/api';
 import { NamedFeature } from '../utils/geoJsonToMap';
 
+export interface LandingSite {
+  id: string;
+  name: string;
+  district: string;
+  sector: string;
+  latitude: number;
+  longitude: number;
+}
+
 interface GoogleMapContainerProps {
   activePort: PortInfo;
   layers: {
     risk: boolean;
     pfz: boolean;
     geofence: boolean;
+    landing: boolean;
   };
   onSelectZone: (zone: any) => void;
   zoom?: number;
@@ -28,6 +38,10 @@ interface GoogleMapContainerProps {
   // draw genuine vector overlays via the Google Maps JavaScript API.
   pfzFeatures?: NamedFeature[];
   boundaryFeatures?: NamedFeature[];
+  // Real fish landing centers (LANDING-LOCATIONS.geojson, see MapScreen.tsx) —
+  // clickable pins on web, coords + SST/Chlorophyll on tap via onSelectLandingSite.
+  landingFeatures?: LandingSite[];
+  onSelectLandingSite?: (site: LandingSite) => void;
 }
 
 const GOOGLE_MAPS_KEY =
@@ -46,6 +60,8 @@ export function GoogleMapContainer({
   riskError = '',
   pfzFeatures = [],
   boundaryFeatures = [],
+  landingFeatures = [],
+  onSelectLandingSite,
 }: GoogleMapContainerProps) {
   const [mapMode, setMapMode] = useState<'satellite' | 'vector'>('satellite');
 
@@ -171,6 +187,8 @@ export function GoogleMapContainer({
             panOffset={panOffset}
             pfzFeatures={pfzFeatures}
             boundaryFeatures={boundaryFeatures}
+            landingFeatures={layers.landing ? landingFeatures : []}
+            onSelectLandingSite={onSelectLandingSite}
           />
         ) : Platform.OS === 'web' ? (
           <View style={styles.webEmbedContainer}>
@@ -184,6 +202,8 @@ export function GoogleMapContainer({
               pfzFeatures={layers.pfz ? pfzFeatures : []}
               boundaryFeatures={layers.geofence ? boundaryFeatures : []}
               riskPoints={layers.risk ? riskPoints : []}
+              landingFeatures={layers.landing ? landingFeatures : []}
+              onSelectLandingSite={onSelectLandingSite}
               onSelectZone={onSelectZone}
             />
 

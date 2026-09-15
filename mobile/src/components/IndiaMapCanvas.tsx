@@ -14,6 +14,15 @@ import Svg, {
 import { INDIAN_PORTS, PortInfo } from '../constants/portsAndLanguages';
 import { geometryToSegments, NamedFeature } from '../utils/geoJsonToMap';
 
+interface LandingSite {
+  id: string;
+  name: string;
+  district: string;
+  sector: string;
+  latitude: number;
+  longitude: number;
+}
+
 interface IndiaMapCanvasProps {
   activePort: PortInfo;
   layers: {
@@ -29,6 +38,9 @@ interface IndiaMapCanvasProps {
   // and its reuse of the coastline outline as a fake "geofence" line.
   pfzFeatures?: NamedFeature[];
   boundaryFeatures?: NamedFeature[];
+  // Real fish landing centers (LANDING-LOCATIONS.geojson) — tappable pins.
+  landingFeatures?: LandingSite[];
+  onSelectLandingSite?: (site: LandingSite) => void;
 }
 
 // Map bounds for India Equirectangular projection
@@ -98,6 +110,8 @@ export function IndiaMapCanvas({
   panOffset = { x: 0, y: 0 },
   pfzFeatures = [],
   boundaryFeatures = [],
+  landingFeatures = [],
+  onSelectLandingSite,
 }: IndiaMapCanvasProps) {
   const MAP_W = 360;
   const MAP_H = 440;
@@ -239,6 +253,26 @@ export function IndiaMapCanvas({
                 />
               ))
             )}
+
+          {/* Real fish landing centers (LANDING-LOCATIONS.geojson) — small
+              tappable dots, distinct from the larger port pin badges below. */}
+          <G>
+            {landingFeatures.map((site) => {
+              const pt = projectCoord(site.latitude, site.longitude, MAP_W, MAP_H);
+              return (
+                <Circle
+                  key={site.id}
+                  cx={pt.x}
+                  cy={pt.y}
+                  r={1.6}
+                  fill="#FBBF24"
+                  stroke="#78350F"
+                  strokeWidth={0.5}
+                  onPress={() => onSelectLandingSite?.(site)}
+                />
+              );
+            })}
+          </G>
 
           {/* ALL COASTAL PORTS PINNED LOCATIONS */}
           {INDIAN_PORTS.map((p) => {

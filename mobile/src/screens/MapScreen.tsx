@@ -18,7 +18,7 @@ import { INDIAN_PORTS } from '../constants/portsAndLanguages';
 import { useNetworkStore } from '../store/networkStore';
 import { downloadOfflineBundle, formatRelativeTime } from '../services/offlineService';
 import { getMapCacheMeta, MapCacheMeta, getCachedPfzZonesDb, getCachedBoundariesDb, CachedPfzZone, CachedBoundary } from '../services/mapCacheDb';
-import { geojsonAPI, RiskHeatmapFeature, RiskHeatmapResponse, GeoJsonFeatureCollection } from '../services/api';
+import { geojsonAPI, oceanAPI, RiskHeatmapFeature, RiskHeatmapResponse, GeoJsonFeatureCollection } from '../services/api';
 import { geometryToSegments } from '../utils/geoJsonToMap';
 import { getScreenText } from '../constants/screenTranslations';
 
@@ -131,6 +131,7 @@ export function MapScreen({ navigation }: any) {
     risk: true,
     pfz: true,
     geofence: true,
+    landing: true,
   });
 
   // Risk heatmap overlay (backend: src/services/risk_heatmap.py via
@@ -250,9 +251,79 @@ export function MapScreen({ navigation }: any) {
     [pfzFeatures]
   );
 
+  // Fish landing centers — real LANDING-LOCATIONS.geojson (1223 points, see
+  // backend/main.py's /geojson/landing), rendered as tappable pins. Fetched
+  // once (not port-scoped like risk) since it's a fixed nationwide dataset;
+  // same live-first pattern as PFZ/boundaries above, online-only for now
+  // (no SQLite fallback yet — matches how the risk layer already behaves).
+  const [landingGeo, setLandingGeo] = useState<GeoJsonFeatureCollection | null>(null);
+  const [landingError, setLandingError] = useState('');
+
+  useEffect(() => {
+    if (!isOnline || landingGeo) return;
+    geojsonAPI
+      .getLanding()
+      .then(setLandingGeo)
+      .catch(() => setLandingError(t.map.couldNotLoadLanding));
+  }, [isOnline, landingGeo]);
+
+  const landingFeatures: { id: string; name: string; district: string; sector: string; latitude: number; longitude: number }[] =
+    React.useMemo(
+      () =>
+        !landingGeo
+          ? []
+          : landingGeo.features.map((f, i) => ({
+              id: f.properties.LC_UNIQUE_ || `landing-${i}`,
+              name: f.properties.LC_NAME || 'Landing Center',
+              district: f.properties.DIST_NAME || '',
+              sector: f.properties.SECTOR_NAM || '',
+              latitude: f.geometry.coordinates[1],
+              longitude: f.geometry.coordinates[0],
+            })),
+      [landingGeo]
+    );
+
   // No fabricated default — the card only appears once the fisherman taps a
-  // real PFZ line, boundary, or (on the web/Static-Maps path) a PFZ hotspot.
+  // real PFZ line, boundary, landing pin, or (on the web/Static-Maps path) a
+  // PFZ hotspot.
   const [selectedZone, setSelectedZone] = useState<any>(null);
+
+  // Tapping a landing pin shows its real coordinates immediately, then fills
+  // in SST/Chlorophyll from the Copernicus grid once the lookup resolves
+  // (GET /ocean/point) — never fabricated, and explicitly "loading" in the
+  // interim rather than silently blank.
+  const handleSelectLandingSite = (site: { name: string; district: string; sector: string; latitude: number; longitude: number }) => {
+    const coordsText = `${site.latitude.toFixed(4)}°, ${site.longitude.toFixed(4)}°`;
+    setSelectedZone({
+      name: site.name,
+      title: [site.sector, site.district].filter(Boolean).join(' • ') || t.map.landingCenterTitle,
+      distance: `${haversineKm(portInfo.latitude, portInfo.longitude, site.latitude, site.longitude).toFixed(1)} km`,
+      coords: coordsText,
+      confidence: null,
+      sst: isOnline ? t.map.loadingOceanData : t.pfz.notAvailable,
+      chl: isOnline ? t.map.loadingOceanData : t.pfz.notAvailable,
+    });
+
+    if (!isOnline) return;
+    oceanAPI
+      .getPoint(site.latitude, site.longitude)
+      .then((point) => {
+        setSelectedZone((prev: any) =>
+          prev && prev.coords === coordsText
+            ? {
+                ...prev,
+                sst: point.available && point.sst_c != null ? `${point.sst_c.toFixed(1)}°C` : t.pfz.notAvailable,
+                chl: point.available && point.chlorophyll_mg_m3 != null ? `${point.chlorophyll_mg_m3.toFixed(2)} mg/m³` : t.pfz.notAvailable,
+              }
+            : prev
+        );
+      })
+      .catch(() => {
+        setSelectedZone((prev: any) =>
+          prev && prev.coords === coordsText ? { ...prev, sst: t.pfz.notAvailable, chl: t.pfz.notAvailable } : prev
+        );
+      });
+  };
 
   const panResponder = React.useMemo(
     () =>
@@ -408,6 +479,27 @@ export function MapScreen({ navigation }: any) {
                 />
               ))}
 
+            {/* Fish landing centers — real LANDING-LOCATIONS.geojson pins (see
+                backend/main.py's /geojson/landing), tap for coords + live
+                SST/Chlorophyll. tracksViewChanges={false} for the same
+                perf reason as the port markers below — with ~1223 pins,
+                re-rasterizing on every render would be far worse. */}
+            {layers.landing && Marker &&
+              landingFeatures.map((site) => (
+                <Marker
+                  key={site.id}
+                  coordinate={{ latitude: site.latitude, longitude: site.longitude }}
+                  title={site.name}
+                  description={[site.sector, site.district].filter(Boolean).join(' • ')}
+                  tracksViewChanges={false}
+                  onPress={() => handleSelectLandingSite(site)}
+                >
+                  <View style={styles.landingPin}>
+                    <MaterialCommunityIcons name="anchor" size={12} color={colors.onSecondaryContainer} />
+                  </View>
+                </Marker>
+              ))}
+
             {Marker && (
               <>
                 {INDIAN_PORTS.map((port) => (
@@ -467,6 +559,8 @@ export function MapScreen({ navigation }: any) {
             riskError={riskError}
             pfzFeatures={pfzFeatures}
             boundaryFeatures={boundaryFeatures}
+            landingFeatures={landingFeatures}
+            onSelectLandingSite={handleSelectLandingSite}
           />
         )}
 
@@ -609,6 +703,23 @@ export function MapScreen({ navigation }: any) {
                     color={layers.geofence ? colors.primaryContainer : colors.gray}
                   />
                 </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.layerOption}
+                  onPress={() => toggleLayer('landing')}
+                >
+                  <MaterialCommunityIcons
+                    name="anchor"
+                    size={16}
+                    color={layers.landing ? colors.secondary : colors.gray}
+                  />
+                  <Text style={styles.layerText}>{t.map.landingCentersLayer}</Text>
+                  <Ionicons
+                    name={layers.landing ? 'checkbox' : 'square-outline'}
+                    size={18}
+                    color={layers.landing ? colors.primaryContainer : colors.gray}
+                  />
+                </TouchableOpacity>
               </View>
             )}
           </View>
@@ -647,6 +758,12 @@ export function MapScreen({ navigation }: any) {
             {!isZoneCardCollapsed && (
               <>
                 <View style={styles.zoneMetricsRow}>
+                  {selectedZone.coords ? (
+                    <View style={styles.zoneMetricItem}>
+                      <Text style={styles.metricLabelText}>{t.pfz.coordinates}</Text>
+                      <Text style={styles.metricValueText}>{selectedZone.coords}</Text>
+                    </View>
+                  ) : null}
                   <View style={styles.zoneMetricItem}>
                     <Text style={styles.metricLabelText}>{t.pfz.distance}</Text>
                     <Text style={styles.metricValueText}>{selectedZone.distance}</Text>
@@ -661,13 +778,15 @@ export function MapScreen({ navigation }: any) {
                   </View>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.zoneNavBtn}
-                  onPress={() => navigation.navigate('PFZ')}
-                >
-                  <Ionicons name="navigate" size={16} color={colors.white} />
-                  <Text style={styles.zoneNavBtnText}>{t.map.inspectZoneDetails}</Text>
-                </TouchableOpacity>
+                {!selectedZone.coords && (
+                  <TouchableOpacity
+                    style={styles.zoneNavBtn}
+                    onPress={() => navigation.navigate('PFZ')}
+                  >
+                    <Ionicons name="navigate" size={16} color={colors.white} />
+                    <Text style={styles.zoneNavBtnText}>{t.map.inspectZoneDetails}</Text>
+                  </TouchableOpacity>
+                )}
               </>
             )}
           </View>
@@ -711,6 +830,13 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: colors.error,
     elevation: 4,
+  },
+  landingPin: {
+    backgroundColor: colors.secondaryContainer,
+    padding: 3,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.onSecondaryContainer,
   },
   topLeftControls: {
     position: 'absolute',
@@ -879,7 +1005,9 @@ const styles = StyleSheet.create({
   },
   zoneMetricsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'space-between',
+    rowGap: 8,
     backgroundColor: colors.surfaceContainerLow,
     padding: 10,
     borderRadius: 8,
