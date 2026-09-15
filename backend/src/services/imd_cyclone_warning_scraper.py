@@ -48,6 +48,8 @@ from datetime import datetime, timedelta, timezone
 import aiohttp
 from bs4 import BeautifulSoup
 
+from src.services.imd_http import fetch_text
+
 ARCHIVE_URL = "https://rsmcnewdelhi.imd.gov.in/warning-archive-information.php?internal_menu=NDU=&menu_id=OA=="
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=20)
 _USER_AGENT = "SeaSarathi/1.0 (+https://github.com/; marine safety app for Indian fishermen)"
@@ -81,9 +83,7 @@ def _classify_severity(message: str, warning: str) -> str:
 async def _fetch_regions(session: aiohttp.ClientSession) -> list[dict]:
     """Task 3.1.1: parse the location <select> dropdown from the live page —
     not hardcoded, so a region IMD adds/removes is picked up automatically."""
-    async with session.get(ARCHIVE_URL, headers={"User-Agent": _USER_AGENT}) as resp:
-        resp.raise_for_status()
-        html = await resp.text()
+    html = await fetch_text(session, ARCHIVE_URL)
     soup = BeautifulSoup(html, "html.parser")
     select = soup.find("select", {"name": "location"})
     regions = []
@@ -135,9 +135,7 @@ async def _fetch_region_date(session: aiohttp.ClientSession, region_id: str, sea
     table (this endpoint re-renders the whole page with the table filled in,
     same URL, no redirect)."""
     data = {"location": region_id, "search_date": search_date, "search": "Search"}
-    async with session.post(ARCHIVE_URL, data=data, headers={"User-Agent": _USER_AGENT}) as resp:
-        resp.raise_for_status()
-        html = await resp.text()
+    html = await fetch_text(session, ARCHIVE_URL, method="POST", data=data)
     return _parse_table(html)
 
 

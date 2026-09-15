@@ -38,6 +38,7 @@ from bs4 import BeautifulSoup
 
 from src.services.openrouter_client import OpenRouterError
 from src.services.imd_sea_bulletin_parser import clean_bulletin_lines, parse_bulletin_header, llm_parse_divisions
+from src.services.imd_http import fetch_text, fetch_bytes
 
 SEA_AREA_ARCHIVES = [
     {"id": "arabian_sea", "name": "Arabian Sea", "url": "https://rsmcnewdelhi.imd.gov.in/archive-information.php?internal_menu=NTk=&menu_id=OA=="},
@@ -88,15 +89,11 @@ def _parse_archive_index(html: str) -> list[dict]:
 
 
 async def _fetch_text(session: aiohttp.ClientSession, url: str) -> str:
-    async with session.get(url, headers={"User-Agent": _USER_AGENT}) as resp:
-        resp.raise_for_status()
-        return await resp.text()
+    return await fetch_text(session, url)
 
 
 async def _fetch_pdf_lines(session: aiohttp.ClientSession, url: str) -> list[str]:
-    async with session.get(url, headers={"User-Agent": _USER_AGENT}) as resp:
-        resp.raise_for_status()
-        pdf_bytes = await resp.read()
+    pdf_bytes = await fetch_bytes(session, url)
     with pdfplumber.open(BytesIO(pdf_bytes)) as pdf:
         text = "\n".join(page.extract_text() or "" for page in pdf.pages)
     lines = [l.strip() for l in text.split("\n") if l.strip()]

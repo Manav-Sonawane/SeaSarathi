@@ -39,6 +39,8 @@ from datetime import datetime, timedelta, timezone
 import aiohttp
 from bs4 import BeautifulSoup
 
+from src.services.imd_http import fetch_text
+
 ARCHIVE_URL = "https://rsmcnewdelhi.imd.gov.in/warning-archive-information.php?internal_menu=NTc=&menu_id=OA=="
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=20)
 _USER_AGENT = "SeaSarathi/1.0 (+https://github.com/; marine safety app for Indian fishermen)"
@@ -99,9 +101,7 @@ def _classify_signal(warning_text: str) -> dict:
 async def _fetch_ports(session: aiohttp.ClientSession) -> list[dict]:
     """Parses the live location <select> dropdown — 120 ports found live,
     not hardcoded here, so a port IMD adds/removes is picked up automatically."""
-    async with session.get(ARCHIVE_URL, headers={"User-Agent": _USER_AGENT}) as resp:
-        resp.raise_for_status()
-        html = await resp.text()
+    html = await fetch_text(session, ARCHIVE_URL)
     soup = BeautifulSoup(html, "html.parser")
     select = soup.find("select", {"name": "location"})
     ports = []
@@ -152,9 +152,7 @@ def _parse_table(html: str) -> list[dict]:
 async def _fetch_port_date(session: aiohttp.ClientSession, semaphore: asyncio.Semaphore, port_id: str, search_date: str) -> list[dict]:
     async with semaphore:
         data = {"location": port_id, "search_date": search_date, "search": "Search"}
-        async with session.post(ARCHIVE_URL, data=data, headers={"User-Agent": _USER_AGENT}) as resp:
-            resp.raise_for_status()
-            html = await resp.text()
+        html = await fetch_text(session, ARCHIVE_URL, method="POST", data=data)
     return _parse_table(html)
 
 

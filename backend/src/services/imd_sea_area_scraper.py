@@ -36,6 +36,7 @@ import aiohttp
 
 from src.services.openrouter_client import OpenRouterError
 from src.services.imd_sea_bulletin_parser import clean_bulletin_lines, parse_bulletin_header, llm_parse_divisions
+from src.services.imd_http import fetch_text
 
 SEA_AREAS = [
     {"id": "arabian_sea", "name": "Arabian Sea", "url": "https://mausam.imd.gov.in/Forecast/seaarea_bulletin_new.php?id=4"},
@@ -55,9 +56,7 @@ def _clean_visible_text(html: str) -> list[str]:
 
 
 async def _fetch_text(session: aiohttp.ClientSession, url: str) -> str:
-    async with session.get(url, headers={"User-Agent": _USER_AGENT}) as resp:
-        resp.raise_for_status()
-        return await resp.text()
+    return await fetch_text(session, url)
 
 
 async def scrape_sea_area_bulletins() -> dict:

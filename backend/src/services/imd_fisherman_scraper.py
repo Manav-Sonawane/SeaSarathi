@@ -65,6 +65,7 @@ import pdfplumber
 from io import BytesIO
 
 from src.services.openrouter_client import chat_json, OpenRouterError
+from src.services.imd_http import fetch_text, fetch_bytes
 
 HUB_URL = "https://mausam.imd.gov.in/imd_latest/contents/index_fisherman.php"
 REQUEST_TIMEOUT = aiohttp.ClientTimeout(total=30)
@@ -257,15 +258,11 @@ def _safety_cross_check(llm_fields: dict, pdf_text: str) -> dict:
 
 
 async def _fetch_text(session: aiohttp.ClientSession, url: str) -> str:
-    async with session.get(url, headers={"User-Agent": _USER_AGENT}) as resp:
-        resp.raise_for_status()
-        return await resp.text()
+    return await fetch_text(session, url)
 
 
 async def _fetch_pdf_text(session: aiohttp.ClientSession, url: str) -> str:
-    async with session.get(url, headers={"User-Agent": _USER_AGENT}) as resp:
-        resp.raise_for_status()
-        pdf_bytes = await resp.read()
+    pdf_bytes = await fetch_bytes(session, url)
     with pdfplumber.open(BytesIO(pdf_bytes)) as pdf:
         return "\n".join(page.extract_text() or "" for page in pdf.pages)
 
