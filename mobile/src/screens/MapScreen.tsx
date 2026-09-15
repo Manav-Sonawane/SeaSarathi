@@ -598,6 +598,13 @@ export function MapScreen({ navigation }: any) {
           >
             <Ionicons name="locate" size={22} color={colors.white} />
           </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.iconBtn, { backgroundColor: '#071A33', borderWidth: 1, borderColor: '#38BDF8' }]}
+            onPress={() => navigation?.navigate('Compass')}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="compass-rose" size={22} color="#38BDF8" />
+          </TouchableOpacity>
         </View>
 
         {/* Floating Layer Controls Drawer (Top Right) - Hides when hovering map */}

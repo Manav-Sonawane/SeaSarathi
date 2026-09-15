@@ -4,6 +4,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { DashboardScreen } from '../screens/DashboardScreen';
+import { CompassScreen } from '../screens/CompassScreen';
 import { ChatScreen } from '../screens/ChatScreen';
 import { MapScreen } from '../screens/MapScreen';
 import { PFZScreen } from '../screens/PFZScreen';
@@ -18,6 +19,7 @@ import { getScreenText } from '../constants/screenTranslations';
 
 export type RootTabParamList = {
   Dashboard: undefined;
+  Compass: undefined;
   Chat: undefined;
   Map: undefined;
   PFZ: undefined;
@@ -116,6 +118,16 @@ export function RootNavigator() {
               title: t.dashboard.title,
               tabBarIcon: ({ color, size }) => (
                 <MaterialCommunityIcons name="view-dashboard-outline" size={size} color={color} />
+              ),
+            }}
+          />
+          <Tab.Screen
+            name="Compass"
+            component={CompassScreen}
+            options={{
+              title: t.compass.title,
+              tabBarIcon: ({ color, size }) => (
+                <MaterialCommunityIcons name="compass-outline" size={size} color={color} />
               ),
             }}
           />
