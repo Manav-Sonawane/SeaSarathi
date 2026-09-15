@@ -112,6 +112,13 @@ class ProfileRequest(BaseModel):
     operating_port: str
     role: str                   # "fisherman" | "union_leader"
     language: str
+    # Free-form bag, round-tripped as-is. Used by the mobile app to persist
+    # operating_port_latitude/longitude when the port was resolved from the
+    # user's real GPS position (nearest of all 1223 landing locations, not
+    # just the ~20 curated major ports) rather than picked from the list —
+    # otherwise reloading the profile would look the port name up in the
+    # curated list only, fail to find it, and silently reset to Kochi.
+    extra: dict | None = None
 
 
 class LoginRequest(BaseModel):
@@ -282,6 +289,7 @@ async def upsert_profile(request: ProfileRequest):
             operating_port=request.operating_port,
             role=request.role,
             language=request.language,
+            extra=request.extra,
         )
     except ValueError as e:
         raise HTTPException(status_code=422, detail=str(e))

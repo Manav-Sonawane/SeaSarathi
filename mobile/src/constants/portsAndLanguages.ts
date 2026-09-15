@@ -8,6 +8,56 @@ export interface PortInfo {
   sea: 'Arabian Sea' | 'Bay of Bengal' | 'Andaman Sea' | 'Lakshadweep Sea';
 }
 
+// Real, static geography — which sea each coastal state/UT fronts. Not
+// scraped or guessed (same fact used server-side in
+// backend/src/services/imd_alerts.py) — used to build a PortInfo for any of
+// India's ~1223 landing locations (LANDING-LOCATIONS.geojson), not just the
+// ~20 curated major ports below, since that field isn't present in the raw
+// landing-location data itself.
+const WEST_COAST_STATES = new Set(['GUJARAT', 'MAHARASHTRA', 'GOA', 'KARNATAKA', 'KERALA']);
+const EAST_COAST_STATES = new Set(['WEST BENGAL', 'ODISHA', 'ANDHRA PRADESH', 'TAMIL NADU', 'PUDUCHERRY']);
+
+export function inferSeaForState(state: string): PortInfo['sea'] {
+  const s = (state || '').trim().toUpperCase();
+  if (s.includes('ANDAMAN') || s.includes('NICOBAR')) return 'Andaman Sea';
+  if (s.includes('LAKSHADWEEP')) return 'Lakshadweep Sea';
+  if (EAST_COAST_STATES.has(s)) return 'Bay of Bengal';
+  // Default to Arabian Sea (matches WEST_COAST_STATES and covers any
+  // spelling variant of a west-coast state) rather than leaving `sea`
+  // unset — a fisherman-facing screen showing no sea at all reads as
+  // broken, and every one of India's mainland coastal states is genuinely
+  // on one side or the other.
+  return 'Arabian Sea';
+}
+
+/**
+ * Adapts a landing-location result (from GET /landing/nearest — see
+ * backend/src/utils/geo.py's find_nearest_landing_sites, which searches all
+ * 1223 points in LANDING-LOCATIONS.geojson, not just major ports) into this
+ * app's PortInfo shape, so any of those ~1223 locations — including the
+ * ~40 that sit in the ~200km gap between Gujarat's southernmost major port
+ * and Mumbai's northernmost one — can be set as a fisherman's real
+ * operating location, not just the curated INDIAN_PORTS list below.
+ */
+export function landingSiteToPortInfo(site: {
+  name: string;
+  district?: string;
+  sector: string;
+  unique_id?: string;
+  latitude: number;
+  longitude: number;
+}): PortInfo {
+  return {
+    id: site.unique_id || `landing-${site.name}-${site.latitude.toFixed(4)}-${site.longitude.toFixed(4)}`,
+    name: site.name,
+    state: site.sector,
+    region: site.district || site.sector,
+    latitude: site.latitude,
+    longitude: site.longitude,
+    sea: inferSeaForState(site.sector),
+  };
+}
+
 export const INDIAN_PORTS: PortInfo[] = [
   // Kerala
   { id: 'kochi', name: 'Kochi', state: 'Kerala', latitude: 9.9312, longitude: 76.2673, region: 'Malabar Coast', sea: 'Arabian Sea' },

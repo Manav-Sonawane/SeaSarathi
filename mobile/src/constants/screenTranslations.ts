@@ -124,6 +124,11 @@ export interface ScreenText {
     toastNeedInternet: string;
     toastProfileSaved: string;
     toastProfileReset: string;
+    toastGpsUnavailable: string;
+    toastGpsPermissionDenied: string;
+    toastGpsFailed: string;
+    toastLocationFound: string;
+    useMyLocation: string;
   };
   voice: {
     listening: string;
@@ -340,6 +345,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastNeedInternet: 'You need an internet connection to download the offline bundle.',
       toastProfileSaved: 'Profile preferences saved successfully!',
       toastProfileReset: 'Profile preferences reset successfully.',
+      toastGpsUnavailable: "Location services aren't available on this device.",
+      toastGpsPermissionDenied: 'Location permission denied — enable it in your settings to use your current position.',
+      toastGpsFailed: 'Could not find a nearby landing location. Please try again.',
+      toastLocationFound: 'Location set to',
+      useMyLocation: 'Use My Current Location',
     },
     voice: {
       listening: 'Listening…',
@@ -552,6 +562,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastNeedInternet: 'ബണ്ടിൽ ഡൗൺലോഡ് ചെയ്യാൻ ഇന്റർനെറ്റ് കണക്ഷൻ ആവശ്യമാണ്.',
       toastProfileSaved: 'പ്രൊഫൈൽ ക്രമീകരണങ്ങൾ വിജയകരമായി സേവ് ചെയ്തു!',
       toastProfileReset: 'പ്രൊഫൈൽ ക്രമീകരണങ്ങൾ പുനഃസജ്ജമാക്കി.',
+      toastGpsUnavailable: 'ഈ ഉപകരണത്തിൽ ലൊക്കേഷൻ സേവനങ്ങൾ ലഭ്യമല്ല.',
+      toastGpsPermissionDenied: 'ലൊക്കേഷൻ അനുമതി നിഷേധിച്ചു — നിങ്ങളുടെ നിലവിലെ സ്ഥാനം ഉപയോഗിക്കാൻ ക്രമീകരണങ്ങളിൽ പ്രവർത്തനക്ഷമമാക്കുക.',
+      toastGpsFailed: 'സമീപത്തുള്ള ലാൻഡിംഗ് കേന്ദ്രം കണ്ടെത്താനായില്ല. വീണ്ടും ശ്രമിക്കുക.',
+      toastLocationFound: 'സ്ഥാനം സജ്ജമാക്കി:',
+      useMyLocation: 'എന്റെ നിലവിലെ സ്ഥാനം ഉപയോഗിക്കുക',
     },
     voice: {
       listening: 'കേൾക്കുന്നു…',
@@ -764,6 +779,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastNeedInternet: 'தொகுப்பைப் பதிவிறக்க இணைய இணைப்பு தேவை.',
       toastProfileSaved: 'சுயவிவர விருப்பங்கள் வெற்றிகரமாக சேமிக்கப்பட்டன!',
       toastProfileReset: 'சுயவிவர விருப்பங்கள் மீட்டமைக்கப்பட்டன.',
+      toastGpsUnavailable: 'இந்த சாதனத்தில் இருப்பிட சேவைகள் கிடைக்கவில்லை.',
+      toastGpsPermissionDenied: 'இருப்பிட அனுமதி மறுக்கப்பட்டது — உங்கள் தற்போதைய இருப்பிடத்தைப் பயன்படுத்த அமைப்புகளில் இயக்கவும்.',
+      toastGpsFailed: 'அருகிலுள்ள இறங்கு மையத்தைக் கண்டறிய முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
+      toastLocationFound: 'இருப்பிடம் அமைக்கப்பட்டது:',
+      useMyLocation: 'எனது தற்போதைய இருப்பிடத்தைப் பயன்படுத்து',
     },
     voice: {
       listening: 'கேட்கிறது…',
@@ -953,6 +973,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastNeedInternet: 'బండిల్ డౌన్‌లోడ్ చేయడానికి ఇంటర్నెట్ కనెక్షన్ అవసరం.',
       toastProfileSaved: 'ప్రొఫైల్ సెట్టింగ్‌లు విజయవంతంగా సేవ్ చేయబడ్డాయి!',
       toastProfileReset: 'ప్రొఫైల్ సెట్టింగ్‌లు రీసెట్ చేయబడ్డాయి.',
+      toastGpsUnavailable: 'ఈ పరికరంలో లొకేషన్ సేవలు అందుబాటులో లేవు.',
+      toastGpsPermissionDenied: 'లొకేషన్ అనుమతి తిరస్కరించబడింది — మీ ప్రస్తుత స్థానాన్ని ఉపయోగించడానికి సెట్టింగ్‌లలో ప్రారంభించండి.',
+      toastGpsFailed: 'సమీపంలోని ల్యాండింగ్ కేంద్రాన్ని కనుగొనలేకపోయాము. మళ్లీ ప్రయత్నించండి.',
+      toastLocationFound: 'స్థానం సెట్ చేయబడింది:',
+      useMyLocation: 'నా ప్రస్తుత స్థానాన్ని ఉపయోగించండి',
     },
     voice: {
       listening: 'వింటోంది…',
@@ -1142,6 +1167,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastNeedInternet: 'বান্ডেল ডাউনলোড করতে ইন্টারনেট সংযোগ প্রয়োজন।',
       toastProfileSaved: 'প্রোফাইল পছন্দগুলি সফলভাবে সংরক্ষিত হয়েছে!',
       toastProfileReset: 'প্রোফাইল পছন্দগুলি পুনরায় সেট করা হয়েছে।',
+      toastGpsUnavailable: 'এই ডিভাইসে অবস্থান পরিষেবা উপলব্ধ নেই।',
+      toastGpsPermissionDenied: 'অবস্থান অনুমতি প্রত্যাখ্যান করা হয়েছে — আপনার বর্তমান অবস্থান ব্যবহার করতে সেটিংসে সক্ষম করুন।',
+      toastGpsFailed: 'কাছাকাছি ল্যান্ডিং কেন্দ্র খুঁজে পাওয়া যায়নি। আবার চেষ্টা করুন।',
+      toastLocationFound: 'অবস্থান সেট করা হয়েছে:',
+      useMyLocation: 'আমার বর্তমান অবস্থান ব্যবহার করুন',
     },
     voice: {
       listening: 'শুনছে…',
@@ -1331,6 +1361,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastNeedInternet: 'બંડલ ડાઉનલોડ કરવા ઇન્ટરનેટ કનેક્શન જરૂરી છે.',
       toastProfileSaved: 'પ્રોફાઇલ પસંદગીઓ સફળતાપૂર્વક સાચવવામાં આવી!',
       toastProfileReset: 'પ્રોફાઇલ પસંદગીઓ રીસેટ કરવામાં આવી.',
+      toastGpsUnavailable: 'આ ઉપકરણ પર લોકેશન સેવાઓ ઉપલબ્ધ નથી.',
+      toastGpsPermissionDenied: 'લોકેશન પરવાનગી નકારી — તમારું વર્તમાન સ્થાન વાપરવા સેટિંગ્સમાં સક્ષમ કરો.',
+      toastGpsFailed: 'નજીકનું લેન્ડિંગ કેન્દ્ર મળ્યું નથી. ફરી પ્રયાસ કરો.',
+      toastLocationFound: 'સ્થાન સેટ કર્યું:',
+      useMyLocation: 'મારું વર્તમાન સ્થાન વાપરો',
     },
     voice: {
       listening: 'સાંભળી રહ્યું છે…',
@@ -1520,6 +1555,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastNeedInternet: 'बंडल डाउनलोड करण्यासाठी इंटरनेट कनेक्शन आवश्यक आहे.',
       toastProfileSaved: 'प्रोफाइल प्राधान्ये यशस्वीरित्या जतन केली!',
       toastProfileReset: 'प्रोफाइल प्राधान्ये रीसेट केली.',
+      toastGpsUnavailable: 'या डिव्हाइसवर लोकेशन सेवा उपलब्ध नाहीत.',
+      toastGpsPermissionDenied: 'लोकेशन परवानगी नाकारली — तुमचे सध्याचे स्थान वापरण्यासाठी सेटिंग्जमध्ये सक्षम करा.',
+      toastGpsFailed: 'जवळचे लँडिंग केंद्र सापडले नाही. पुन्हा प्रयत्न करा.',
+      toastLocationFound: 'स्थान सेट केले:',
+      useMyLocation: 'माझे सध्याचे स्थान वापरा',
     },
     voice: {
       listening: 'ऐकत आहे…',
@@ -1709,6 +1749,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastNeedInternet: 'ବଣ୍ଡଲ ଡାଉନଲୋଡ୍ ପାଇଁ ଇଣ୍ଟରନେଟ୍ ସଂଯୋଗ ଆବଶ୍ୟକ।',
       toastProfileSaved: 'ପ୍ରୋଫାଇଲ୍ ପସନ୍ଦ ସଫଳତାର ସହ ସଂରକ୍ଷିତ ହେଲା!',
       toastProfileReset: 'ପ୍ରୋଫାଇଲ୍ ପସନ୍ଦ ପୁନଃସେଟ୍ ହେଲା।',
+      toastGpsUnavailable: 'ଏହି ଡିଭାଇସରେ ଲୋକେସନ୍ ସେବା ଉପଲବ୍ଧ ନାହିଁ।',
+      toastGpsPermissionDenied: 'ଲୋକେସନ୍ ଅନୁମତି ଅସ୍ୱୀକୃତ — ଆପଣଙ୍କ ବର୍ତ୍ତମାନ ଅବସ୍ଥାନ ବ୍ୟବହାର କରିବାକୁ ସେଟିଂସରେ ସକ୍ଷମ କରନ୍ତୁ।',
+      toastGpsFailed: 'ନିକଟସ୍ଥ ଲ୍ୟାଣ୍ଡିଂ କେନ୍ଦ୍ର ମିଳିଲା ନାହିଁ। ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।',
+      toastLocationFound: 'ଅବସ୍ଥାନ ସେଟ୍ ହେଲା:',
+      useMyLocation: 'ମୋର ବର୍ତ୍ତମାନ ଅବସ୍ଥାନ ବ୍ୟବହାର କରନ୍ତୁ',
     },
     voice: {
       listening: 'ଶୁଣୁଛି…',
@@ -1898,6 +1943,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastNeedInternet: 'ಬಂಡಲ್ ಡೌನ್‌ಲೋಡ್ ಮಾಡಲು ಇಂಟರ್ನೆಟ್ ಸಂಪರ್ಕ ಅಗತ್ಯ.',
       toastProfileSaved: 'ಪ್ರೊಫೈಲ್ ಆದ್ಯತೆಗಳನ್ನು ಯಶಸ್ವಿಯಾಗಿ ಉಳಿಸಲಾಗಿದೆ!',
       toastProfileReset: 'ಪ್ರೊಫೈಲ್ ಆದ್ಯತೆಗಳನ್ನು ಮರುಹೊಂದಿಸಲಾಗಿದೆ.',
+      toastGpsUnavailable: 'ಈ ಸಾಧನದಲ್ಲಿ ಸ್ಥಳ ಸೇವೆಗಳು ಲಭ್ಯವಿಲ್ಲ.',
+      toastGpsPermissionDenied: 'ಸ್ಥಳ ಅನುಮತಿ ನಿರಾಕರಿಸಲಾಗಿದೆ — ನಿಮ್ಮ ಪ್ರಸ್ತುತ ಸ್ಥಳವನ್ನು ಬಳಸಲು ಸೆಟ್ಟಿಂಗ್‌ಗಳಲ್ಲಿ ಸಕ್ರಿಯಗೊಳಿಸಿ.',
+      toastGpsFailed: 'ಹತ್ತಿರದ ಲ್ಯಾಂಡಿಂಗ್ ಕೇಂದ್ರ ಕಂಡುಬಂದಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+      toastLocationFound: 'ಸ್ಥಳ ಹೊಂದಿಸಲಾಗಿದೆ:',
+      useMyLocation: 'ನನ್ನ ಪ್ರಸ್ತುತ ಸ್ಥಳವನ್ನು ಬಳಸಿ',
     },
     voice: {
       listening: 'ಕೇಳುತ್ತಿದೆ…',
@@ -2087,6 +2137,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastNeedInternet: 'बंडल डाउनलोड करने के लिए इंटरनेट कनेक्शन आवश्यक है।',
       toastProfileSaved: 'प्रोफ़ाइल प्राथमिकताएं सफलतापूर्वक सहेजी गईं!',
       toastProfileReset: 'प्रोफ़ाइल प्राथमिकताएं रीसेट कर दी गईं।',
+      toastGpsUnavailable: 'इस डिवाइस पर लोकेशन सेवाएं उपलब्ध नहीं हैं।',
+      toastGpsPermissionDenied: 'लोकेशन अनुमति अस्वीकृत — अपना वर्तमान स्थान उपयोग करने के लिए सेटिंग्स में सक्षम करें।',
+      toastGpsFailed: 'आस-पास कोई लैंडिंग केंद्र नहीं मिला। कृपया पुनः प्रयास करें।',
+      toastLocationFound: 'स्थान सेट किया गया:',
+      useMyLocation: 'मेरा वर्तमान स्थान उपयोग करें',
     },
     voice: {
       listening: 'सुन रहा है…',

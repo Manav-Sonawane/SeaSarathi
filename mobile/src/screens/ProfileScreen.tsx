@@ -41,6 +41,7 @@ export function ProfileScreen() {
     setVesselType,
     setRiskTolerance,
     setOperatingPort,
+    setOperatingLocationFromCoords,
     setRole,
     setLanguage,
     getVesselRangeKm,
@@ -56,6 +57,8 @@ export function ProfileScreen() {
   const [toastMessage, setToastMessage] = useState('');
   const [selectedStateFilter, setSelectedStateFilter] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [locatingGps, setLocatingGps] = useState(false);
+  const [gpsError, setGpsError] = useState('');
 
   const isOnline = useNetworkStore((s) => s.isOnline);
   const [bundleMeta, setBundleMeta] = useState<BundleMeta | null>(null);
@@ -112,6 +115,42 @@ export function ProfileScreen() {
 
     return matchesState && matchesSearch;
   });
+
+  // Binds the fisherman's real GPS/browser-geolocation position to their
+  // actual nearest landing location (searched across all 1223 points in
+  // LANDING-LOCATIONS.geojson via setOperatingLocationFromCoords), not just
+  // the ~20 curated major ports in the chip list below. Matters most for
+  // the real landing locations sitting between major ports — e.g. the
+  // ~200km gap between Gujarat's southernmost major port and Mumbai's
+  // northernmost one still has ~40 real landing locations in it.
+  // navigator.geolocation matches the pattern already used in
+  // CompassScreen.tsx — no new native dependency.
+  const handleUseMyLocation = () => {
+    setGpsError('');
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGpsError(t.profile.toastGpsUnavailable);
+      return;
+    }
+    setLocatingGps(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        const result = await setOperatingLocationFromCoords(pos.coords.latitude, pos.coords.longitude);
+        setLocatingGps(false);
+        if (!result.success) {
+          setGpsError(result.error || t.profile.toastGpsFailed);
+        } else {
+          setToastMessage(`${t.profile.toastLocationFound} ${result.portInfo?.name}`);
+          setSavedSuccess(true);
+          setTimeout(() => setSavedSuccess(false), 3500);
+        }
+      },
+      () => {
+        setLocatingGps(false);
+        setGpsError(t.profile.toastGpsPermissionDenied);
+      },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
+    );
+  };
 
   const handleSave = async () => {
     setSaving(true);
@@ -273,6 +312,24 @@ export function ProfileScreen() {
               📍 {portInfo.name} ({portInfo.state} • {portInfo.sea})
             </Text>
           </Text>
+
+          {/* Use real GPS position, matched to the nearest of all 1223
+              landing locations (not just the curated major-port chips
+              below) — see setOperatingLocationFromCoords in userStore.ts. */}
+          <TouchableOpacity
+            style={[styles.gpsLocateBtn, locatingGps && { opacity: 0.7 }]}
+            onPress={handleUseMyLocation}
+            disabled={locatingGps}
+            activeOpacity={0.8}
+          >
+            {locatingGps ? (
+              <ActivityIndicator size="small" color={colors.white} />
+            ) : (
+              <Ionicons name="locate" size={16} color={colors.white} />
+            )}
+            <Text style={styles.gpsLocateBtnText}>{t.profile.useMyLocation}</Text>
+          </TouchableOpacity>
+          {gpsError ? <Text style={styles.gpsErrorText}>{gpsError}</Text> : null}
 
           {/* Search Input */}
           <View style={styles.searchBox}>
@@ -589,6 +646,26 @@ const styles = StyleSheet.create({
   boldText: {
     fontWeight: '800',
     color: colors.primary,
+  },
+  gpsLocateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    height: 40,
+    marginBottom: 6,
+  },
+  gpsLocateBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.white,
+  },
+  gpsErrorText: {
+    fontSize: 11,
+    color: colors.error,
+    marginBottom: 8,
   },
   searchBox: {
     flexDirection: 'row',

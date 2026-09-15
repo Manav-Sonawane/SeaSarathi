@@ -224,6 +224,28 @@ export const geojsonAPI = {
       .then((res) => res.data),
 };
 
+export interface NearestLandingSite {
+  name: string;
+  district: string;
+  sector: string;
+  unique_id: string;
+  status: string;
+  latitude: number;
+  longitude: number;
+  distance_km: number;
+}
+
+export const landingAPI = {
+  // Searches all 1223 points in LANDING-LOCATIONS.geojson (see
+  // backend/src/utils/geo.py's find_nearest_landing_sites), not just the
+  // ~20 curated major ports — used to bind a fisherman's real GPS position
+  // to their actual nearest landing location.
+  getNearest: (latitude: number, longitude: number, limit = 1) =>
+    api
+      .get<{ sites: NearestLandingSite[]; count: number }>('/landing/nearest', { params: { latitude, longitude, limit } })
+      .then((res) => res.data.sites),
+};
+
 export interface OceanPointResponse {
   available: boolean;
   sst_c: number | null;
@@ -252,6 +274,7 @@ export interface ProfilePayload {
   operating_port: string;
   role: string;
   language: string;
+  extra?: Record<string, any>;
 }
 
 export interface ProfileResponseData {
