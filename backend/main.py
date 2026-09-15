@@ -520,6 +520,22 @@ async def geofence_check(latitude: float = 8.5, longitude: float = 76.2):
     }
 
 
+# ─── IMD Fisherman Warnings Endpoint ──────────────────────────────────────────────────
+# Phase 1 of IMD_IMPLEMENTATION_PLAN.md (src/services/imd_fisherman_scraper.py). Always
+# live-scrapes on every call (~10-20s) — kept that way deliberately rather than reading
+# from Phase 6's cache, since this is the "give me the truth right now" endpoint. For a
+# fast, cached, always-current snapshot of this same data alongside the other three live
+# feeds, see GET /alerts/imd/all (src/services/imd_cache.py).
+
+@app.get("/imd/fisherman-warnings", summary="IMD Fisherman Warnings (live scrape)")
+async def imd_fisherman_warnings():
+    from src.services.imd_fisherman_scraper import scrape_fisherman_warnings
+    try:
+        return await scrape_fisherman_warnings()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"IMD fisherman-warnings scrape failed: {e}")
+
+
 # ─── Alerts Endpoint ───────────────────────────────────────────────────────────────────
 
 @app.get("/alerts", summary="Marine Safety Alerts")
