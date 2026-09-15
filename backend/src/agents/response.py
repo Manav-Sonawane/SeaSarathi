@@ -392,6 +392,7 @@ Alerts: {active_alerts_text}
 
 User query: "{query}"
 
+Landing Centers note: "Departure Harbor" is nearest to the fisherman's own current position — this is their home/starting port. "Nearest Harbor to Destination PFZ" is a DIFFERENT thing: the landing point nearest to the recommended fishing zone, useful only as a return/emergency-shelter reference near that zone once they're already out fishing. NEVER call the Destination-PFZ harbor "your nearest port" or suggest departing from there — if you mention it at all, make clear it's near the fishing zone for the return leg, not where they currently are.
 Understand what the user is actually asking, then answer only that, using whatever data above is relevant to it. Leave out data that isn't relevant to the question. Answer in 2 lines.
 If the Risk Level is HIGH, you MUST start your response by explicitly stating the reason why it is high (e.g. dangerous wind speed, high waves, or alerts) before answering their question.
 Respond ONLY in {language_name} ({language_code}), regardless of what language this prompt or the data above is written in. Do not mix in English words except technical units (km/h, m, °C) that don't translate.
