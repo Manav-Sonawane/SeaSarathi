@@ -149,6 +149,7 @@ export function DashboardScreen({ navigation }: any) {
   const [isOfflineData, setIsOfflineData] = useState(false);
   const [offlineAsOf, setOfflineAsOf] = useState<string | null>(null);
   const [conditions, setConditions] = useState<ChatResponse | null>(null);
+  const [conditionsLanguage, setConditionsLanguage] = useState<string>(language);
   const [freshness, setFreshness] = useState<DataFreshnessInfo | null>(null);
   const [refreshingData, setRefreshingData] = useState(false);
   const [syncBannerMessage, setSyncBannerMessage] = useState<string | null>(null);
@@ -161,7 +162,7 @@ export function DashboardScreen({ navigation }: any) {
       checkDataFreshness(true);
     }, 5 * 60 * 1000);
     return () => clearInterval(timer);
-  }, [portInfo.name]);
+  }, [portInfo.name, language]);
 
   const checkDataFreshness = async (triggerAutoRefresh = true) => {
     try {
@@ -213,6 +214,7 @@ export function DashboardScreen({ navigation }: any) {
         profile
       );
       setConditions(res);
+      setConditionsLanguage(language);
       setIsOfflineData(false);
     } catch (err) {
       console.error('[DashboardScreen] Live /chat call failed, trying offline cache:', err);
@@ -226,6 +228,7 @@ export function DashboardScreen({ navigation }: any) {
             portInfo.name
           );
           setConditions(offlineAnswer);
+          setConditionsLanguage(language);
           setIsOfflineData(true);
           setOfflineAsOf(bundle.metadata.created);
         }
@@ -252,10 +255,14 @@ export function DashboardScreen({ navigation }: any) {
   const isRainGood = telemetry.rainfall === 0;
   const warnings: Alert[] = conditions?.alerts ?? [];
 
-  // Get localized fisherman safety advisory — only used while conditions
-  // haven't loaded yet; once loaded, the real backend recommendation is shown.
-  const safetyAdvisory = conditions?.recommendation
-    || langInfo.getAdvisory(portInfo.name, telemetry.riskLevel, telemetry.windSpeed, telemetry.waveHeight, vesselRange);
+  // Get localized fisherman safety advisory:
+  // If conditions was fetched under a different language or hasn't loaded yet,
+  // immediately use the localized advisory for the active language.
+  // Once the fresh chat response for the new language arrives, display its recommendation.
+  const isMatchingLang = conditionsLanguage === language;
+  const safetyAdvisory = (isMatchingLang && conditions?.recommendation)
+    ? conditions.recommendation
+    : langInfo.getAdvisory(portInfo.name, telemetry.riskLevel, telemetry.windSpeed, telemetry.waveHeight, vesselRange);
 
   return (
     <SafeAreaView style={styles.safeArea}>

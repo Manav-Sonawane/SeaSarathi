@@ -36,7 +36,7 @@ export function PFZScreen({ navigation }: any) {
 
   useEffect(() => {
     loadZones();
-  }, [operatingPort]);
+  }, [operatingPort, langInfo.code]);
 
   const loadZones = async () => {
     setLoading(true);

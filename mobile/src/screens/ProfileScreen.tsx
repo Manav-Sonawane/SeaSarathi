@@ -29,6 +29,8 @@ import { getScreenText } from '../constants/screenTranslations';
 export function ProfileScreen() {
   const {
     deviceId,
+    userId,
+    userName,
     vesselType,
     riskTolerance,
     operatingPort,
@@ -45,6 +47,7 @@ export function ProfileScreen() {
     syncWithBackend,
     loadFromBackend,
     getLanguageInfo,
+    logout,
   } = useUserStore();
   const t = getScreenText(getLanguageInfo().code);
 
@@ -138,18 +141,36 @@ export function ProfileScreen() {
         {/* Header Profile Title */}
         <View style={styles.profileHeader}>
           <View style={styles.avatarBox}>
-            <MaterialCommunityIcons name="account-cog-outline" size={28} color={colors.white} />
+            <MaterialCommunityIcons name="sail-boat" size={28} color={colors.white} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.profileName}>{t.profile.title}</Text>
+            <View style={styles.profileNameRow}>
+              <Text style={styles.profileName}>{userName || 'Fisherman'}</Text>
+              <View style={styles.roleHeaderBadge}>
+                <Text style={styles.roleHeaderBadgeText}>
+                  {role === 'union_leader' ? 'UNION LEADER' : 'FISHERMAN'}
+                </Text>
+              </View>
+            </View>
             <Text style={styles.profileSub}>
               {t.profile.activePort}: {portInfo.name} ({portInfo.state}) • {t.pfz.rangeLabel}: {getVesselRangeKm()} km
             </Text>
-            <Text style={styles.deviceIdText}>
-              ID: <Text style={{ fontFamily: 'monospace' }}>{deviceId}</Text>
-            </Text>
+            <View style={styles.idChipRow}>
+              <View style={styles.uniqueIdBox}>
+                <Ionicons name="card" size={13} color="#21BF96" />
+                <Text style={styles.uniqueIdLabel}>USER ID:</Text>
+                <Text style={styles.uniqueIdValue}>{userId || 'USR-KOC-4821'}</Text>
+              </View>
+              {isBackendSynced && (
+                <View style={styles.syncedChip}>
+                  <Ionicons name="cloud-done" size={12} color={colors.white} />
+                  <Text style={styles.syncedChipText}>DB Synced</Text>
+                </View>
+              )}
+            </View>
           </View>
         </View>
+
 
         {/* Success Toast */}
         {savedSuccess && (
@@ -342,33 +363,6 @@ export function ProfileScreen() {
           </View>
         </View>
 
-        {/* Section 4: Operating Role */}
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Ionicons name="people-outline" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>{t.profile.roleSection}</Text>
-          </View>
-
-          <View style={styles.segmentedRow}>
-            <TouchableOpacity
-              style={[styles.segmentBtn, role === 'fisherman' && styles.segmentBtnActive]}
-              onPress={() => setRole('fisherman')}
-            >
-              <Text style={[styles.segmentText, role === 'fisherman' && styles.segmentTextActive]}>
-                {t.profile.individualFisherman.toUpperCase()}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.segmentBtn, role === 'union_leader' && styles.segmentBtnActive]}
-              onPress={() => setRole('union_leader')}
-            >
-              <Text style={[styles.segmentText, role === 'union_leader' && styles.segmentTextActive]}>
-                {t.profile.unionLeader.toUpperCase()}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
 
         {/* Section 5: Voice & Advisory Language (All Regional Languages of India) */}
         <View style={styles.card}>
@@ -384,7 +378,10 @@ export function ProfileScreen() {
                 <TouchableOpacity
                   key={item.code}
                   style={[styles.langBtn, isActive && styles.langBtnActive]}
-                  onPress={() => setLanguage(item.code)}
+                  onPress={() => {
+                    setLanguage(item.code);
+                    syncWithBackend();
+                  }}
                 >
                   <Text style={[styles.langNativeText, isActive && styles.langTextActive]}>
                     {item.nativeName}
@@ -499,7 +496,14 @@ export function ProfileScreen() {
           <Ionicons name="trash-outline" size={16} color={colors.error} />
           <Text style={styles.resetBtnText}>{t.profile.resetPreferences}</Text>
         </TouchableOpacity>
+
+        {/* Switch Account / Sign In */}
+        <TouchableOpacity style={styles.switchAccountBtn} onPress={logout}>
+          <Ionicons name="swap-horizontal" size={16} color={colors.primary} />
+          <Text style={styles.switchAccountBtnText}>Switch Account / Sign In</Text>
+        </TouchableOpacity>
       </ScrollView>
+
     </SafeAreaView>
   );
 }
@@ -858,4 +862,80 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.error,
   },
+  profileNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  roleHeaderBadge: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  roleHeaderBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.white,
+    letterSpacing: 0.5,
+  },
+  idChipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 6,
+  },
+  uniqueIdBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(0,0,0,0.25)',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  uniqueIdLabel: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#8DA9C4',
+  },
+  uniqueIdValue: {
+    fontSize: 10,
+    fontFamily: 'monospace',
+    fontWeight: '800',
+    color: '#21BF96',
+  },
+  syncedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: colors.secondary,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  syncedChipText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: colors.white,
+  },
+  switchAccountBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    marginTop: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.surfaceContainerHigh,
+    backgroundColor: colors.surfaceContainerLowest,
+  },
+  switchAccountBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.primary,
+  },
 });
+

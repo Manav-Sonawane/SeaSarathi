@@ -144,7 +144,8 @@ export function ChatScreen({ navigation }: any) {
   // anything — and leaves an in-progress conversation alone.
   useEffect(() => {
     setMessages((prev) => {
-      if (prev.length > 0) return prev;
+      const isOnlyInitialSeed = prev.length === 2 && prev[0].id === '1' && prev[1].id === '2';
+      if (prev.length > 0 && !isOnlyInitialSeed) return prev;
 
       const initialAdv = langInfo.getAdvisory(portInfo.name, 'LOW', 16, 1.1, vesselRange);
       return [

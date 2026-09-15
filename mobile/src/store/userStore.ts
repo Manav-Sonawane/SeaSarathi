@@ -71,14 +71,19 @@ const getDeviceId = (): string => {
 
 export interface UserProfileState {
   deviceId: string;
+  userId: string;
+  userName: string;
   vesselType: VesselType;
   riskTolerance: RiskTolerance;
   operatingPort: string;
   portInfo: PortInfo;
   role: UserRole;
   language: string;
+  isLoggedIn: boolean;
   isBackendSynced: boolean;
   
+  setUserId: (userId: string) => void;
+  setUserName: (userName: string) => void;
   setVesselType: (vessel: VesselType) => void;
   setRiskTolerance: (risk: RiskTolerance) => void;
   setOperatingPort: (portName: string) => void;
@@ -86,6 +91,17 @@ export interface UserProfileState {
   setLanguage: (langCode: string) => void;
   getVesselRangeKm: () => number;
   getLanguageInfo: () => LanguageInfo;
+  loginWithProfile: (profile: any) => void;
+  logout: () => void;
+  signUp: (params: {
+    name: string;
+    operatingPort: string;
+    vesselType: VesselType;
+    role: UserRole;
+    language: string;
+    riskTolerance: RiskTolerance;
+    password?: string;
+  }) => Promise<{ success: boolean; userId?: string; error?: string }>;
   syncWithBackend: () => Promise<boolean>;
   loadFromBackend: () => Promise<boolean>;
 }
@@ -104,100 +120,169 @@ export const useUserStore = create<UserProfileState>()(
   persist(
     (set, get) => ({
       deviceId: getDeviceId(),
+      userId: 'USR-KOC-4821',
+      userName: 'Ramesh Kumar',
       vesselType: 'medium',
       riskTolerance: 'moderate',
       operatingPort: 'Kochi',
       portInfo: defaultPort,
       role: 'fisherman',
       language: 'en',
+      isLoggedIn: true,
       isBackendSynced: false,
 
-  setVesselType: (vesselType) => set({ vesselType }),
-  setRiskTolerance: (riskTolerance) => set({ riskTolerance }),
-  setOperatingPort: (portName) => {
-    const found = INDIAN_PORTS.find((p) => p.name.toLowerCase() === portName.toLowerCase()) || INDIAN_PORTS[0];
-    set({ operatingPort: found.name, portInfo: found });
-  },
-  setRole: (role) => set({ role }),
-  setLanguage: (language) => set({ language }),
+      setUserId: (userId) => set({ userId }),
+      setUserName: (userName) => set({ userName }),
+      setVesselType: (vesselType) => set({ vesselType }),
+      setRiskTolerance: (riskTolerance) => set({ riskTolerance }),
+      setOperatingPort: (portName) => {
+        const found = INDIAN_PORTS.find((p) => p.name.toLowerCase() === portName.toLowerCase()) || INDIAN_PORTS[0];
+        set({ operatingPort: found.name, portInfo: found });
+      },
+      setRole: (role) => set({ role }),
+      setLanguage: (language) => set({ language }),
 
-  getVesselRangeKm: () => {
-    const { vesselType } = get();
-    switch (vesselType) {
-      case 'small':
-        return 9;
-      case 'medium':
-        return 22;
-      case 'large':
-        return 370;
-      case 'union':
-        return 500;
-      default:
-        return 22;
-    }
-  },
-
-  getLanguageInfo: () => {
-    const { language } = get();
-    return INDIAN_LANGUAGES.find((l) => l.code === language) || INDIAN_LANGUAGES[0];
-  },
-
-  syncWithBackend: async () => {
-    const { deviceId, vesselType, riskTolerance, operatingPort, role, language } = get();
-    try {
-      await profileAPI.upsertProfile({
-        device_id: deviceId,
-        vessel_type: vesselType,
-        risk_tolerance: riskTolerance,
-        operating_port: operatingPort,
-        role: role,
-        language: language,
-      });
-      set({ isBackendSynced: true });
-      return true;
-    } catch {
-      set({ isBackendSynced: false });
-      return false;
-    }
-  },
-
-  loadFromBackend: async () => {
-    const { deviceId } = get();
-    try {
-      const profile = await profileAPI.getProfile(deviceId);
-      if (profile) {
+      loginWithProfile: (profile) => {
         const foundPort = INDIAN_PORTS.find((p) => p.name.toLowerCase() === profile.operating_port.toLowerCase()) || INDIAN_PORTS[0];
         set({
-          vesselType: profile.vessel_type as VesselType,
-          riskTolerance: profile.risk_tolerance as RiskTolerance,
+          userId: profile.user_id || '',
+          userName: profile.name || 'Fisherman',
+          deviceId: profile.device_id || get().deviceId,
+          vesselType: (profile.vessel_type as VesselType) || 'medium',
+          riskTolerance: (profile.risk_tolerance as RiskTolerance) || 'moderate',
           operatingPort: foundPort.name,
           portInfo: foundPort,
-          role: profile.role as UserRole,
-          language: profile.language,
+          role: (profile.role as UserRole) || 'fisherman',
+          language: profile.language || 'en',
+          isLoggedIn: true,
           isBackendSynced: true,
         });
-        return true;
-      }
-    } catch {
-      // Backend not reached or profile not yet created
-    }
-    return false;
-  },
+      },
+
+      logout: () => {
+        set({ isLoggedIn: false });
+      },
+
+      signUp: async (params) => {
+        const { deviceId } = get();
+        const foundPort = INDIAN_PORTS.find((p) => p.name.toLowerCase() === params.operatingPort.toLowerCase()) || INDIAN_PORTS[0];
+        try {
+          const res = await profileAPI.upsertProfile({
+            device_id: deviceId,
+            name: params.name,
+            password: params.password || 'SeaSarathi@2026',
+            operating_port: foundPort.name,
+            vessel_type: params.vesselType,
+            role: params.role,
+            language: params.language,
+            risk_tolerance: params.riskTolerance,
+          });
+
+          set({
+            userId: res.user_id,
+            userName: res.name,
+            vesselType: res.vessel_type as VesselType,
+            riskTolerance: res.risk_tolerance as RiskTolerance,
+            operatingPort: foundPort.name,
+            portInfo: foundPort,
+            role: res.role as UserRole,
+            language: res.language,
+            isLoggedIn: true,
+            isBackendSynced: true,
+          });
+          return { success: true, userId: res.user_id };
+        } catch (err: any) {
+          return { success: false, error: err?.message || 'Sign up failed' };
+        }
+      },
+
+      getVesselRangeKm: () => {
+        const { vesselType } = get();
+        switch (vesselType) {
+          case 'small':
+            return 9;
+          case 'medium':
+            return 22;
+          case 'large':
+            return 370;
+          case 'union':
+            return 500;
+          default:
+            return 22;
+        }
+      },
+
+      getLanguageInfo: () => {
+        const { language } = get();
+        return INDIAN_LANGUAGES.find((l) => l.code === language) || INDIAN_LANGUAGES[0];
+      },
+
+      syncWithBackend: async () => {
+        const { deviceId, userId, userName, vesselType, riskTolerance, operatingPort, role, language } = get();
+        try {
+          const res = await profileAPI.upsertProfile({
+            device_id: deviceId,
+            user_id: userId || undefined,
+            name: userName,
+            vessel_type: vesselType,
+            risk_tolerance: riskTolerance,
+            operating_port: operatingPort,
+            role: role,
+            language: language,
+          });
+          set({
+            userId: res.user_id,
+            userName: res.name,
+            isBackendSynced: true,
+          });
+          return true;
+        } catch {
+          set({ isBackendSynced: false });
+          return false;
+        }
+      },
+
+      loadFromBackend: async () => {
+        const { deviceId, userId } = get();
+        const identifier = userId || deviceId;
+        try {
+          const profile = await profileAPI.getProfile(identifier);
+          if (profile) {
+            const foundPort = INDIAN_PORTS.find((p) => p.name.toLowerCase() === profile.operating_port.toLowerCase()) || INDIAN_PORTS[0];
+            set({
+              userId: profile.user_id,
+              userName: profile.name,
+              vesselType: profile.vessel_type as VesselType,
+              riskTolerance: profile.risk_tolerance as RiskTolerance,
+              operatingPort: foundPort.name,
+              portInfo: foundPort,
+              role: profile.role as UserRole,
+              language: profile.language,
+              isBackendSynced: true,
+            });
+            return true;
+          }
+        } catch {
+          // Backend not reached or profile not yet created
+        }
+        return false;
+      },
     }),
     {
       name: 'seasarathi-user-profile',
       storage: createJSONStorage(() => AsyncStorage),
-      // Persist the profile shape only — not deviceId (already durable via
-      // its own file/localStorage mechanism above) and not isBackendSynced
-      // (transient, meaningless across a restart).
       partialize: (state) => ({
+        userId: state.userId,
+        userName: state.userName,
         vesselType: state.vesselType,
         riskTolerance: state.riskTolerance,
         operatingPort: state.operatingPort,
         portInfo: state.portInfo,
         role: state.role,
         language: state.language,
+        isLoggedIn: state.isLoggedIn,
       }),
     }
   )
 );
+

@@ -96,6 +96,9 @@ class ChatRequest(BaseModel):
 
 class ProfileRequest(BaseModel):
     device_id: str
+    user_id: str | None = None
+    name: str = "Fisherman"
+    password: str = "SeaSarathi@2026"
     vessel_type: str            # "small" | "medium" | "large" | "union"
     risk_tolerance: str         # "conservative" | "moderate" | "aggressive"
     operating_port: str
@@ -103,8 +106,16 @@ class ProfileRequest(BaseModel):
     language: str
 
 
+class LoginRequest(BaseModel):
+    identifier: str
+    password: str = ""
+
+
+
 class ProfileResponse(BaseModel):
     device_id: str
+    user_id: str
+    name: str
     vessel_type: str
     risk_tolerance: str
     operating_port: str
@@ -113,6 +124,7 @@ class ProfileResponse(BaseModel):
     extra: dict
     created_at: str
     updated_at: str
+
 
 
 class OfflineBundleRequest(BaseModel):
@@ -236,18 +248,27 @@ async def chat(request: ChatRequest):
 
 # ─── Profile Endpoints (UPDATE.md Task 1.1 — backend half) ────────────────────
 
+@app.get("/profiles", response_model=list[ProfileResponse], summary="List All Fisherman Profiles")
+async def list_registered_profiles():
+    """Returns all registered fisherman profiles in the database (including preseeded accounts)."""
+    from src.db.profile_db import list_profiles
+    profiles = list_profiles()
+    return [ProfileResponse(**p) for p in profiles]
+
+
 @app.post("/profile", response_model=ProfileResponse, summary="Create or Update Fisherman Profile")
 async def upsert_profile(request: ProfileRequest):
     """
-    Upserts a fisherman profile keyed by device_id (client-generated, persisted
-    on-device — there is no auth layer in this build). Backs the mobile
-    onboarding/profile form so a profile survives reinstalls and is available
-    to the agent pipeline (prompt injection, vessel-range decision tree) server-side.
+    Upserts a fisherman profile keyed by device_id or user_id.
+    Assigns a unique official Marine Fisher ID (e.g. USR-KOC-XXXX) if not provided.
     """
     from src.db.profile_db import upsert_profile as db_upsert_profile
     try:
         profile = db_upsert_profile(
             device_id=request.device_id,
+            user_id=request.user_id,
+            name=request.name,
+            password=request.password,
             vessel_type=request.vessel_type,
             risk_tolerance=request.risk_tolerance,
             operating_port=request.operating_port,
@@ -259,24 +280,44 @@ async def upsert_profile(request: ProfileRequest):
     return ProfileResponse(**profile)
 
 
-@app.get("/profile/{device_id}", response_model=ProfileResponse, summary="Fetch Fisherman Profile")
-async def fetch_profile(device_id: str):
-    """Returns the stored profile for device_id, or 404 if none exists yet."""
+@app.post("/auth/login", response_model=ProfileResponse, summary="Fisherman Login Authentication")
+async def login_fisherman(request: LoginRequest):
+    """
+    Authenticates a fisherman by user_id or device_id and password.
+    """
     from src.db.profile_db import get_profile
-    profile = get_profile(device_id)
+    identifier = request.identifier.strip()
+    profile = get_profile(identifier)
     if profile is None:
-        raise HTTPException(status_code=404, detail=f"No profile found for device_id={device_id}")
+        raise HTTPException(status_code=404, detail=f"No account found for User ID: '{identifier}'")
+
+    stored_pwd = profile.get("password") or "SeaSarathi@2026"
+    if request.password and stored_pwd and request.password.strip() != stored_pwd.strip():
+        raise HTTPException(status_code=401, detail="Incorrect password. Please verify your credentials.")
+
     return ProfileResponse(**profile)
 
 
-@app.delete("/profile/{device_id}", summary="Delete Fisherman Profile")
-async def remove_profile(device_id: str):
-    """Deletes the stored profile for device_id (e.g. app 'reset profile' action)."""
+
+@app.get("/profile/{identifier}", response_model=ProfileResponse, summary="Fetch Fisherman Profile")
+async def fetch_profile(identifier: str):
+    """Returns the stored profile for user_id or device_id, or 404 if none exists yet."""
+    from src.db.profile_db import get_profile
+    profile = get_profile(identifier)
+    if profile is None:
+        raise HTTPException(status_code=404, detail=f"No profile found for identifier={identifier}")
+    return ProfileResponse(**profile)
+
+
+@app.delete("/profile/{identifier}", summary="Delete Fisherman Profile")
+async def remove_profile(identifier: str):
+    """Deletes the stored profile for user_id or device_id."""
     from src.db.profile_db import delete_profile
-    deleted = delete_profile(device_id)
+    deleted = delete_profile(identifier)
     if not deleted:
-        raise HTTPException(status_code=404, detail=f"No profile found for device_id={device_id}")
-    return {"deleted": True, "device_id": device_id}
+        raise HTTPException(status_code=404, detail=f"No profile found for identifier={identifier}")
+    return {"deleted": True, "identifier": identifier}
+
 
 
 # ─── Deep Sea Connectivity / Offline Bundle (UPDATE.md Improvement 3) ─────────

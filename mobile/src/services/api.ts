@@ -225,6 +225,9 @@ export const geojsonAPI = {
 
 export interface ProfilePayload {
   device_id: string;
+  user_id?: string;
+  name?: string;
+  password?: string;
   vessel_type: string;
   risk_tolerance: string;
   operating_port: string;
@@ -234,6 +237,8 @@ export interface ProfilePayload {
 
 export interface ProfileResponseData {
   device_id: string;
+  user_id: string;
+  name: string;
   vessel_type: string;
   risk_tolerance: string;
   operating_port: string;
@@ -248,12 +253,22 @@ export const profileAPI = {
   upsertProfile: (payload: ProfilePayload) =>
     api.post<ProfileResponseData>('/profile', payload).then((res) => res.data),
 
-  getProfile: (deviceId: string) =>
-    api.get<ProfileResponseData>(`/profile/${deviceId}`).then((res) => res.data),
+  getProfile: (identifier: string) =>
+    api.get<ProfileResponseData>(`/profile/${identifier}`).then((res) => res.data),
 
-  deleteProfile: (deviceId: string) =>
-    api.delete<{ deleted: boolean; device_id: string }>(`/profile/${deviceId}`).then((res) => res.data),
+  listProfiles: () =>
+    api.get<ProfileResponseData[]>('/profiles').then((res) => res.data),
+
+  login: (identifier: string, password?: string) =>
+    api
+      .post<ProfileResponseData>('/auth/login', { identifier, password: password || '' })
+      .then((res) => res.data),
+
+  deleteProfile: (identifier: string) =>
+    api.delete<{ deleted: boolean; identifier: string }>(`/profile/${identifier}`).then((res) => res.data),
 };
+
+
 
 // ── Offline bundle (Deep Sea Connectivity — UPDATE.md Improvement 3) ────────
 // Matches backend/src/services/offline_cache.py's prepare_offline_bundle() shape.
