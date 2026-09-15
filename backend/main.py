@@ -588,6 +588,29 @@ async def imd_sea_area_archive(limit: int = 5):
         raise HTTPException(status_code=502, detail=f"IMD sea-area-archive scrape failed: {e}")
 
 
+# ─── IMD Port Warning Archive Endpoint ────────────────────────────────────────────────
+# Phase 5 of IMD_IMPLEMENTATION_PLAN.md (src/services/imd_port_warning_scraper.py). Always
+# live-scrapes — takes date/days params like Phase 3's endpoint, for the same reason. 120
+# ports (not the plan's assumed ~8) x `days` dates, concurrency-capped at
+# MAX_CONCURRENT_REQUESTS (~8-10s for days=1). `severity` is classified from IMD's own
+# published port-signal taxonomy (DC1/DW2/LC3/LW4/D5-D7/GD8-GD10/XI) — see that module's
+# docstring. For today's data cached, see GET /alerts/imd/all.
+
+@app.get("/imd/port-warnings", summary="IMD Port Warning Archive (live scrape)")
+async def imd_port_warnings(date: str | None = None, days: int = 1):
+    """
+    `date`: YYYY-MM-DD, defaults to today. `days`: how many days back from
+    `date` to include (1-3, see imd_port_warning_scraper.MAX_DAYS).
+    """
+    from src.services.imd_port_warning_scraper import scrape_port_warnings
+    try:
+        return await scrape_port_warnings(date_str=date, days=days)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"IMD port-warnings scrape failed: {e}")
+
+
 # ─── Alerts Endpoint ───────────────────────────────────────────────────────────────────
 
 @app.get("/alerts", summary="Marine Safety Alerts")
