@@ -53,9 +53,17 @@ async def lifespan(app: FastAPI):
     asyncio.create_task(refresh_grid_now())
     freshness_task = asyncio.create_task(start_periodic_freshness_loop())
 
+    # IMD live-feed cache (backend/src/services/imd_cache.py) — same
+    # backgrounded-startup-refresh + periodic-staleness-loop pattern as the
+    # Copernicus grid above, applied to Phases 1/2/3/5's scrapers.
+    from src.services.imd_cache import refresh_all_now, start_periodic_imd_refresh_loop
+    asyncio.create_task(refresh_all_now())
+    imd_refresh_task = asyncio.create_task(start_periodic_imd_refresh_loop())
+
     yield
 
     freshness_task.cancel()
+    imd_refresh_task.cancel()
     print("SeaSarathi Backend shutting down...")
 
 
@@ -609,6 +617,25 @@ async def imd_port_warnings(date: str | None = None, days: int = 1):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"IMD port-warnings scrape failed: {e}")
+
+
+# ─── IMD Unified Cached Endpoint ───────────────────────────────────────────────────────
+# Phase 6 of IMD_IMPLEMENTATION_PLAN.md (src/services/imd_cache.py). Reads from the
+# in-memory cache kept warm by main.py's lifespan (startup refresh + periodic staleness
+# loop, same pattern as the Copernicus grid) instead of live-scraping — normally
+# near-instant. Falls back to a synchronous scrape only if a source has genuinely never
+# been cached yet (e.g. a request landing before the startup refresh finished).
+
+@app.get("/alerts/imd/all", summary="All IMD Live Feeds (cached)")
+async def imd_all_cached():
+    from src.services.imd_cache import get_all
+    return await get_all()
+
+
+@app.get("/alerts/imd/status", summary="IMD Cache Status")
+async def imd_cache_status():
+    from src.services.imd_cache import cache_status
+    return cache_status()
 
 
 # ─── Alerts Endpoint ───────────────────────────────────────────────────────────────────
