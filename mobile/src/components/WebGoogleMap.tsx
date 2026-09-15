@@ -173,18 +173,20 @@ export function WebGoogleMap({
       });
     });
 
-    // Risk heatmap — real semi-transparent circles, matching risk_heatmap.py's
-    // own color/opacity exactly (the JS API supports this natively, unlike
-    // the Static Maps image path, which can only place colored pins).
+    // Risk heatmap — real semi-transparent circles from risk_heatmap.py.
+    // Radius/opacity capped below the raw values (18km, up to full opacity)
+    // that used to render as one dominating solid blob rather than a
+    // legible heat "point" — this keeps the color/severity data genuine
+    // while making the overlay a glow instead of a wall.
     riskPoints.forEach((f) => {
       const circle = new google.maps.Circle({
         center: { lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0] },
-        radius: 18000,
+        radius: 6000,
         fillColor: f.properties.color,
-        fillOpacity: f.properties.opacity,
+        fillOpacity: Math.min(f.properties.opacity, 0.45),
         strokeColor: f.properties.color,
-        strokeOpacity: 0.9,
-        strokeWeight: 1,
+        strokeOpacity: 0.6,
+        strokeWeight: 0.5,
         map,
       });
       overlaysRef.current.push(circle);
@@ -195,12 +197,12 @@ export function WebGoogleMap({
     landingFeatures.forEach((site) => {
       const marker = new google.maps.Circle({
         center: { lat: site.latitude, lng: site.longitude },
-        radius: 700,
+        radius: 350,
         fillColor: '#FBBF24',
-        fillOpacity: 0.9,
-        strokeColor: '#78350F',
-        strokeOpacity: 0.9,
-        strokeWeight: 1,
+        fillOpacity: 0.85,
+        strokeColor: '#92400E',
+        strokeOpacity: 0.7,
+        strokeWeight: 0.75,
         clickable: true,
         map,
       });

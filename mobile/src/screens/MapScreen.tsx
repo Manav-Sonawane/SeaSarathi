@@ -97,6 +97,10 @@ export function MapScreen({ navigation }: any) {
   };
 
   const [hudOpen, setHudOpen] = useState(false);
+  // Owned here (not inside GoogleMapContainer) so its toggle button can sit
+  // in the same top-right control column as Cache/Layers, instead of a
+  // separate header bar competing with the top-left compass for space.
+  const [mapMode, setMapMode] = useState<'satellite' | 'vector'>('satellite');
   const [zoom, setZoom] = useState(11);
   const [panOffset, setPanOffset] = useState({ x: 0, y: 0 });
   const [bearing, setBearing] = useState(285);
@@ -472,10 +476,13 @@ export function MapScreen({ navigation }: any) {
                 <Circle
                   key={`risk-${i}`}
                   center={{ latitude: f.geometry.coordinates[1], longitude: f.geometry.coordinates[0] }}
-                  radius={18000}
-                  fillColor={`${f.properties.color}${Math.round(f.properties.opacity * 255).toString(16).padStart(2, '0')}`}
+                  // Softer/smaller than the original 18km, full-opacity fill —
+                  // that rendered as one dominating solid blob rather than a
+                  // heat "point". Capping opacity keeps it a glow, not a wall.
+                  radius={6000}
+                  fillColor={`${f.properties.color}${Math.round(Math.min(f.properties.opacity, 0.45) * 255).toString(16).padStart(2, '0')}`}
                   strokeColor={f.properties.color}
-                  strokeWidth={1}
+                  strokeWidth={0.5}
                 />
               ))}
 
@@ -561,6 +568,7 @@ export function MapScreen({ navigation }: any) {
             boundaryFeatures={boundaryFeatures}
             landingFeatures={landingFeatures}
             onSelectLandingSite={handleSelectLandingSite}
+            mapMode={mapMode}
           />
         )}
 
@@ -610,6 +618,27 @@ export function MapScreen({ navigation }: any) {
         {/* Floating Layer Controls Drawer (Top Right) - Hides when hovering map */}
         {!isMapHovered && (
           <View style={styles.topRightControls}>
+            {/* Satellite/vector map-style toggle — only meaningful on the
+                GoogleMapContainer render path (web, or native fallback when
+                react-native-maps isn't available); the real native MapView
+                has no separate "vector" mode to switch to. */}
+            {(Platform.OS === 'web' || !MapView) && (
+              <TouchableOpacity
+                style={styles.mapModeBtn}
+                onPress={() => setMapMode((m) => (m === 'satellite' ? 'vector' : 'satellite'))}
+                activeOpacity={0.8}
+              >
+                <Ionicons
+                  name={mapMode === 'satellite' ? 'earth' : 'map'}
+                  size={14}
+                  color={colors.secondaryContainer}
+                />
+                <Text style={styles.mapModeBtnText}>
+                  {mapMode === 'satellite' ? 'Satellite' : 'India Map'}
+                </Text>
+              </TouchableOpacity>
+            )}
+
             {/* Offline map cache pre-fetch trigger */}
             <TouchableOpacity
               style={[styles.cacheMapBtn, (cachingMap || !isOnline) && { opacity: 0.7 }]}
@@ -888,6 +917,21 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
     gap: 8,
   },
+  mapModeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.inverseSurface,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    elevation: 4,
+  },
+  mapModeBtnText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.inverseOnSurface,
+  },
   cacheMapBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -966,6 +1010,11 @@ const styles = StyleSheet.create({
     bottom: 16,
     left: 16,
     right: 16,
+    // On wide/web viewports a full-bleed card left the 3-4 metric columns
+    // stranded with huge empty gaps between them — cap and center it like a
+    // proper card instead of stretching edge-to-edge.
+    maxWidth: 460,
+    alignSelf: 'center',
     backgroundColor: colors.surfaceContainerLowest,
     borderRadius: 16,
     padding: 14,
@@ -1013,8 +1062,9 @@ const styles = StyleSheet.create({
   zoneMetricsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 8,
+    justifyContent: 'center',
+    columnGap: 22,
+    rowGap: 10,
     backgroundColor: colors.surfaceContainerLow,
     padding: 10,
     borderRadius: 8,
@@ -1022,6 +1072,7 @@ const styles = StyleSheet.create({
   },
   zoneMetricItem: {
     alignItems: 'center',
+    minWidth: 72,
   },
   metricLabelText: {
     fontSize: 9,
