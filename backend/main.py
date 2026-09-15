@@ -536,6 +536,21 @@ async def imd_fisherman_warnings():
         raise HTTPException(status_code=502, detail=f"IMD fisherman-warnings scrape failed: {e}")
 
 
+# ─── IMD Sea Area Bulletins Endpoint ──────────────────────────────────────────────────
+# Phase 2 of IMD_IMPLEMENTATION_PLAN.md (src/services/imd_sea_area_scraper.py). Always
+# live-scrapes (see the Fisherman Warnings endpoint's comment above for why, and
+# GET /alerts/imd/all for the cached alternative). The safety-critical TTT (cyclone/storm)
+# warning field is parsed deterministically, not via the LLM — see that module's docstring.
+
+@app.get("/imd/sea-area-bulletins", summary="IMD Sea Area Bulletins (live scrape)")
+async def imd_sea_area_bulletins():
+    from src.services.imd_sea_area_scraper import scrape_sea_area_bulletins
+    try:
+        return await scrape_sea_area_bulletins()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"IMD sea-area-bulletins scrape failed: {e}")
+
+
 # ─── Alerts Endpoint ───────────────────────────────────────────────────────────────────
 
 @app.get("/alerts", summary="Marine Safety Alerts")
