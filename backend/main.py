@@ -109,15 +109,22 @@ class ProfileRequest(BaseModel):
     password: str = "SeaSarathi@2026"
     vessel_type: str            # "small" | "medium" | "large" | "union"
     risk_tolerance: str         # "conservative" | "moderate" | "aggressive"
+    # The fisherman's deliberately-SELECTED official/home port — always one
+    # of the ~20 curated major ports (Kochi, Mumbai Sassoon Dock, Veraval,
+    # etc.), used for identity (Marine Fisher ID generation is keyed off
+    # this). Distinct from the ephemeral GPS-derived "current location"
+    # below, which can be any of India's ~1223 real landing locations.
     operating_port: str
     role: str                   # "fisherman" | "union_leader"
     language: str
     # Free-form bag, round-tripped as-is. Used by the mobile app to persist
-    # operating_port_latitude/longitude when the port was resolved from the
-    # user's real GPS position (nearest of all 1223 landing locations, not
-    # just the ~20 curated major ports) rather than picked from the list —
-    # otherwise reloading the profile would look the port name up in the
-    # curated list only, fail to find it, and silently reset to Kochi.
+    # current_location_latitude/longitude/name/district/sector — the
+    # fisherman's real GPS-bound position (nearest of all 1223 landing
+    # locations, not just the curated ~20), kept separate from
+    # operating_port so a real-time location fix never overwrites the
+    # fisherman's stable, registered home port. Explicit nulls (not simply
+    # omitted) clear a stale binding, since extra_json is fully REPLACED —
+    # not merged — on every save (see profile_db.py's upsert_profile).
     extra: dict | None = None
 
 

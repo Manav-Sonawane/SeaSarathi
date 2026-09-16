@@ -17,6 +17,7 @@ import { useUserStore } from '../store/userStore';
 import { getCachedBundleForOffline, buildOfflineAlerts, formatRelativeTime } from '../services/offlineService';
 import { useNetworkStore } from '../store/networkStore';
 import { getScreenText } from '../constants/screenTranslations';
+import { LocationSourceBadge } from '../components/LocationSourceBadge';
 
 // Static example card shown only until the first /alerts response (live or
 // cached) arrives, so the screen isn't empty on first paint.
@@ -145,6 +146,7 @@ export function AlertsScreen({ navigation }: any) {
               <View style={styles.sentryBadgesRow}>
                 <Text style={styles.sentrySubBadge}>📍 {operatingPort}</Text>
               </View>
+              <LocationSourceBadge />
             </View>
           </View>
         </View>

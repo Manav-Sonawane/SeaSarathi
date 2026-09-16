@@ -22,6 +22,7 @@ import { detectQueryLanguage, bcp47ToAppLanguage } from '../utils/languageDetect
 import { INDIAN_LANGUAGES } from '../constants/portsAndLanguages';
 import { getScreenText } from '../constants/screenTranslations';
 import { playTtsClips } from '../services/voiceService';
+import { LocationSourceBadge } from '../components/LocationSourceBadge';
 
 interface Message {
   id: string;
@@ -312,6 +313,7 @@ export function ChatScreen({ navigation }: any) {
             </Text>
             <Text style={styles.gpsSource}>{portInfo.sea}</Text>
           </View>
+          <LocationSourceBadge />
         </View>
 
         {/* Preset Questions */}

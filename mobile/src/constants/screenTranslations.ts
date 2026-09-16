@@ -7,6 +7,15 @@
  */
 
 export interface ScreenText {
+  // Shared across screens (Dashboard/Alerts/Chat) via LocationSourceBadge —
+  // makes it visible which location is actually driving what's on screen,
+  // since Current Location silently overrides Home Port for every
+  // real-time query (see userStore.ts's portInfo resolution) and that
+  // distinction otherwise only lives on the Profile screen.
+  common: {
+    showingCurrentLocation: string;
+    showingHomePort: string;
+  };
   pfz: {
     fetching: string;
     offlineNotice: string;
@@ -129,6 +138,11 @@ export interface ScreenText {
     toastGpsFailed: string;
     toastLocationFound: string;
     useMyLocation: string;
+    currentLocationSection: string;
+    currentLocationDesc: string;
+    currentLocationActiveLabel: string;
+    clearCurrentLocation: string;
+    homePortOverriddenNote: string;
   };
   voice: {
     listening: string;
@@ -220,6 +234,10 @@ export interface CompassText {
 
 export const SCREEN_TEXT: Record<string, ScreenText> = {
   en: {
+    common: {
+      showingCurrentLocation: 'Showing: {name} (Current Location)',
+      showingHomePort: 'Showing: {name} (Home Port)',
+    },
     pfz: {
       fetching: 'Fetching ocean productivity zones…',
       offlineNotice: 'OFFLINE mode — SST/chlorophyll need a live connection',
@@ -350,6 +368,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastGpsFailed: 'Could not find a nearby landing location. Please try again.',
       toastLocationFound: 'Location set to',
       useMyLocation: 'Use My Current Location',
+      currentLocationSection: 'Current Location',
+      currentLocationDesc: 'Optional — bind your real GPS position to the nearest of all 1,223 real landing locations across India, not just major ports. Used for chat, map, alerts, and fishing zone recommendations until cleared.',
+      currentLocationActiveLabel: 'Active',
+      clearCurrentLocation: 'Clear — use my Home Port instead',
+      homePortOverriddenNote: 'A Current Location is active above — it is being used instead of this Home Port for real-time recommendations.',
     },
     voice: {
       listening: 'Listening…',
@@ -437,6 +460,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
     },
   },
   ml: {
+    common: {
+      showingCurrentLocation: 'കാണിക്കുന്നത്: {name} (നിലവിലെ സ്ഥാനം)',
+      showingHomePort: 'കാണിക്കുന്നത്: {name} (ഹോം പോർട്ട്)',
+    },
     pfz: {
       fetching: 'മത്സ്യബന്ധന മേഖലകൾ ലഭ്യമാക്കുന്നു…',
       offlineNotice: 'ഓഫ്‌ലൈൻ മോഡ് — SST/ക്ലോറോഫിൽ ലഭിക്കാൻ ഇന്റർനെറ്റ് വേണം',
@@ -567,6 +594,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastGpsFailed: 'സമീപത്തുള്ള ലാൻഡിംഗ് കേന്ദ്രം കണ്ടെത്താനായില്ല. വീണ്ടും ശ്രമിക്കുക.',
       toastLocationFound: 'സ്ഥാനം സജ്ജമാക്കി:',
       useMyLocation: 'എന്റെ നിലവിലെ സ്ഥാനം ഉപയോഗിക്കുക',
+      currentLocationSection: 'നിലവിലെ സ്ഥാനം',
+      currentLocationDesc: 'ഐച്ഛികം — പ്രധാന തുറമുഖങ്ങൾ മാത്രമല്ല, ഇന്ത്യയിലെ 1,223 യഥാർത്ഥ ലാൻഡിംഗ് കേന്ദ്രങ്ങളിൽ ഏറ്റവും അടുത്തുള്ളതുമായി നിങ്ങളുടെ യഥാർത്ഥ GPS സ്ഥാനം ബന്ധിപ്പിക്കുക. നീക്കം ചെയ്യുന്നതുവരെ ചാറ്റ്, മാപ്പ്, മുന്നറിയിപ്പുകൾ, മത്സ്യബന്ധന മേഖല ശുപാർശകൾ എന്നിവയ്ക്ക് ഇത് ഉപയോഗിക്കുന്നു.',
+      currentLocationActiveLabel: 'സജീവം',
+      clearCurrentLocation: 'നീക്കം ചെയ്യുക — പകരം എന്റെ ഹോം പോർട്ട് ഉപയോഗിക്കുക',
+      homePortOverriddenNote: 'മുകളിൽ ഒരു നിലവിലെ സ്ഥാനം സജീവമാണ് — തത്സമയ ശുപാർശകൾക്കായി ഈ ഹോം പോർട്ടിന് പകരം അതാണ് ഉപയോഗിക്കുന്നത്.',
     },
     voice: {
       listening: 'കേൾക്കുന്നു…',
@@ -654,6 +686,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
     },
   },
   ta: {
+    common: {
+      showingCurrentLocation: 'காட்டப்படுவது: {name} (தற்போதைய இருப்பிடம்)',
+      showingHomePort: 'காட்டப்படுவது: {name} (வீட்டு துறைமுகம்)',
+    },
     pfz: {
       fetching: 'மீன்பிடி மண்டலங்களை பெறுகிறது…',
       offlineNotice: 'ஆஃப்லைன் பயன்முறை — SST/பசுமைச் செறிவுக்கு இணையம் தேவை',
@@ -784,6 +820,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastGpsFailed: 'அருகிலுள்ள இறங்கு மையத்தைக் கண்டறிய முடியவில்லை. மீண்டும் முயற்சிக்கவும்.',
       toastLocationFound: 'இருப்பிடம் அமைக்கப்பட்டது:',
       useMyLocation: 'எனது தற்போதைய இருப்பிடத்தைப் பயன்படுத்து',
+      currentLocationSection: 'தற்போதைய இருப்பிடம்',
+      currentLocationDesc: 'விருப்பத்தேர்வு — முக்கிய துறைமுகங்கள் மட்டுமல்ல, இந்தியா முழுவதும் உள்ள 1,223 உண்மையான இறங்கு மையங்களில் அருகிலுள்ளதுடன் உங்கள் உண்மையான GPS இருப்பிடத்தை இணைக்கவும். இது அழிக்கும் வரை அரட்டை, வரைபடம், எச்சரிக்கைகள் மற்றும் மீன்பிடி மண்டல பரிந்துரைகளுக்கு பயன்படுத்தப்படுகிறது.',
+      currentLocationActiveLabel: 'செயலில்',
+      clearCurrentLocation: 'அழி — பதிலாக எனது வீட்டு துறைமுகத்தைப் பயன்படுத்து',
+      homePortOverriddenNote: 'மேலே ஒரு தற்போதைய இருப்பிடம் செயலில் உள்ளது — நிகழ்நேர பரிந்துரைகளுக்கு இந்த வீட்டு துறைமுகத்திற்கு பதிலாக அது பயன்படுத்தப்படுகிறது.',
     },
     voice: {
       listening: 'கேட்கிறது…',
@@ -848,6 +889,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
     },
   },
   te: {
+    common: {
+      showingCurrentLocation: 'చూపిస్తోంది: {name} (ప్రస్తుత స్థానం)',
+      showingHomePort: 'చూపిస్తోంది: {name} (హోమ్ పోర్ట్)',
+    },
     pfz: {
       fetching: 'చేపల వేట మండలాలను పొందుతోంది…',
       offlineNotice: 'ఆఫ్‌లైన్ మోడ్ — SST/క్లోరోఫిల్‌కు లైవ్ కనెక్షన్ అవసరం',
@@ -978,6 +1023,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastGpsFailed: 'సమీపంలోని ల్యాండింగ్ కేంద్రాన్ని కనుగొనలేకపోయాము. మళ్లీ ప్రయత్నించండి.',
       toastLocationFound: 'స్థానం సెట్ చేయబడింది:',
       useMyLocation: 'నా ప్రస్తుత స్థానాన్ని ఉపయోగించండి',
+      currentLocationSection: 'ప్రస్తుత స్థానం',
+      currentLocationDesc: 'ఐచ్ఛికం — ప్రధాన నౌకాశ్రయాలు మాత్రమే కాకుండా, భారతదేశం అంతటా ఉన్న 1,223 నిజమైన ల్యాండింగ్ కేంద్రాలలో సమీపంలో ఉన్నదానితో మీ నిజమైన GPS స్థానాన్ని బంధించండి. క్లియర్ చేసే వరకు ఇది చాట్, మ్యాప్, హెచ్చరికలు మరియు మత్స్య మండల సిఫార్సులకు ఉపయోగించబడుతుంది.',
+      currentLocationActiveLabel: 'సక్రియం',
+      clearCurrentLocation: 'క్లియర్ చేయండి — బదులుగా నా హోమ్ పోర్ట్ ఉపయోగించండి',
+      homePortOverriddenNote: 'పైన ఒక ప్రస్తుత స్థానం సక్రియంగా ఉంది — నిజ-సమయ సిఫార్సుల కోసం ఈ హోమ్ పోర్ట్‌కు బదులుగా అది ఉపయోగించబడుతోంది.',
     },
     voice: {
       listening: 'వింటోంది…',
@@ -1042,6 +1092,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
     },
   },
   bn: {
+    common: {
+      showingCurrentLocation: 'দেখানো হচ্ছে: {name} (বর্তমান অবস্থান)',
+      showingHomePort: 'দেখানো হচ্ছে: {name} (হোম পোর্ট)',
+    },
     pfz: {
       fetching: 'মৎস্য শিকার অঞ্চল আনা হচ্ছে…',
       offlineNotice: 'অফলাইন মোড — SST/ক্লোরোফিলের জন্য ইন্টারনেট প্রয়োজন',
@@ -1172,6 +1226,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastGpsFailed: 'কাছাকাছি ল্যান্ডিং কেন্দ্র খুঁজে পাওয়া যায়নি। আবার চেষ্টা করুন।',
       toastLocationFound: 'অবস্থান সেট করা হয়েছে:',
       useMyLocation: 'আমার বর্তমান অবস্থান ব্যবহার করুন',
+      currentLocationSection: 'বর্তমান অবস্থান',
+      currentLocationDesc: 'ঐচ্ছিক — শুধু প্রধান বন্দর নয়, সারা ভারতে ১,২২৩টি প্রকৃত অবতরণ কেন্দ্রের মধ্যে নিকটতমটির সাথে আপনার প্রকৃত GPS অবস্থান আবদ্ধ করুন। মুছে ফেলা না হওয়া পর্যন্ত এটি চ্যাট, মানচিত্র, সতর্কতা এবং মৎস্য অঞ্চল সুপারিশের জন্য ব্যবহৃত হয়।',
+      currentLocationActiveLabel: 'সক্রিয়',
+      clearCurrentLocation: 'মুছুন — পরিবর্তে আমার হোম পোর্ট ব্যবহার করুন',
+      homePortOverriddenNote: 'উপরে একটি বর্তমান অবস্থান সক্রিয় আছে — রিয়েল-টাইম সুপারিশের জন্য এই হোম পোর্টের পরিবর্তে সেটি ব্যবহার করা হচ্ছে।',
     },
     voice: {
       listening: 'শুনছে…',
@@ -1236,6 +1295,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
     },
   },
   gu: {
+    common: {
+      showingCurrentLocation: 'બતાવી રહ્યું છે: {name} (વર્તમાન સ્થાન)',
+      showingHomePort: 'બતાવી રહ્યું છે: {name} (હોમ પોર્ટ)',
+    },
     pfz: {
       fetching: 'માછીમારી ઝોન મેળવી રહ્યા છીએ…',
       offlineNotice: 'ઓફલાઇન મોડ — SST/ક્લોરોફિલ માટે ઇન્ટરનેટ જરૂરી છે',
@@ -1366,6 +1429,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastGpsFailed: 'નજીકનું લેન્ડિંગ કેન્દ્ર મળ્યું નથી. ફરી પ્રયાસ કરો.',
       toastLocationFound: 'સ્થાન સેટ કર્યું:',
       useMyLocation: 'મારું વર્તમાન સ્થાન વાપરો',
+      currentLocationSection: 'વર્તમાન સ્થાન',
+      currentLocationDesc: 'વૈકલ્પિક — ફક્ત મુખ્ય બંદરો જ નહીં, સમગ્ર ભારતમાં 1,223 વાસ્તવિક લેન્ડિંગ સ્થળોમાંથી નજીકના સાથે તમારું વાસ્તવિક GPS સ્થાન બાંધો. સાફ ન થાય ત્યાં સુધી આ ચેટ, નકશો, ચેતવણીઓ અને માછીમારી ઝોન ભલામણો માટે વપરાય છે.',
+      currentLocationActiveLabel: 'સક્રિય',
+      clearCurrentLocation: 'સાફ કરો — તેના બદલે મારું હોમ પોર્ટ વાપરો',
+      homePortOverriddenNote: 'ઉપર એક વર્તમાન સ્થાન સક્રિય છે — રીઅલ-ટાઇમ ભલામણો માટે આ હોમ પોર્ટને બદલે તેનો ઉપયોગ થઈ રહ્યો છે.',
     },
     voice: {
       listening: 'સાંભળી રહ્યું છે…',
@@ -1430,6 +1498,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
     },
   },
   mr: {
+    common: {
+      showingCurrentLocation: 'दाखवत आहे: {name} (सध्याचे स्थान)',
+      showingHomePort: 'दाखवत आहे: {name} (होम पोर्ट)',
+    },
     pfz: {
       fetching: 'मासेमारी क्षेत्रे मिळवत आहे…',
       offlineNotice: 'ऑफलाइन मोड — SST/क्लोरोफिलसाठी इंटरनेट आवश्यक आहे',
@@ -1560,6 +1632,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastGpsFailed: 'जवळचे लँडिंग केंद्र सापडले नाही. पुन्हा प्रयत्न करा.',
       toastLocationFound: 'स्थान सेट केले:',
       useMyLocation: 'माझे सध्याचे स्थान वापरा',
+      currentLocationSection: 'सध्याचे स्थान',
+      currentLocationDesc: 'ऐच्छिक — फक्त प्रमुख बंदरेच नव्हे, तर संपूर्ण भारतातील 1,223 खऱ्या लँडिंग ठिकाणांपैकी जवळच्या ठिकाणाशी तुमचे खरे GPS स्थान बांधा. साफ होईपर्यंत हे चॅट, नकाशा, सूचना आणि मासेमारी क्षेत्र शिफारसींसाठी वापरले जाते.',
+      currentLocationActiveLabel: 'सक्रिय',
+      clearCurrentLocation: 'साफ करा — त्याऐवजी माझे होम पोर्ट वापरा',
+      homePortOverriddenNote: 'वर एक सध्याचे स्थान सक्रिय आहे — रिअल-टाइम शिफारसींसाठी या होम पोर्टऐवजी तेच वापरले जात आहे.',
     },
     voice: {
       listening: 'ऐकत आहे…',
@@ -1624,6 +1701,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
     },
   },
   or: {
+    common: {
+      showingCurrentLocation: 'ଦେଖାଉଛି: {name} (ବର୍ତ୍ତମାନ ଅବସ୍ଥାନ)',
+      showingHomePort: 'ଦେଖାଉଛି: {name} (ହୋମ୍ ପୋର୍ଟ)',
+    },
     pfz: {
       fetching: 'ମାଛ ଧରା ଅଞ୍ଚଳ ଆଣୁଛି…',
       offlineNotice: 'ଅଫଲାଇନ ମୋଡ୍ — SST/କ୍ଲୋରୋଫିଲ୍ ପାଇଁ ଇଣ୍ଟରନେଟ୍ ଆବଶ୍ୟକ',
@@ -1754,6 +1835,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastGpsFailed: 'ନିକଟସ୍ଥ ଲ୍ୟାଣ୍ଡିଂ କେନ୍ଦ୍ର ମିଳିଲା ନାହିଁ। ପୁଣି ଚେଷ୍ଟା କରନ୍ତୁ।',
       toastLocationFound: 'ଅବସ୍ଥାନ ସେଟ୍ ହେଲା:',
       useMyLocation: 'ମୋର ବର୍ତ୍ତମାନ ଅବସ୍ଥାନ ବ୍ୟବହାର କରନ୍ତୁ',
+      currentLocationSection: 'ବର୍ତ୍ତମାନ ଅବସ୍ଥାନ',
+      currentLocationDesc: 'ଇଚ୍ଛାଧୀନ — କେବଳ ମୁଖ୍ୟ ବନ୍ଦରଗୁଡ଼ିକ ନୁହେଁ, ସମଗ୍ର ଭାରତରେ 1,223 ପ୍ରକୃତ ଲ୍ୟାଣ୍ଡିଂ ସ୍ଥାନ ମଧ୍ୟରୁ ନିକଟତମ ସହିତ ଆପଣଙ୍କର ପ୍ରକୃତ GPS ଅବସ୍ଥାନ ବାନ୍ଧନ୍ତୁ। ସଫା ନହେବା ପର୍ଯ୍ୟନ୍ତ ଏହା ଚାଟ୍, ମାନଚିତ୍ର, ଚେତାବନୀ ଏବଂ ମାଛ ଧରା ମଣ୍ଡଳ ସୁପାରିଶ ପାଇଁ ବ୍ୟବହୃତ ହୁଏ।',
+      currentLocationActiveLabel: 'ସକ୍ରିୟ',
+      clearCurrentLocation: 'ସଫା କରନ୍ତୁ — ପରିବର୍ତ୍ତେ ମୋର ହୋମ୍ ପୋର୍ଟ ବ୍ୟବହାର କରନ୍ତୁ',
+      homePortOverriddenNote: 'ଉପରେ ଏକ ବର୍ତ୍ତମାନ ଅବସ୍ଥାନ ସକ୍ରିୟ ଅଛି — ରିଅଲ୍-ଟାଇମ୍ ସୁପାରିଶ ପାଇଁ ଏହି ହୋମ୍ ପୋର୍ଟ ପରିବର୍ତ୍ତେ ତାହା ବ୍ୟବହୃତ ହେଉଛି।',
     },
     voice: {
       listening: 'ଶୁଣୁଛି…',
@@ -1818,6 +1904,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
     },
   },
   kn: {
+    common: {
+      showingCurrentLocation: 'ತೋರಿಸಲಾಗುತ್ತಿದೆ: {name} (ಪ್ರಸ್ತುತ ಸ್ಥಳ)',
+      showingHomePort: 'ತೋರಿಸಲಾಗುತ್ತಿದೆ: {name} (ಹೋಮ್ ಪೋರ್ಟ್)',
+    },
     pfz: {
       fetching: 'ಮೀನುಗಾರಿಕೆ ವಲಯಗಳನ್ನು ಪಡೆಯುತ್ತಿದೆ…',
       offlineNotice: 'ಆಫ್‌ಲೈನ್ ಮೋಡ್ — SST/ಕ್ಲೋರೊಫಿಲ್‌ಗೆ ಇಂಟರ್ನೆಟ್ ಅಗತ್ಯ',
@@ -1948,6 +2038,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastGpsFailed: 'ಹತ್ತಿರದ ಲ್ಯಾಂಡಿಂಗ್ ಕೇಂದ್ರ ಕಂಡುಬಂದಿಲ್ಲ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
       toastLocationFound: 'ಸ್ಥಳ ಹೊಂದಿಸಲಾಗಿದೆ:',
       useMyLocation: 'ನನ್ನ ಪ್ರಸ್ತುತ ಸ್ಥಳವನ್ನು ಬಳಸಿ',
+      currentLocationSection: 'ಪ್ರಸ್ತುತ ಸ್ಥಳ',
+      currentLocationDesc: 'ಐಚ್ಛಿಕ — ಪ್ರಮುಖ ಬಂದರುಗಳು ಮಾತ್ರವಲ್ಲ, ಭಾರತದಾದ್ಯಂತ 1,223 ನೈಜ ಲ್ಯಾಂಡಿಂಗ್ ಸ್ಥಳಗಳಲ್ಲಿ ಹತ್ತಿರದೊಂದಿಗೆ ನಿಮ್ಮ ನೈಜ GPS ಸ್ಥಳವನ್ನು ಬಂಧಿಸಿ. ತೆರವುಗೊಳಿಸುವವರೆಗೆ ಇದನ್ನು ಚಾಟ್, ನಕ್ಷೆ, ಎಚ್ಚರಿಕೆಗಳು ಮತ್ತು ಮೀನುಗಾರಿಕೆ ವಲಯ ಶಿಫಾರಸುಗಳಿಗೆ ಬಳಸಲಾಗುತ್ತದೆ.',
+      currentLocationActiveLabel: 'ಸಕ್ರಿಯ',
+      clearCurrentLocation: 'ತೆರವುಗೊಳಿಸಿ — ಬದಲಿಗೆ ನನ್ನ ಹೋಮ್ ಪೋರ್ಟ್ ಬಳಸಿ',
+      homePortOverriddenNote: 'ಮೇಲೆ ಒಂದು ಪ್ರಸ್ತುತ ಸ್ಥಳ ಸಕ್ರಿಯವಾಗಿದೆ — ನೈಜ-ಸಮಯದ ಶಿಫಾರಸುಗಳಿಗಾಗಿ ಈ ಹೋಮ್ ಪೋರ್ಟ್ ಬದಲಿಗೆ ಅದನ್ನು ಬಳಸಲಾಗುತ್ತಿದೆ.',
     },
     voice: {
       listening: 'ಕೇಳುತ್ತಿದೆ…',
@@ -2012,6 +2107,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
     },
   },
   hi: {
+    common: {
+      showingCurrentLocation: 'दिखा रहे हैं: {name} (वर्तमान स्थान)',
+      showingHomePort: 'दिखा रहे हैं: {name} (होम पोर्ट)',
+    },
     pfz: {
       fetching: 'मछली पकड़ने के क्षेत्र प्राप्त हो रहे हैं…',
       offlineNotice: 'ऑफलाइन मोड — SST/क्लोरोफिल के लिए इंटरनेट आवश्यक है',
@@ -2142,6 +2241,11 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       toastGpsFailed: 'आस-पास कोई लैंडिंग केंद्र नहीं मिला। कृपया पुनः प्रयास करें।',
       toastLocationFound: 'स्थान सेट किया गया:',
       useMyLocation: 'मेरा वर्तमान स्थान उपयोग करें',
+      currentLocationSection: 'वर्तमान स्थान',
+      currentLocationDesc: 'वैकल्पिक — केवल प्रमुख बंदरगाह ही नहीं, बल्कि पूरे भारत में 1,223 वास्तविक लैंडिंग स्थानों में से निकटतम के साथ अपना वास्तविक GPS स्थान बाइंड करें। साफ़ होने तक यह चैट, मानचित्र, अलर्ट और मछली पकड़ने क्षेत्र सिफारिशों के लिए उपयोग किया जाता है।',
+      currentLocationActiveLabel: 'सक्रिय',
+      clearCurrentLocation: 'साफ़ करें — इसके बजाय मेरा होम पोर्ट उपयोग करें',
+      homePortOverriddenNote: 'ऊपर एक वर्तमान स्थान सक्रिय है — रीयल-टाइम सिफारिशों के लिए इस होम पोर्ट के बजाय उसका उपयोग किया जा रहा है।',
     },
     voice: {
       listening: 'सुन रहा है…',
@@ -2237,6 +2341,7 @@ export function getScreenText(code: string): ScreenText & { compass: CompassText
     ...SCREEN_TEXT.en,
     ...selected,
     compass: selected.compass || SCREEN_TEXT.en.compass!,
+    common: { ...SCREEN_TEXT.en.common, ...selected.common },
     dashboard: { ...SCREEN_TEXT.en.dashboard, ...selected.dashboard },
     profile: { ...SCREEN_TEXT.en.profile, ...selected.profile },
     pfz: { ...SCREEN_TEXT.en.pfz, ...selected.pfz },

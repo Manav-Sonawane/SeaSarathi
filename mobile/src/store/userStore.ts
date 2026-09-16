@@ -69,25 +69,64 @@ const getDeviceId = (): string => {
   }
 };
 
+/**
+ * Two distinct, deliberately-separated location concepts:
+ *
+ * 1. HOME PORT (`homePort`/`homePortInfo`) — the fisherman's deliberately
+ *    SELECTED official port from the ~20 curated major ports (Kochi, Mumbai
+ *    Sassoon Dock, Veraval, etc. — see INDIAN_PORTS). Stable, only changes
+ *    when the fisherman explicitly picks a different one in Profile or at
+ *    sign-up. This is what gets registered with the backend (`operating_port`)
+ *    and used for identity (Marine Fisher ID generation is keyed off it) —
+ *    it should NOT silently change just because the phone's GPS moved.
+ *
+ * 2. CURRENT LOCATION (`currentLocation`) — the fisherman's real GPS/browser-
+ *    geolocation position, bound to the nearest of all ~1223 real landing
+ *    locations (not just the curated 20) via GET /landing/nearest. Optional
+ *    (null until the fisherman taps "Use My Current Location"), ephemeral in
+ *    intent (expected to be refreshed/re-bound as they actually move), and
+ *    never touches `homePort`.
+ *
+ * `operatingPort`/`portInfo` remain the EFFECTIVE location every existing
+ * consumer (chat, map, alerts, PFZ) already reads for "where is this
+ * fisherman right now" — kept as the resolved value of
+ * `currentLocation ?? homePortInfo` rather than renaming it everywhere,
+ * which would have meant touching every screen for no functional gain.
+ * Setting a home port always also updates the effective location (and
+ * clears any stale current-location binding, since picking a port IS
+ * telling the app "treat me as being here" — see setOperatingPort);
+ * binding a current location updates the effective location without ever
+ * touching the home port.
+ */
 export interface UserProfileState {
   deviceId: string;
   userId: string;
   userName: string;
   vesselType: VesselType;
   riskTolerance: RiskTolerance;
+  homePort: string;
+  homePortInfo: PortInfo;
+  currentLocation: PortInfo | null;
   operatingPort: string;
   portInfo: PortInfo;
   role: UserRole;
   language: string;
   isLoggedIn: boolean;
   isBackendSynced: boolean;
-  
+
   setUserId: (userId: string) => void;
   setUserName: (userName: string) => void;
   setVesselType: (vessel: VesselType) => void;
   setRiskTolerance: (risk: RiskTolerance) => void;
+  // Sets the HOME PORT (from the curated major-port list) — also clears any
+  // active current-location binding, since deliberately picking a port is
+  // the fisherman telling the app to go back to using it as "where I am".
   setOperatingPort: (portName: string) => void;
-  setOperatingLocationFromCoords: (latitude: number, longitude: number) => Promise<{ success: boolean; portInfo?: PortInfo; error?: string }>;
+  // Binds real GPS/geolocation coordinates to the nearest of all ~1223
+  // landing locations as the CURRENT LOCATION — leaves homePort untouched.
+  setCurrentLocationFromCoords: (latitude: number, longitude: number) => Promise<{ success: boolean; portInfo?: PortInfo; error?: string }>;
+  // Drops the current-location binding; effective location reverts to the home port.
+  clearCurrentLocation: () => void;
   setRole: (role: UserRole) => void;
   setLanguage: (langCode: string) => void;
   getVesselRangeKm: () => number;
@@ -109,45 +148,53 @@ export interface UserProfileState {
 
 const defaultPort = INDIAN_PORTS.find((p) => p.name === 'Kochi') || INDIAN_PORTS[0];
 
-// Resolves a saved profile's operating port back into a PortInfo. Backend
-// only stores `operating_port` as a name string — looking that name up in
-// INDIAN_PORTS (the ~20 curated major ports) used to be the ONLY
-// resolution path, which silently reset a fisherman's location to Kochi on
-// every reload if it was ever set to one of the other ~1200 landing
-// locations (e.g. via setOperatingLocationFromCoords below), since those
-// names simply aren't in that list. Now `extra.operating_port_latitude/
-// longitude` (persisted alongside every save — see syncWithBackend) is
-// checked first and, when present, used to rebuild the exact PortInfo
-// directly — no name lookup, no restriction to major ports.
-function resolvePortInfo(operatingPort: string, extra?: Record<string, any> | null): PortInfo {
-  const lat = extra?.operating_port_latitude;
-  const lon = extra?.operating_port_longitude;
-  if (typeof lat === 'number' && typeof lon === 'number') {
-    return landingSiteToPortInfo({
-      name: operatingPort,
-      sector: extra?.operating_port_sector || '',
-      district: extra?.operating_port_district || '',
-      latitude: lat,
-      longitude: lon,
-    });
-  }
+// Home port resolution is deliberately simple — always one of the curated
+// major ports, looked up by name. Unlike current-location, it never needs
+// coordinate reconstruction from `extra`: the name alone is enough since
+// INDIAN_PORTS is a fixed, known list.
+function resolveHomePort(operatingPort: string): PortInfo {
   return INDIAN_PORTS.find((p) => p.name.toLowerCase() === operatingPort.toLowerCase()) || INDIAN_PORTS[0];
 }
 
-// Builds the `extra` payload every profile save includes so the resolver
-// above can always reconstruct the exact port/location on the next load —
-// regardless of whether it came from the curated list or real GPS.
-// extra_json is fully REPLACED (not merged) on every backend save (see
-// backend/src/db/profile_db.py's upsert_profile docstring), so this must be
-// sent on every single sync, not just GPS-derived ones, or a later
-// unrelated save (e.g. just changing risk tolerance) would silently wipe
-// the coordinates.
-function buildLocationExtra(portInfo: PortInfo): Record<string, any> {
+// Current-location IS reconstructed from raw lat/lon (persisted in the
+// backend profile's `extra` bag) because it can be any of ~1223 real
+// landing locations, not just a name in a fixed list.
+function resolveCurrentLocation(extra?: Record<string, any> | null): PortInfo | null {
+  const lat = extra?.current_location_latitude;
+  const lon = extra?.current_location_longitude;
+  if (typeof lat !== 'number' || typeof lon !== 'number') return null;
+  return landingSiteToPortInfo({
+    name: extra?.current_location_name || 'Current Location',
+    sector: extra?.current_location_sector || '',
+    district: extra?.current_location_district || '',
+    latitude: lat,
+    longitude: lon,
+  });
+}
+
+// Always sent on every profile save (not just when current-location is
+// set) — extra_json is fully REPLACED, not merged, on every backend save
+// (see backend/src/db/profile_db.py's upsert_profile docstring), so
+// omitting this on an unrelated update (e.g. just changing risk tolerance)
+// would silently wipe a previously-bound current location. Explicit nulls
+// when there's no current-location binding, so a stale one from a prior
+// save gets cleared rather than lingering.
+function buildCurrentLocationExtra(currentLocation: PortInfo | null): Record<string, any> {
+  if (!currentLocation) {
+    return {
+      current_location_latitude: null,
+      current_location_longitude: null,
+      current_location_name: null,
+      current_location_district: null,
+      current_location_sector: null,
+    };
+  }
   return {
-    operating_port_latitude: portInfo.latitude,
-    operating_port_longitude: portInfo.longitude,
-    operating_port_district: portInfo.region,
-    operating_port_sector: portInfo.state,
+    current_location_latitude: currentLocation.latitude,
+    current_location_longitude: currentLocation.longitude,
+    current_location_name: currentLocation.name,
+    current_location_district: currentLocation.region,
+    current_location_sector: currentLocation.state,
   };
 }
 
@@ -167,6 +214,9 @@ export const useUserStore = create<UserProfileState>()(
       userName: 'Ramesh Kumar',
       vesselType: 'medium',
       riskTolerance: 'moderate',
+      homePort: 'Kochi',
+      homePortInfo: defaultPort,
+      currentLocation: null,
       operatingPort: 'Kochi',
       portInfo: defaultPort,
       role: 'fisherman',
@@ -179,8 +229,11 @@ export const useUserStore = create<UserProfileState>()(
       setVesselType: (vesselType) => set({ vesselType }),
       setRiskTolerance: (riskTolerance) => set({ riskTolerance }),
       setOperatingPort: (portName) => {
-        const found = INDIAN_PORTS.find((p) => p.name.toLowerCase() === portName.toLowerCase()) || INDIAN_PORTS[0];
-        set({ operatingPort: found.name, portInfo: found });
+        const found = resolveHomePort(portName);
+        // Picking a home port is a deliberate "I'm operating from here now"
+        // action — clear any stale GPS-derived current-location binding so
+        // it doesn't silently keep overriding the port the fisherman just chose.
+        set({ homePort: found.name, homePortInfo: found, currentLocation: null, operatingPort: found.name, portInfo: found });
       },
       // Binds the fisherman's real GPS/browser-geolocation position to
       // their actual nearest landing location — searched across all 1223
@@ -190,30 +243,40 @@ export const useUserStore = create<UserProfileState>()(
       // Gujarat's southernmost major port and Mumbai's northernmost one —
       // a fisherman operating from one of those was previously forced to
       // pick a major port potentially 100km+ from where they actually are.
-      setOperatingLocationFromCoords: async (latitude, longitude) => {
+      // Does NOT touch homePort/homePortInfo.
+      setCurrentLocationFromCoords: async (latitude, longitude) => {
         try {
           const sites = await landingAPI.getNearest(latitude, longitude, 1);
           if (!sites.length) return { success: false, error: 'No landing location found nearby' };
-          const portInfo = landingSiteToPortInfo(sites[0]);
-          set({ operatingPort: portInfo.name, portInfo });
-          return { success: true, portInfo };
+          const location = landingSiteToPortInfo(sites[0]);
+          set({ currentLocation: location, operatingPort: location.name, portInfo: location });
+          return { success: true, portInfo: location };
         } catch (err: any) {
           return { success: false, error: err?.message || 'Could not resolve location' };
         }
+      },
+      clearCurrentLocation: () => {
+        const { homePortInfo } = get();
+        set({ currentLocation: null, operatingPort: homePortInfo.name, portInfo: homePortInfo });
       },
       setRole: (role) => set({ role }),
       setLanguage: (language) => set({ language }),
 
       loginWithProfile: (profile) => {
-        const foundPort = resolvePortInfo(profile.operating_port, profile.extra);
+        const homePortInfo = resolveHomePort(profile.operating_port);
+        const currentLocation = resolveCurrentLocation(profile.extra);
+        const effective = currentLocation || homePortInfo;
         set({
           userId: profile.user_id || '',
           userName: profile.name || 'Fisherman',
           deviceId: profile.device_id || get().deviceId,
           vesselType: (profile.vessel_type as VesselType) || 'medium',
           riskTolerance: (profile.risk_tolerance as RiskTolerance) || 'moderate',
-          operatingPort: foundPort.name,
-          portInfo: foundPort,
+          homePort: homePortInfo.name,
+          homePortInfo,
+          currentLocation,
+          operatingPort: effective.name,
+          portInfo: effective,
           role: (profile.role as UserRole) || 'fisherman',
           language: profile.language || 'en',
           isLoggedIn: true,
@@ -227,18 +290,19 @@ export const useUserStore = create<UserProfileState>()(
 
       signUp: async (params) => {
         const { deviceId } = get();
-        const foundPort = INDIAN_PORTS.find((p) => p.name.toLowerCase() === params.operatingPort.toLowerCase()) || INDIAN_PORTS[0];
+        const homePortInfo = resolveHomePort(params.operatingPort);
         try {
           const res = await profileAPI.upsertProfile({
             device_id: deviceId,
             name: params.name,
             password: params.password || 'SeaSarathi@2026',
-            operating_port: foundPort.name,
+            operating_port: homePortInfo.name,
             vessel_type: params.vesselType,
             role: params.role,
             language: params.language,
             risk_tolerance: params.riskTolerance,
-            extra: buildLocationExtra(foundPort),
+            // No current-location binding exists yet at sign-up time.
+            extra: buildCurrentLocationExtra(null),
           });
 
           set({
@@ -246,8 +310,11 @@ export const useUserStore = create<UserProfileState>()(
             userName: res.name,
             vesselType: res.vessel_type as VesselType,
             riskTolerance: res.risk_tolerance as RiskTolerance,
-            operatingPort: foundPort.name,
-            portInfo: foundPort,
+            homePort: homePortInfo.name,
+            homePortInfo,
+            currentLocation: null,
+            operatingPort: homePortInfo.name,
+            portInfo: homePortInfo,
             role: res.role as UserRole,
             language: res.language,
             isLoggedIn: true,
@@ -281,7 +348,7 @@ export const useUserStore = create<UserProfileState>()(
       },
 
       syncWithBackend: async () => {
-        const { deviceId, userId, userName, vesselType, riskTolerance, operatingPort, portInfo, role, language } = get();
+        const { deviceId, userId, userName, vesselType, riskTolerance, homePort, currentLocation, role, language } = get();
         try {
           const res = await profileAPI.upsertProfile({
             device_id: deviceId,
@@ -289,15 +356,12 @@ export const useUserStore = create<UserProfileState>()(
             name: userName,
             vessel_type: vesselType,
             risk_tolerance: riskTolerance,
-            operating_port: operatingPort,
+            // The backend's operating_port is the HOME PORT (identity),
+            // never the ephemeral current-location.
+            operating_port: homePort,
             role: role,
             language: language,
-            // Always sent (not just for GPS-derived locations) — extra_json
-            // is fully replaced on every save, so omitting this on an
-            // unrelated update (e.g. just changing risk tolerance) would
-            // silently wipe a previously-set non-major-port location. See
-            // buildLocationExtra's comment.
-            extra: buildLocationExtra(portInfo),
+            extra: buildCurrentLocationExtra(currentLocation),
           });
           set({
             userId: res.user_id,
@@ -317,14 +381,19 @@ export const useUserStore = create<UserProfileState>()(
         try {
           const profile = await profileAPI.getProfile(identifier);
           if (profile) {
-            const foundPort = resolvePortInfo(profile.operating_port, profile.extra);
+            const homePortInfo = resolveHomePort(profile.operating_port);
+            const currentLocation = resolveCurrentLocation(profile.extra);
+            const effective = currentLocation || homePortInfo;
             set({
               userId: profile.user_id,
               userName: profile.name,
               vesselType: profile.vessel_type as VesselType,
               riskTolerance: profile.risk_tolerance as RiskTolerance,
-              operatingPort: foundPort.name,
-              portInfo: foundPort,
+              homePort: homePortInfo.name,
+              homePortInfo,
+              currentLocation,
+              operatingPort: effective.name,
+              portInfo: effective,
               role: profile.role as UserRole,
               language: profile.language,
               isBackendSynced: true,
@@ -345,6 +414,9 @@ export const useUserStore = create<UserProfileState>()(
         userName: state.userName,
         vesselType: state.vesselType,
         riskTolerance: state.riskTolerance,
+        homePort: state.homePort,
+        homePortInfo: state.homePortInfo,
+        currentLocation: state.currentLocation,
         operatingPort: state.operatingPort,
         portInfo: state.portInfo,
         role: state.role,
@@ -354,4 +426,3 @@ export const useUserStore = create<UserProfileState>()(
     }
   )
 );
-

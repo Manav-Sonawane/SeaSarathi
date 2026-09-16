@@ -35,13 +35,17 @@ export function ProfileScreen() {
     riskTolerance,
     operatingPort,
     portInfo,
+    homePort,
+    homePortInfo,
+    currentLocation,
     role,
     language,
     isBackendSynced,
     setVesselType,
     setRiskTolerance,
     setOperatingPort,
-    setOperatingLocationFromCoords,
+    setCurrentLocationFromCoords,
+    clearCurrentLocation,
     setRole,
     setLanguage,
     getVesselRangeKm,
@@ -116,15 +120,17 @@ export function ProfileScreen() {
     return matchesState && matchesSearch;
   });
 
-  // Binds the fisherman's real GPS/browser-geolocation position to their
-  // actual nearest landing location (searched across all 1223 points in
-  // LANDING-LOCATIONS.geojson via setOperatingLocationFromCoords), not just
-  // the ~20 curated major ports in the chip list below. Matters most for
-  // the real landing locations sitting between major ports — e.g. the
-  // ~200km gap between Gujarat's southernmost major port and Mumbai's
-  // northernmost one still has ~40 real landing locations in it.
-  // navigator.geolocation matches the pattern already used in
-  // CompassScreen.tsx — no new native dependency.
+  // Binds the fisherman's real GPS/browser-geolocation position as their
+  // CURRENT LOCATION (searched across all 1223 points in
+  // LANDING-LOCATIONS.geojson via setCurrentLocationFromCoords) — distinct
+  // from the HOME PORT chip list below. Does not change the home port;
+  // just overrides the effective operating location used for real-time
+  // queries (chat/map/alerts/PFZ) until cleared. Matters most for the real
+  // landing locations sitting between major ports — e.g. the ~200km gap
+  // between Gujarat's southernmost major port and Mumbai's northernmost
+  // one still has ~40 real landing locations in it. navigator.geolocation
+  // matches the pattern already used in CompassScreen.tsx — no new native
+  // dependency.
   const handleUseMyLocation = () => {
     setGpsError('');
     if (typeof navigator === 'undefined' || !navigator.geolocation) {
@@ -134,7 +140,7 @@ export function ProfileScreen() {
     setLocatingGps(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        const result = await setOperatingLocationFromCoords(pos.coords.latitude, pos.coords.longitude);
+        const result = await setCurrentLocationFromCoords(pos.coords.latitude, pos.coords.longitude);
         setLocatingGps(false);
         if (!result.success) {
           setGpsError(result.error || t.profile.toastGpsFailed);
@@ -300,22 +306,33 @@ export function ProfileScreen() {
           </View>
         </View>
 
-        {/* Section 2: Home Operating Port (All Indian Coastal Ports) */}
+        {/* Section 2a: Current Location — real GPS position, bound to the
+            nearest of all 1223 landing locations (not just the curated
+            major ports below). Distinct from Home Port: it overrides the
+            effective location used for chat/map/alerts/PFZ without ever
+            changing the registered home port. See setCurrentLocationFromCoords
+            in userStore.ts. */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="location-outline" size={20} color={colors.primary} />
-            <Text style={styles.cardTitle}>{t.profile.portSection}</Text>
+            <Ionicons name="navigate-outline" size={20} color={colors.primary} />
+            <Text style={styles.cardTitle}>{t.profile.currentLocationSection}</Text>
           </View>
-          <Text style={styles.cardDesc}>
-            {t.profile.selectedPort}:{' '}
-            <Text style={styles.boldText}>
-              📍 {portInfo.name} ({portInfo.state} • {portInfo.sea})
-            </Text>
-          </Text>
+          <Text style={styles.cardDesc}>{t.profile.currentLocationDesc}</Text>
 
-          {/* Use real GPS position, matched to the nearest of all 1223
-              landing locations (not just the curated major-port chips
-              below) — see setOperatingLocationFromCoords in userStore.ts. */}
+          {currentLocation ? (
+            <View style={styles.currentLocationActive}>
+              <Text style={styles.cardDesc}>
+                {t.profile.currentLocationActiveLabel}:{' '}
+                <Text style={styles.boldText}>
+                  📍 {currentLocation.name} ({currentLocation.state} • {currentLocation.region})
+                </Text>
+              </Text>
+              <TouchableOpacity onPress={clearCurrentLocation} activeOpacity={0.7}>
+                <Text style={styles.clearLocationText}>{t.profile.clearCurrentLocation}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : null}
+
           <TouchableOpacity
             style={[styles.gpsLocateBtn, locatingGps && { opacity: 0.7 }]}
             onPress={handleUseMyLocation}
@@ -330,6 +347,27 @@ export function ProfileScreen() {
             <Text style={styles.gpsLocateBtnText}>{t.profile.useMyLocation}</Text>
           </TouchableOpacity>
           {gpsError ? <Text style={styles.gpsErrorText}>{gpsError}</Text> : null}
+        </View>
+
+        {/* Section 2b: Home Port — deliberately selected from the curated
+            major ports (Kochi, Mumbai Sassoon Dock, Veraval, etc). This is
+            the fisherman's stable, registered port (used for identity/ID
+            generation) — it's the fallback effective location whenever no
+            current-location override above is active. */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="location-outline" size={20} color={colors.primary} />
+            <Text style={styles.cardTitle}>{t.profile.portSection}</Text>
+          </View>
+          <Text style={styles.cardDesc}>
+            {t.profile.selectedPort}:{' '}
+            <Text style={styles.boldText}>
+              📍 {homePortInfo.name} ({homePortInfo.state} • {homePortInfo.sea})
+            </Text>
+          </Text>
+          {currentLocation ? (
+            <Text style={styles.cardDesc}>{t.profile.homePortOverriddenNote}</Text>
+          ) : null}
 
           {/* Search Input */}
           <View style={styles.searchBox}>
@@ -366,7 +404,7 @@ export function ProfileScreen() {
           {/* Ports Horizontal Chips List */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.portRow}>
             {filteredPorts.map((p) => {
-              const isActive = operatingPort === p.name;
+              const isActive = homePort === p.name;
               return (
                 <TouchableOpacity
                   key={p.id}
@@ -646,6 +684,18 @@ const styles = StyleSheet.create({
   boldText: {
     fontWeight: '800',
     color: colors.primary,
+  },
+  currentLocationActive: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 10,
+    gap: 6,
+  },
+  clearLocationText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.error,
   },
   gpsLocateBtn: {
     flexDirection: 'row',

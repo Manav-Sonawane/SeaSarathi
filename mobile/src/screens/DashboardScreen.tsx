@@ -16,6 +16,7 @@ import { chatAPI, ChatResponse, Alert, freshnessAPI, DataFreshnessInfo } from '.
 import { getCachedBundleForOffline, buildOfflineChatAnswer, formatRelativeTime } from '../services/offlineService';
 import { useNetworkStore } from '../store/networkStore';
 import { getScreenText } from '../constants/screenTranslations';
+import { LocationSourceBadge } from '../components/LocationSourceBadge';
 
 interface FishAvailability {
   id: string;
@@ -319,6 +320,7 @@ export function DashboardScreen({ navigation }: any) {
           <Text style={styles.gpsCoords}>
             📍 {portInfo.name} Harbor ({portInfo.latitude.toFixed(4)}° N, {portInfo.longitude.toFixed(4)}° E)
           </Text>
+          <LocationSourceBadge />
         </View>
 
         {/* Data Freshness & 6-Hour Auto-Sync Monitor */}
