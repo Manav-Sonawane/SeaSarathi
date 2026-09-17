@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
@@ -16,6 +16,7 @@ import { useNetworkStore } from '../store/networkStore';
 import { useUserStore } from '../store/userStore';
 import { autoResyncIfNeeded } from '../services/offlineService';
 import { getScreenText } from '../constants/screenTranslations';
+import { StartupSplashScreen } from '../components/StartupSplashScreen';
 
 export type RootTabParamList = {
   Dashboard: undefined;
@@ -39,6 +40,10 @@ export function RootNavigator() {
   const langInfo = getLanguageInfo();
   const t = getScreenText(langInfo.code);
   const wasOnline = useRef(isOnline);
+  // Gates only the FIRST post-login render of this app process — once the
+  // backend reports ready (or the splash gives up waiting), it never shows
+  // again this session, even if the user logs out/in or the network blips.
+  const [backendReady, setBackendReady] = useState(false);
 
   // Start the connectivity listener once for the whole app lifetime.
   useEffect(() => {
@@ -77,6 +82,10 @@ export function RootNavigator() {
         <AuthScreen />
       </View>
     );
+  }
+
+  if (!backendReady) {
+    return <StartupSplashScreen isOnline={isOnline} onDone={() => setBackendReady(true)} />;
   }
 
   return (
