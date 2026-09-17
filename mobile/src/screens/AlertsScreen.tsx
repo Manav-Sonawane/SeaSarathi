@@ -18,6 +18,7 @@ import { getCachedBundleForOffline, buildOfflineAlerts, formatRelativeTime } fro
 import { useNetworkStore } from '../store/networkStore';
 import { getScreenText } from '../constants/screenTranslations';
 import { LocationSourceBadge } from '../components/LocationSourceBadge';
+import { ZonalNewsFeed } from '../components/ZonalNewsFeed';
 
 // Static example card shown only until the first /alerts response (live or
 // cached) arrives, so the screen isn't empty on first paint.
@@ -150,6 +151,9 @@ export function AlertsScreen({ navigation }: any) {
             </View>
           </View>
         </View>
+
+        {/* Zonal Coastal News Feed */}
+        <ZonalNewsFeed />
 
         {/* Urgency Tab Filters */}
         <View style={styles.tabSection}>

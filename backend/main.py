@@ -653,6 +653,26 @@ async def imd_cache_status():
     return cache_status()
 
 
+# ─── Zonal News Feed ───────────────────────────────────────────────────────────────────
+# src/services/imd_news_feed.py — same cached IMD data as GET /alerts, grouped into
+# coastal zones (Gujarat-Maharashtra, Goa-Karnataka-Kerala, etc.) and rewritten as short
+# news-style bulletins, for the Alerts screen's collapsible zonal feed.
+
+@app.get("/news/feed", summary="Zonal IMD News Feed")
+async def news_feed():
+    from src.services.imd_news_feed import get_news_feed
+    return await get_news_feed()
+
+
+@app.get("/news/feed/{zone_id}", summary="Single Zone Bulletin (force refresh)")
+async def news_feed_zone(zone_id: str, refresh: bool = False):
+    from src.services.imd_news_feed import get_zone_bulletin
+    bulletin = await get_zone_bulletin(zone_id, force_refresh=refresh)
+    if bulletin is None:
+        raise HTTPException(status_code=404, detail=f"Unknown zone_id: {zone_id}")
+    return bulletin
+
+
 # ─── Alerts Endpoint ───────────────────────────────────────────────────────────────────
 
 @app.get("/alerts", summary="Marine Safety Alerts")

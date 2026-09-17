@@ -176,6 +176,23 @@ export const alertsAPI = {
       .then((res) => res.data.alerts || []),
 };
 
+// Zonal news feed (backend/src/services/imd_news_feed.py) — the same IMD
+// live-feed data behind /alerts, grouped into coastal zones and rewritten
+// as short news-style bulletins for the Alerts screen's zonal feed.
+export interface ZoneBulletin {
+  zone_id: string;
+  zone_label: string;
+  severity: 'HIGH' | 'MODERATE' | 'NORMAL';
+  headline: string;
+  body: string;
+  alert_count: number;
+  generated_at: string;
+}
+
+export const newsAPI = {
+  getFeed: () => api.get<{ zones: ZoneBulletin[]; generated_at: string }>('/news/feed').then((res) => res.data),
+};
+
 export interface RiskHeatmapFeature {
   type: 'Feature';
   geometry: { type: 'Point'; coordinates: [number, number] }; // [lon, lat]

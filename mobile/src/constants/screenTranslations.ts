@@ -64,6 +64,15 @@ export interface ScreenText {
     // this map, so a new backend alert type degrades gracefully instead of
     // crashing.
     alertTypes: Record<string, string>;
+    // Zonal news feed (GET /news/feed, src/components/ZonalNewsFeed.tsx) —
+    // IMD data rewritten as short coastal-zone news bulletins.
+    zonalNewsTitle: string;
+    zonalNewsSubtitle: string;
+    zonalNewsUpdated: string; // "Updated {time}"
+    zonalNewsNoWarnings: string;
+    zonalNewsWarningsActive: string; // "{count} active warning(s)"
+    zonalNewsLoadFailed: string;
+    zonalNewsRetry: string;
   };
   map: {
     layers: string;
@@ -281,6 +290,13 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       acknowledged: 'Acknowledged',
       boundaryPrefix: 'BOUNDARY:',
       weatherAdvisory: 'WEATHER ADVISORY',
+      zonalNewsTitle: 'Coastal News',
+      zonalNewsSubtitle: 'Zone-wise IMD bulletins',
+      zonalNewsUpdated: 'Updated {time}',
+      zonalNewsNoWarnings: 'No active warnings',
+      zonalNewsWarningsActive: '{count} active warning(s)',
+      zonalNewsLoadFailed: 'Could not load news feed',
+      zonalNewsRetry: 'Retry',
       alertTypes: {
         HIGH_WIND: 'HIGH WIND',
         MODERATE_WIND: 'MODERATE WIND',
@@ -507,6 +523,13 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       acknowledged: 'സ്ഥിരീകരിച്ചു',
       boundaryPrefix: 'അതിർത്തി:',
       weatherAdvisory: 'കാലാവസ്ഥാ മുന്നറിയിപ്പ്',
+      zonalNewsTitle: 'തീര വാർത്തകൾ',
+      zonalNewsSubtitle: 'മേഖല അടിസ്ഥാനത്തിലുള്ള IMD ബുള്ളറ്റിനുകൾ',
+      zonalNewsUpdated: 'അപ്ഡേറ്റ് ചെയ്തത് {time}',
+      zonalNewsNoWarnings: 'സജീവ മുന്നറിയിപ്പുകളില്ല',
+      zonalNewsWarningsActive: '{count} സജീവ മുന്നറിയിപ്പ്(കൾ)',
+      zonalNewsLoadFailed: 'ന്യൂസ് ഫീഡ് ലോഡ് ചെയ്യാനായില്ല',
+      zonalNewsRetry: 'വീണ്ടും ശ്രമിക്കുക',
       alertTypes: {
         HIGH_WIND: 'ശക്തമായ കാറ്റ്',
         MODERATE_WIND: 'മിതമായ കാറ്റ്',
@@ -733,6 +756,13 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       acknowledged: 'உறுதிப்படுத்தப்பட்டது',
       boundaryPrefix: 'எல்லை:',
       weatherAdvisory: 'வானிலை ஆலோசனை',
+      zonalNewsTitle: 'கடலோர செய்திகள்',
+      zonalNewsSubtitle: 'மண்டல வாரியான IMD அறிக்கைகள்',
+      zonalNewsUpdated: 'புதுப்பிக்கப்பட்டது {time}',
+      zonalNewsNoWarnings: 'செயலில் உள்ள எச்சரிக்கைகள் இல்லை',
+      zonalNewsWarningsActive: '{count} செயலில் உள்ள எச்சரிக்கை(கள்)',
+      zonalNewsLoadFailed: 'செய்தி ஊட்டத்தை ஏற்ற முடியவில்லை',
+      zonalNewsRetry: 'மீண்டும் முயற்சிக்கவும்',
       alertTypes: {
         HIGH_WIND: 'பலத்த காற்று',
         MODERATE_WIND: 'மிதமான காற்று',
@@ -936,6 +966,13 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       acknowledged: 'నిర్ధారించబడింది',
       boundaryPrefix: 'సరిహద్దు:',
       weatherAdvisory: 'వాతావరణ సూచన',
+      zonalNewsTitle: 'తీర వార్తలు',
+      zonalNewsSubtitle: 'జోన్ల వారీగా IMD బులెటిన్‌లు',
+      zonalNewsUpdated: 'నవీకరించబడింది {time}',
+      zonalNewsNoWarnings: 'యాక్టివ్ హెచ్చరికలు లేవు',
+      zonalNewsWarningsActive: '{count} యాక్టివ్ హెచ్చరిక(లు)',
+      zonalNewsLoadFailed: 'న్యూస్ ఫీడ్ లోడ్ చేయలేకపోయింది',
+      zonalNewsRetry: 'మళ్లీ ప్రయత్నించండి',
       alertTypes: {
         HIGH_WIND: 'తీవ్రమైన గాలి',
         MODERATE_WIND: 'మధ్యస్థ గాలి',
@@ -1139,6 +1176,13 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       acknowledged: 'নিশ্চিত করা হয়েছে',
       boundaryPrefix: 'সীমানা:',
       weatherAdvisory: 'আবহাওয়া পরামর্শ',
+      zonalNewsTitle: 'উপকূলীয় সংবাদ',
+      zonalNewsSubtitle: 'জোন ভিত্তিক IMD বুলেটিন',
+      zonalNewsUpdated: 'আপডেট হয়েছে {time}',
+      zonalNewsNoWarnings: 'কোনো সক্রিয় সতর্কতা নেই',
+      zonalNewsWarningsActive: '{count}টি সক্রিয় সতর্কতা',
+      zonalNewsLoadFailed: 'নিউজ ফিড লোড করা যায়নি',
+      zonalNewsRetry: 'আবার চেষ্টা করুন',
       alertTypes: {
         HIGH_WIND: 'প্রবল বাতাস',
         MODERATE_WIND: 'মাঝারি বাতাস',
@@ -1342,6 +1386,13 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       acknowledged: 'સ્વીકારાયું',
       boundaryPrefix: 'સીમા:',
       weatherAdvisory: 'હવામાન સલાહ',
+      zonalNewsTitle: 'દરિયાકાંઠાના સમાચાર',
+      zonalNewsSubtitle: 'ઝોન મુજબના IMD બુલેટિન',
+      zonalNewsUpdated: 'અપડેટ થયું {time}',
+      zonalNewsNoWarnings: 'કોઈ સક્રિય ચેતવણી નથી',
+      zonalNewsWarningsActive: '{count} સક્રિય ચેતવણી(ઓ)',
+      zonalNewsLoadFailed: 'ન્યૂઝ ફીડ લોડ કરી શકાયું નથી',
+      zonalNewsRetry: 'ફરી પ્રયાસ કરો',
       alertTypes: {
         HIGH_WIND: 'તીવ્ર પવન',
         MODERATE_WIND: 'મધ્યમ પવન',
@@ -1545,6 +1596,13 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       acknowledged: 'मान्य केले',
       boundaryPrefix: 'सीमा:',
       weatherAdvisory: 'हवामान सल्ला',
+      zonalNewsTitle: 'किनारपट्टी बातम्या',
+      zonalNewsSubtitle: 'झोननुसार IMD बुलेटिन',
+      zonalNewsUpdated: 'अद्यतनित {time}',
+      zonalNewsNoWarnings: 'कोणतेही सक्रिय इशारे नाहीत',
+      zonalNewsWarningsActive: '{count} सक्रिय इशारा/इशारे',
+      zonalNewsLoadFailed: 'न्यूज फीड लोड करता आले नाही',
+      zonalNewsRetry: 'पुन्हा प्रयत्न करा',
       alertTypes: {
         HIGH_WIND: 'तीव्र वारा',
         MODERATE_WIND: 'मध्यम वारा',
@@ -1748,6 +1806,13 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       acknowledged: 'ସ୍ୱୀକୃତ',
       boundaryPrefix: 'ସୀମା:',
       weatherAdvisory: 'ପାଣିପାଗ ପରାମର୍ଶ',
+      zonalNewsTitle: 'ଉପକୂଳ ସମ୍ବାଦ',
+      zonalNewsSubtitle: 'ଜୋନ୍ ଅନୁଯାୟୀ IMD ବୁଲେଟିନ୍',
+      zonalNewsUpdated: 'ଅପଡେଟ୍ ହେଲା {time}',
+      zonalNewsNoWarnings: 'କୌଣସି ସକ୍ରିୟ ଚେତାବନୀ ନାହିଁ',
+      zonalNewsWarningsActive: '{count} ସକ୍ରିୟ ଚେତାବନୀ',
+      zonalNewsLoadFailed: 'ନ୍ୟୁଜ୍ ଫିଡ୍ ଲୋଡ୍ ହୋଇପାରିଲା ନାହିଁ',
+      zonalNewsRetry: 'ପୁନः ଚେଷ୍ଟା କରନ୍ତୁ',
       alertTypes: {
         HIGH_WIND: 'ପ୍ରବଳ ପବନ',
         MODERATE_WIND: 'ମଧ୍ୟମ ପବନ',
@@ -1951,6 +2016,13 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       acknowledged: 'ದೃಢೀಕರಿಸಲಾಗಿದೆ',
       boundaryPrefix: 'ಗಡಿ:',
       weatherAdvisory: 'ಹವಾಮಾನ ಸಲಹೆ',
+      zonalNewsTitle: 'ಕರಾವಳಿ ಸುದ್ದಿ',
+      zonalNewsSubtitle: 'ವಲಯವಾರು IMD ಬುಲೆಟಿನ್‌ಗಳು',
+      zonalNewsUpdated: 'ನವೀಕರಿಸಲಾಗಿದೆ {time}',
+      zonalNewsNoWarnings: 'ಯಾವುದೇ ಸಕ್ರಿಯ ಎಚ್ಚರಿಕೆಗಳಿಲ್ಲ',
+      zonalNewsWarningsActive: '{count} ಸಕ್ರಿಯ ಎಚ್ಚರಿಕೆ(ಗಳು)',
+      zonalNewsLoadFailed: 'ನ್ಯೂಸ್ ಫೀಡ್ ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ',
+      zonalNewsRetry: 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ',
       alertTypes: {
         HIGH_WIND: 'ತೀವ್ರ ಗಾಳಿ',
         MODERATE_WIND: 'ಮಧ್ಯಮ ಗಾಳಿ',
@@ -2154,6 +2226,13 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       acknowledged: 'स्वीकृत',
       boundaryPrefix: 'सीमा:',
       weatherAdvisory: 'मौसम सलाह',
+      zonalNewsTitle: 'तटीय समाचार',
+      zonalNewsSubtitle: 'ज़ोन-वार IMD बुलेटिन',
+      zonalNewsUpdated: 'अपडेट किया गया {time}',
+      zonalNewsNoWarnings: 'कोई सक्रिय चेतावनी नहीं',
+      zonalNewsWarningsActive: '{count} सक्रिय चेतावनी(याँ)',
+      zonalNewsLoadFailed: 'न्यूज़ फ़ीड लोड नहीं हो सकी',
+      zonalNewsRetry: 'पुनः प्रयास करें',
       alertTypes: {
         HIGH_WIND: 'तेज़ हवा',
         MODERATE_WIND: 'मध्यम हवा',
