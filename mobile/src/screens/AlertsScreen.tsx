@@ -65,13 +65,13 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
   const vector = meta.wind_speed_10m != null
     ? `${Math.round(Number(meta.wind_speed_10m))} km/h`
     : meta.wind_conditions
-    ? String(meta.wind_conditions)
-    : '—';
+      ? String(meta.wind_conditions)
+      : '—';
   const breachTime = meta.wave_height_m != null
     ? `Hs ${Number(meta.wave_height_m).toFixed(1)} m`
     : meta.wave_or_swell_conditions
-    ? String(meta.wave_or_swell_conditions)
-    : '—';
+      ? String(meta.wave_or_swell_conditions)
+      : '—';
 
   return {
     id: `${a.type}-${idx}`,
@@ -81,8 +81,8 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
     sub: a.source === 'geofence' || a.source === 'geofence-cache'
       ? `${t.alerts.boundaryPrefix} ${meta.boundary || 'Unknown'}`
       : isImd
-      ? (meta.region_label || meta.sea_area || meta.region_name || 'IMD')
-      : t.alerts.weatherAdvisory,
+        ? (meta.region_label || meta.sea_area || meta.region_name || 'IMD')
+        : t.alerts.weatherAdvisory,
     distText: distance,
     vector,
     breachTime,

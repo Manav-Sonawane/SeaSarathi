@@ -25,43 +25,47 @@ _GRID_PATH = os.path.join(
 _EARTH_RADIUS_KM = 6371.0
 
 
-@lru_cache(maxsize=1)
+_cached_grid = None
+_cached_mtime = 0.0
+
+
 def _load_grid() -> Optional[dict]:
     """
-    Loads the grid once per process (lru_cache) and precomputes numpy arrays
-    of lat/lon/sst/chl alongside the raw points list. lookup_nearest() and
-    find_within_radius() used to do a plain Python for-loop haversine scan
-    over every point on every call (30K+ points, called up to 5x per
-    /pfz/nearest request) — a real bottleneck run synchronously on the event
-    loop. Vectorizing the haversine distance with numpy over the whole grid
-    at once turns that into a single array operation instead of tens of
-    thousands of Python-level function calls.
+    Loads the grid once per process and precomputes numpy arrays
+    of lat/lon/sst/chl alongside the raw points list. Automatically
+    reloads if the underlying json file is updated on disk (checks mtime).
     """
+    global _cached_grid, _cached_mtime
     path = os.path.abspath(_GRID_PATH)
     if not os.path.exists(path):
         print(f"[copernicus_service] WARNING: {path} not found. Run scripts/fetch_copernicus_grid.py. "
               f"SST/Chlorophyll will be unavailable.")
         return None
+
+    try:
+        mtime = os.path.getmtime(path)
+    except OSError:
+        mtime = 0.0
+
+    if _cached_grid is not None and mtime == _cached_mtime:
+        return _cached_grid
+
     with open(path, encoding="utf-8") as f:
         grid = json.load(f)
 
     points = grid.get("points") or []
     grid["_lats"] = np.array([p["lat"] for p in points], dtype=np.float64)
     grid["_lons"] = np.array([p["lon"] for p in points], dtype=np.float64)
-    grid["_sst"] = np.array([p["sst_c"] for p in points], dtype=np.float64)
-    grid["_chl"] = np.array([p["chl_mg_m3"] for p in points], dtype=np.float64)
+    grid["_sst"] = np.array([p["sst_c"] if p.get("sst_c") is not None else np.nan for p in points], dtype=np.float64)
+    grid["_chl"] = np.array([p["chl_mg_m3"] if p.get("chl_mg_m3") is not None else np.nan for p in points], dtype=np.float64)
+    _cached_grid = grid
+    _cached_mtime = mtime
     return grid
 
 
 def _nan_to_none(value: float) -> Optional[float]:
-    """
-    numpy arrays can't hold Python None, so building grid['_sst']/['_chl'] as
-    float64 arrays silently turned any missing (None) reading into NaN. That
-    NaN then failed JSON serialization outright (ValueError: Out of range
-    float values are not JSON compliant) instead of encoding as `null` the
-    way a real None would have — caught live via a 500 on /pfz/nearest.
-    """
-    return None if value != value else value  # NaN != NaN is the fast isnan check
+    """Fast check to convert float NaN into Python None for JSON compliance."""
+    return None if value != value else value
 
 
 def _vectorized_haversine_km(lat: float, lon: float, lats: np.ndarray, lons: np.ndarray) -> np.ndarray:
@@ -80,6 +84,7 @@ def lookup_nearest(lat: float, lon: float) -> Optional[dict]:
     Returns the nearest precomputed grid point's SST/CHL data, or None if the
     grid file is missing. Result includes distance_km so callers can judge
     how representative the value is for a given query point.
+    All decimal figures are cleanly rounded to prevent floating-point artifacts.
     """
     grid = _load_grid()
     if not grid or not grid.get("points") or len(grid["_lats"]) == 0:
@@ -88,10 +93,28 @@ def lookup_nearest(lat: float, lon: float) -> Optional[dict]:
     dists = _vectorized_haversine_km(lat, lon, grid["_lats"], grid["_lons"])
     idx = int(np.argmin(dists))
 
+    # Pick the nearest cell with valid SST to avoid picking a coastal/land NaN cell
+    valid_sst_mask = ~np.isnan(grid["_sst"])
+    if np.any(valid_sst_mask):
+        sst_dists = np.where(valid_sst_mask, dists, np.inf)
+        sst_idx = int(np.argmin(sst_dists))
+        sst_val = _nan_to_none(grid["_sst"][sst_idx].item())
+    else:
+        sst_val = None
+
+    # Pick the nearest cell with valid Chlorophyll
+    valid_chl_mask = ~np.isnan(grid["_chl"])
+    if np.any(valid_chl_mask):
+        chl_dists = np.where(valid_chl_mask, dists, np.inf)
+        chl_idx = int(np.argmin(chl_dists))
+        chl_val = _nan_to_none(grid["_chl"][chl_idx].item())
+    else:
+        chl_val = None
+
     return {
-        "sst_c": _nan_to_none(grid["_sst"][idx].item()),
-        "chl_mg_m3": _nan_to_none(grid["_chl"][idx].item()),
-        "distance_km": round(dists[idx].item(), 2),
+        "sst_c": round(sst_val, 1) if sst_val is not None else None,
+        "chl_mg_m3": round(chl_val, 2) if chl_val is not None else None,
+        "distance_km": round(dists[idx].item(), 1),
         "grid_generated_at": grid.get("generated_at"),
         "sst_time": grid.get("sst_time"),
         "chl_time": grid.get("chl_time"),

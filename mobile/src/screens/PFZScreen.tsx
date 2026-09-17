@@ -18,6 +18,16 @@ import { getCachedBundleForOffline, findNearestZonesOffline, formatRelativeTime 
 import { useNetworkStore } from '../store/networkStore';
 import { getScreenText } from '../constants/screenTranslations';
 
+function formatEstArrival(distanceNm: number, speedKts = 11): string {
+  const totalMinutes = Math.round((distanceNm / speedKts) * 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  if (hours > 0) {
+    return `${hours}h ${mins}m @ ${speedKts} kts`;
+  }
+  return `${mins}m @ ${speedKts} kts`;
+}
+
 export function PFZScreen({ navigation }: any) {
   const { vesselType, getVesselRangeKm, operatingPort, portInfo, getLanguageInfo } = useUserStore();
   const langInfo = getLanguageInfo();
@@ -60,11 +70,11 @@ export function PFZScreen({ navigation }: any) {
           id: (idx + 1).toString(),
           name: z.name || `PFZ-${portInfo.name.substring(0, 3).toUpperCase()}-${(idx + 1) * 6}`,
           subtitle: `${portInfo.name} ${t.pfz.sectorWord} #${idx + 1}`,
-          distance: z.distance,
+          distance: z.distance != null ? Number(Number(z.distance).toFixed(1)) : null,
           bearing: z.bearing,
-          estArrival: z.distance != null ? `${Math.round((z.distance / 11) * 60)}m @ 11 kts` : '—',
-          sst: z.sst,
-          chl: z.chl,
+          estArrival: z.distance != null ? formatEstArrival(z.distance) : '—',
+          sst: z.sst != null ? Number(Number(z.sst).toFixed(1)) : null,
+          chl: z.chl != null ? Number(Number(z.chl).toFixed(2)) : null,
           confidence: z.confidence,
           dataNote: z.dataNote,
         }));
@@ -90,9 +100,9 @@ export function PFZScreen({ navigation }: any) {
               id: (idx + 1).toString(),
               name: z.name,
               subtitle: `${portInfo.name} ${t.pfz.sectorWord} #${idx + 1} (${t.profile.cachedSuffix})`,
-              distance: z.distance_km,
+              distance: z.distance_km != null ? Number(Number(z.distance_km).toFixed(1)) : null,
               bearing: '—',
-              estArrival: `${Math.round((z.distance_km / 11) * 60)}m @ 11 kts`,
+              estArrival: z.distance_km != null ? formatEstArrival(z.distance_km / 1.852) : '—',
               sst: null,
               chl: null,
               confidence: null,
@@ -149,7 +159,7 @@ export function PFZScreen({ navigation }: any) {
             </View>
             {zones.length > 0 && zones[0].distance != null && (
               <View style={styles.nearestBadge}>
-                <Text style={styles.nearestText}>{zones[0].distance} {t.pfz.nearestSuffix}</Text>
+                <Text style={styles.nearestText}>{typeof zones[0].distance === 'number' ? `${Number(zones[0].distance).toFixed(1)} NM` : zones[0].distance} {t.pfz.nearestSuffix}</Text>
               </View>
             )}
           </View>
@@ -258,7 +268,7 @@ export function PFZScreen({ navigation }: any) {
                   <View>
                     <Text style={styles.distLabel}>{t.pfz.distance}</Text>
                     <Text style={styles.distVal}>
-                      {zone.distance != null ? `${zone.distance} NM` : t.pfz.notAvailable}
+                      {zone.distance != null ? `${Number(zone.distance).toFixed(1)} NM` : t.pfz.notAvailable}
                       {zone.bearing ? ` (${zone.bearing})` : ''}
                     </Text>
                   </View>
@@ -278,12 +288,12 @@ export function PFZScreen({ navigation }: any) {
               <View style={styles.telemetryRow}>
                 <View style={styles.telemetryCard}>
                   <Text style={styles.telLabel}>{t.pfz.sstTemp}</Text>
-                  <Text style={styles.telValue}>{zone.sst != null ? `${zone.sst}°C` : t.pfz.notAvailable}</Text>
+                  <Text style={styles.telValue}>{zone.sst != null ? `${Number(zone.sst).toFixed(1)}°C` : t.pfz.notAvailable}</Text>
                   <Text style={styles.telStatus}>{zone.sst != null ? '' : t.pfz.offlineStatus}</Text>
                 </View>
                 <View style={styles.telemetryCard}>
                   <Text style={styles.telLabel}>{t.pfz.chlorophyll}</Text>
-                  <Text style={styles.telValue}>{zone.chl != null ? `${zone.chl}mg` : t.pfz.notAvailable}</Text>
+                  <Text style={styles.telValue}>{zone.chl != null ? `${Number(zone.chl).toFixed(2)} mg/m³` : t.pfz.notAvailable}</Text>
                   <Text style={styles.telStatus}>{zone.chl != null ? '' : t.pfz.offlineStatus}</Text>
                 </View>
               </View>
@@ -343,7 +353,7 @@ export function PFZScreen({ navigation }: any) {
                 <View style={styles.modalSpeciesBox}>
                   <Text style={styles.modalLabel}>{t.pfz.distance}</Text>
                   <Text style={styles.modalSpeciesVal}>
-                    {selectedInspectZone.distance != null ? `${selectedInspectZone.distance} NM` : t.pfz.notAvailable}
+                    {selectedInspectZone.distance != null ? `${Number(selectedInspectZone.distance).toFixed(1)} NM` : t.pfz.notAvailable}
                     {selectedInspectZone.bearing ? ` (${selectedInspectZone.bearing})` : ''}
                   </Text>
                   {selectedInspectZone.confidence != null && (
@@ -360,13 +370,13 @@ export function PFZScreen({ navigation }: any) {
                   <View style={styles.telemetryCard}>
                     <Text style={styles.telLabel}>{t.pfz.sstTemp}</Text>
                     <Text style={styles.telValue}>
-                      {selectedInspectZone.sst != null ? `${selectedInspectZone.sst}°C` : t.pfz.notAvailable}
+                      {selectedInspectZone.sst != null ? `${Number(selectedInspectZone.sst).toFixed(1)}°C` : t.pfz.notAvailable}
                     </Text>
                   </View>
                   <View style={styles.telemetryCard}>
                     <Text style={styles.telLabel}>{t.pfz.chlorophyll}</Text>
                     <Text style={styles.telValue}>
-                      {selectedInspectZone.chl != null ? `${selectedInspectZone.chl}mg` : t.pfz.notAvailable}
+                      {selectedInspectZone.chl != null ? `${Number(selectedInspectZone.chl).toFixed(2)} mg/m³` : t.pfz.notAvailable}
                     </Text>
                   </View>
                 </View>

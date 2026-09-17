@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
@@ -17,116 +17,11 @@ import { getCachedBundleForOffline, buildOfflineChatAnswer, formatRelativeTime }
 import { useNetworkStore } from '../store/networkStore';
 import { getScreenText } from '../constants/screenTranslations';
 import { LocationSourceBadge } from '../components/LocationSourceBadge';
-
-interface FishAvailability {
-  id: string;
-  name: string;
-  localNames: Record<string, string>;
-  abundance: 'VERY HIGH' | 'HIGH' | 'MODERATE';
-  distance: string;
-  depth: string;
-  peakTime: string;
-  gear: string;
-  sst: string;
-  chl: string;
-}
-
-// Fixed, prop/state-independent dataset — hoisted to module scope instead of
-// being redeclared inline on every render.
-const AVAILABLE_FISH_LIST: FishAvailability[] = [
-  {
-    id: '1',
-    name: 'Indian Oil Sardine',
-    localNames: {
-      en: 'Indian Oil Sardine',
-      ml: 'മത്തി (Mathi)',
-      ta: 'மத்தி (Mathi)',
-      te: 'సార్డైన్ (Sardine)',
-      bn: 'তারলি (Tarali)',
-      gu: 'તરલી (Tarali)',
-      mr: 'तारली (Tarli)',
-      or: 'ତାରଲି (Tarali)',
-      kn: 'ತಾರಲಿ (Tarali)',
-      hi: 'तारली (Tarli)',
-    },
-    abundance: 'VERY HIGH',
-    distance: '12 - 22 NM',
-    depth: '15 - 30m',
-    peakTime: '04:00 - 08:30 IST (Dawn)',
-    gear: 'Ring Seine / Purse Seine (32mm)',
-    sst: '28.2°C',
-    chl: '1.84 mg/m³',
-  },
-  {
-    id: '2',
-    name: 'Indian Mackerel',
-    localNames: {
-      en: 'Indian Mackerel',
-      ml: 'അയില (Ayila)',
-      ta: 'கானாங்கெளுத்தி (Kanangeluthi)',
-      te: 'కానాగర్త (Kanagartha)',
-      bn: 'বাংড়া (Bangda)',
-      gu: 'બંગડા (Bangda)',
-      mr: 'बांगडा (Bangda)',
-      or: 'ବାଂଗଡ଼ା (Bangada)',
-      kn: 'ಬಂಗ್ಡೆ (Bangude)',
-      hi: 'बांगड़ा (Bangda)',
-    },
-    abundance: 'HIGH',
-    distance: '8 - 18 NM',
-    depth: '20 - 40m',
-    peakTime: '05:00 - 10:00 IST',
-    gear: 'Surface Gillnet / Driftnet',
-    sst: '28.0°C',
-    chl: '1.65 mg/m³',
-  },
-  {
-    id: '3',
-    name: 'Yellowfin Tuna',
-    localNames: {
-      en: 'Yellowfin Tuna',
-      ml: 'ചൂള / സൂത (Choora)',
-      ta: 'சூரை (Soorai)',
-      te: 'తున్నా (Tunna)',
-      bn: 'টুনা (Tuna)',
-      gu: 'ટુના (Tuna)',
-      mr: 'कुप्पा (Kuppa)',
-      or: 'ଟୁନା (Tuna)',
-      kn: 'ಟ್ಯೂನಾ (Tuna)',
-      hi: 'ट्यूना (Tuna)',
-    },
-    abundance: 'HIGH',
-    distance: '18 - 35 NM',
-    depth: '40 - 90m',
-    peakTime: '03:30 - 09:00 IST',
-    gear: 'Hooks & Lines / Longline',
-    sst: '27.8°C',
-    chl: '1.45 mg/m³',
-  },
-  {
-    id: '4',
-    name: 'Silver Pomfret',
-    localNames: {
-      en: 'Silver Pomfret',
-      ml: 'ആവോലി (Aavoli)',
-      ta: 'வௌவால் (Vavval)',
-      te: 'చందమామ (Chandamama)',
-      bn: 'রুপচাঁদা (Rupchanda)',
-      gu: 'વિજળ (Vijal)',
-      mr: 'पापलेट (Paplet)',
-      or: 'ରୂପଚାନ୍ଦା (Rupachanda)',
-      kn: 'ಮಾಂಜಿ (Manji)',
-      hi: 'पापलेट (Paplet)',
-    },
-    abundance: 'MODERATE',
-    distance: '15 - 28 NM',
-    depth: '25 - 50m',
-    peakTime: '17:00 - 21:00 IST (Dusk)',
-    gear: 'Bottom Trawl / Drift Gillnet',
-    sst: '28.4°C',
-    chl: '1.72 mg/m³',
-  },
-];
+import {
+  getNearbyFisheryCentres,
+  LandingCentre,
+  SpeciesCatchInfo,
+} from '../utils/fisheryService';
 
 export function DashboardScreen({ navigation }: any) {
   const { portInfo, getLanguageInfo, getVesselRangeKm, language, vesselType, riskTolerance, role } =
@@ -135,8 +30,35 @@ export function DashboardScreen({ navigation }: any) {
   const t = getScreenText(langInfo.code);
   const vesselRange = getVesselRangeKm();
 
-  // State to manage collapsible accordion for fish species cards (default 1st fish expanded)
-  const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({ '1': true });
+  // Proximity coastal fishery data lookup based on active port/coordinates
+  const fisheryResult = useMemo(() => {
+    return getNearbyFisheryCentres(portInfo.latitude, portInfo.longitude, portInfo.name);
+  }, [portInfo.latitude, portInfo.longitude, portInfo.name]);
+
+  const [selectedCentreId, setSelectedCentreId] = useState<string>('');
+
+  // When port changes, reset selectedCentreId to the primary landing centre
+  useEffect(() => {
+    setSelectedCentreId(fisheryResult.primaryCentre.id);
+  }, [fisheryResult.primaryCentre.id]);
+
+  const activeLandingCentre = useMemo(() => {
+    if (selectedCentreId) {
+      const found = fisheryResult.allCentres.find((c: LandingCentre) => c.id === selectedCentreId);
+      if (found) return found;
+    }
+    return fisheryResult.primaryCentre;
+  }, [selectedCentreId, fisheryResult]);
+
+  // State to manage collapsible accordion for fish species cards
+  const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
+
+  // Expand the first fish card whenever the active landing centre changes
+  useEffect(() => {
+    if (activeLandingCentre.speciesList.length > 0) {
+      setExpandedMap({ [activeLandingCentre.speciesList[0].id]: true });
+    }
+  }, [activeLandingCentre.id]);
 
   const toggleFishExpand = (id: string) => {
     setExpandedMap((prev) => ({
@@ -418,8 +340,6 @@ export function DashboardScreen({ navigation }: any) {
                     ? `${Math.round(freshness.grid_age_hours * 60)} ${t.dashboard.minAgoSuffix}`
                     : `${freshness.grid_age_hours.toFixed(1)}${t.dashboard.hAgoSuffix}`}
                 </Text>
-                {' • '}
-                {freshness?.metadata?.point_count ?? t.pfz.notAvailable} {t.dashboard.marinePoints}
               </Text>
             </View>
 
@@ -626,9 +546,12 @@ export function DashboardScreen({ navigation }: any) {
           <View style={styles.sectionTitleRow}>
             <MaterialCommunityIcons name="fish" size={22} color={colors.primary} />
             <Text style={styles.sectionTitle}>
-              {t.dashboard.speciesGuideTitle} ({portInfo.name.toUpperCase()})
+              {t.dashboard.speciesGuideTitle} ({activeLandingCentre.name.toUpperCase()})
             </Text>
           </View>
+          <Text style={styles.fishCentreSub}>
+            📍 {activeLandingCentre.name} ({activeLandingCentre.distanceKm} km away) · {activeLandingCentre.district}, {activeLandingCentre.state} · {activeLandingCentre.fishingZone}
+          </Text>
         </View>
         <Text style={styles.fishSectionNote}>
           {t.dashboard.speciesGuideNote}
@@ -641,9 +564,75 @@ export function DashboardScreen({ navigation }: any) {
           ) : null}
         </Text>
 
+        {/* Proximity Landing Centres Switcher */}
+        <View style={styles.proximityBar}>
+          <View style={styles.proximityHeaderRow}>
+            <MaterialCommunityIcons name="map-marker-radius" size={15} color={colors.primaryContainer} />
+            <Text style={styles.proximityHeaderTitle}>
+              {t.dashboard.nearestCentreLabel || 'Nearest Landing Centre'} & {t.dashboard.nearbyRegionLabel || 'Nearby Regions'}:
+            </Text>
+          </View>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.proximityChipsRow}
+          >
+            {/* Primary Centre Chip */}
+            <TouchableOpacity
+              style={[
+                styles.proximityChip,
+                activeLandingCentre.id === fisheryResult.primaryCentre.id && styles.proximityChipActive,
+              ]}
+              onPress={() => setSelectedCentreId(fisheryResult.primaryCentre.id)}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="star"
+                size={13}
+                color={activeLandingCentre.id === fisheryResult.primaryCentre.id ? colors.white : '#F59E0B'}
+              />
+              <Text
+                style={[
+                  styles.proximityChipText,
+                  activeLandingCentre.id === fisheryResult.primaryCentre.id && styles.proximityChipTextActive,
+                ]}
+              >
+                {fisheryResult.primaryCentre.name} ({fisheryResult.primaryCentre.distanceKm} km)
+              </Text>
+            </TouchableOpacity>
+
+            {/* Nearby Centres Chips */}
+            {fisheryResult.nearbyCentres.map((c: LandingCentre) => {
+              const isActive = activeLandingCentre.id === c.id;
+              return (
+                <TouchableOpacity
+                  key={c.id}
+                  style={[styles.proximityChip, isActive && styles.proximityChipActive]}
+                  onPress={() => setSelectedCentreId(c.id)}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons
+                    name="waves"
+                    size={13}
+                    color={isActive ? colors.white : colors.primary}
+                  />
+                  <Text
+                    style={[
+                      styles.proximityChipText,
+                      isActive && styles.proximityChipTextActive,
+                    ]}
+                  >
+                    {c.name} ({c.distanceKm} km)
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+
         {/* Collapsible Accordion List for Fish Species */}
         <View style={styles.fishCardsList}>
-          {AVAILABLE_FISH_LIST.map((fish) => {
+          {activeLandingCentre.speciesList.map((fish: SpeciesCatchInfo) => {
             const speciesName = fish.localNames[language] || fish.localNames['en'] || fish.name;
             const isExpanded = !!expandedMap[fish.id];
             const abundanceColor =
@@ -678,13 +667,13 @@ export function DashboardScreen({ navigation }: any) {
                   <View style={styles.headerRightRow}>
                     <View style={[styles.abundanceBadge, { backgroundColor: abundanceColor + '20' }]}>
                       <Text style={[styles.abundanceText, { color: abundanceColor }]}>
-                        {t.dashboard.typicalPrefix}: {abundanceLabel}
+                        {abundanceLabel}
                       </Text>
                     </View>
 
                     <Ionicons
                       name={isExpanded ? 'chevron-up-circle' : 'chevron-down-circle'}
-                      size={24}
+                      size={22}
                       color={colors.primaryContainer}
                     />
                   </View>
@@ -696,18 +685,18 @@ export function DashboardScreen({ navigation }: any) {
                     <View style={styles.fishDetailItem}>
                       <Text style={styles.fishDetailLabel}>{t.dashboard.targetZoneDepth}</Text>
                       <Text style={styles.fishDetailValue}>
-                        📍 {fish.distance} | 🌊 {fish.depth}
+                        📍 {fish.distance} · 🌊 {fish.depth}
                       </Text>
-                    </View>
-
-                    <View style={styles.fishDetailItem}>
-                      <Text style={styles.fishDetailLabel}>{t.dashboard.peakCatchTime}</Text>
-                      <Text style={styles.fishDetailValue}>⏰ {fish.peakTime}</Text>
                     </View>
 
                     <View style={styles.fishDetailItem}>
                       <Text style={styles.fishDetailLabel}>{t.dashboard.recommendedGear}</Text>
                       <Text style={styles.fishDetailValue}>🕸️ {fish.gear}</Text>
+                    </View>
+
+                    <View style={styles.fishDetailItem}>
+                      <Text style={styles.fishDetailLabel}>{t.dashboard.peakCatchTime}</Text>
+                      <Text style={styles.fishDetailValue}>⏰ {fish.peakTime}</Text>
                     </View>
                   </View>
                 )}
@@ -1052,10 +1041,80 @@ const styles = StyleSheet.create({
     lineHeight: 22,
   },
   fishSectionHeader: {
+    marginBottom: 8,
+  },
+  fishCentreSub: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.primaryContainer,
+    marginTop: 3,
+  },
+  proximityBar: {
+    marginTop: 6,
+    marginBottom: 14,
+  },
+  proximityHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
+    gap: 5,
+    marginBottom: 6,
+  },
+  proximityHeaderTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.onSurfaceVariant,
+    letterSpacing: 0.3,
+  },
+  proximityChipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingVertical: 2,
+  },
+  proximityChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: colors.surface,
+    borderWidth: 1.5,
+    borderColor: colors.surfaceContainerHigh,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  proximityChipActive: {
+    backgroundColor: colors.primaryContainer,
+    borderColor: colors.primaryContainer,
+  },
+  proximityChipText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: colors.onSurface,
+  },
+  proximityChipTextActive: {
+    color: colors.white,
+  },
+  pricePill: {
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  pricePillText: {
+    fontSize: 11,
+    fontWeight: '900',
+    color: '#059669',
+  },
+  detailsTwoCol: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  fishDetailItemHalf: {
+    flex: 1,
+    backgroundColor: colors.surfaceContainerLow,
+    padding: 8,
+    borderRadius: 8,
   },
   fishCardsList: {
     gap: 12,

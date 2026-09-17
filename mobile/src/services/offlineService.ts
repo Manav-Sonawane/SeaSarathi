@@ -424,13 +424,20 @@ export function buildOfflineAlerts(bundle: OfflineBundle, _lat: number, _lon: nu
 
   const w = getForecastWindowOffline(bundle);
 
+  const baseOfflineMeta = {
+    distance_km: 0,
+    wind_speed_10m: w.windSpeed10m,
+    wind_gusts_10m: w.windGusts10m,
+    wave_height_m: w.waveHeight,
+  };
+
   if (w.windSpeed10m > 46) {
     alerts.push({
       type: 'HIGH_WIND',
       severity: 'HIGH',
       message: `Dangerous winds: ${Math.round(w.windSpeed10m)} km/h (gusts ${Math.round(w.windGusts10m)} km/h). Do not venture out. [cached]`,
       source: 'offline-cache',
-      metadata: { wind_speed_10m: w.windSpeed10m, wind_gusts_10m: w.windGusts10m },
+      metadata: { ...baseOfflineMeta, status: 'Gale Warning' },
     });
   } else if (w.windSpeed10m > 28) {
     alerts.push({
@@ -438,7 +445,7 @@ export function buildOfflineAlerts(bundle: OfflineBundle, _lat: number, _lon: nu
       severity: 'MODERATE',
       message: `Elevated winds: ${Math.round(w.windSpeed10m)} km/h. Exercise caution at sea. [cached]`,
       source: 'offline-cache',
-      metadata: { wind_speed_10m: w.windSpeed10m },
+      metadata: { ...baseOfflineMeta, status: 'Caution Advisory' },
     });
   }
 
@@ -448,7 +455,7 @@ export function buildOfflineAlerts(bundle: OfflineBundle, _lat: number, _lon: nu
       severity: 'HIGH',
       message: `Heavy rainfall: ${Math.round(w.precipitation)} mm in 12 hrs. Conditions will deteriorate. [cached]`,
       source: 'offline-cache',
-      metadata: { precipitation_mm: w.precipitation },
+      metadata: { ...baseOfflineMeta, precipitation_mm: w.precipitation, status: 'Heavy Rain' },
     });
   }
 
@@ -458,7 +465,7 @@ export function buildOfflineAlerts(bundle: OfflineBundle, _lat: number, _lon: nu
       severity: 'MODERATE',
       message: `Low visibility: ${(w.visibility / 1000).toFixed(1)} km. Navigation risk increased. [cached]`,
       source: 'offline-cache',
-      metadata: { visibility_m: w.visibility },
+      metadata: { ...baseOfflineMeta, visibility_m: w.visibility, status: 'Poor Visibility' },
     });
   }
 
@@ -468,7 +475,7 @@ export function buildOfflineAlerts(bundle: OfflineBundle, _lat: number, _lon: nu
       severity: 'HIGH',
       message: 'Thunderstorm with lightning forecast. Do NOT go out to sea. [cached]',
       source: 'offline-cache',
-      metadata: {},
+      metadata: { ...baseOfflineMeta, weather_code: 95, status: 'Thunderstorm' },
     });
   }
 
@@ -478,7 +485,7 @@ export function buildOfflineAlerts(bundle: OfflineBundle, _lat: number, _lon: nu
       severity: 'HIGH',
       message: `Dangerous waves: ${w.waveHeight.toFixed(1)} m. Small vessels must stay ashore. [cached]`,
       source: 'offline-cache',
-      metadata: { wave_height_m: w.waveHeight },
+      metadata: { ...baseOfflineMeta, status: 'Rough Sea' },
     });
   } else if (w.waveHeight > 2.0) {
     alerts.push({
@@ -486,7 +493,7 @@ export function buildOfflineAlerts(bundle: OfflineBundle, _lat: number, _lon: nu
       severity: 'MODERATE',
       message: `High waves: ${w.waveHeight.toFixed(1)} m. Avoid smaller vessels. [cached]`,
       source: 'offline-cache',
-      metadata: { wave_height_m: w.waveHeight },
+      metadata: { ...baseOfflineMeta, status: 'Moderate Swell' },
     });
   }
 

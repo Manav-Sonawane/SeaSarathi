@@ -150,9 +150,9 @@ export const pfzAPI = {
         // looking fake number, so the UI can honestly show "N/A"/"Offline".
         return list.map((z: any) => ({
           name: z.name || 'PFZ Zone',
-          distance: z.distance ?? z.distance_km,
-          sst: typeof z.sst === 'number' ? z.sst : null,
-          chl: typeof (z.chl ?? z.chlorophyll) === 'number' ? (z.chl ?? z.chlorophyll) : null,
+          distance: typeof (z.distance ?? z.distance_km) === 'number' ? Number(Number(z.distance ?? z.distance_km).toFixed(1)) : (z.distance ?? z.distance_km),
+          sst: typeof z.sst === 'number' ? Number(Number(z.sst).toFixed(1)) : null,
+          chl: typeof (z.chl ?? z.chlorophyll) === 'number' ? Number(Number(z.chl ?? z.chlorophyll).toFixed(2)) : null,
           confidence: z.confidence,
           bearing: z.direction ?? z.bearing,
           dataNote: z.data_note,
