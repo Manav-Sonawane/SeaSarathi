@@ -191,6 +191,12 @@ export interface ScreenText {
     veryHighAbundance: string;
     highAbundance: string;
     moderateAbundance: string;
+    estMarketPrice?: string;
+    cpueMetric?: string;
+    peakSeasonLabel?: string;
+    nearestCentreLabel?: string;
+    nearbyRegionLabel?: string;
+    recommendedVessel?: string;
   };
   chat: {
     lowRisk: string;
@@ -421,6 +427,12 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       veryHighAbundance: 'VERY HIGH',
       highAbundance: 'HIGH',
       moderateAbundance: 'MODERATE',
+      estMarketPrice: 'EST. MARKET PRICE',
+      cpueMetric: 'CATCH RATE & YIELD',
+      peakSeasonLabel: 'PEAK CATCH SEASON',
+      nearestCentreLabel: 'Nearest Landing Centre',
+      nearbyRegionLabel: 'Nearby Coastal Regions',
+      recommendedVessel: 'VESSEL TYPE',
     },
     chat: {
       lowRisk: 'LOW RISK',

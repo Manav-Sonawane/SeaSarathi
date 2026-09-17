@@ -46,10 +46,43 @@ function severityToCategory(severity: string): 'critical' | 'advisory' | 'naviga
 function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof getScreenText>) {
   const category = severityToCategory(a.severity);
   const meta = a.metadata || {};
-  const distance = meta.distance_km != null ? `${meta.distance_km} km` : '—';
+  
+  // Distance tag: e.g. "0 km (Port)" or "15 km" or "Maritime Border"
+  let distance = '0 km (Port)';
+  if (meta.distance_km != null) {
+    const d = Number(meta.distance_km);
+    distance = d === 0 ? '0 km (Port)' : `${d.toFixed(1)} km`;
+  } else if (a.source === 'geofence' || a.source === 'geofence-cache') {
+    distance = 'Maritime Border';
+  }
+
   // Falls back to the raw backend code (readable, just untranslated) for
   // any alert type not yet in alertTypes — never crashes on a new one.
   const typeLabel = t.alerts.alertTypes[a.type] || a.type.replace(/_/g, ' ');
+
+  // Wind speed display: checks numeric wind speed, gusts, or wind_conditions text
+  let windVal = '—';
+  if (meta.wind_speed_10m != null) {
+    windVal = `${Math.round(Number(meta.wind_speed_10m))} km/h`;
+  } else if (meta.wind_gusts_10m != null) {
+    windVal = `${Math.round(Number(meta.wind_gusts_10m))} km/h`;
+  } else if (meta.wind_conditions) {
+    const match = String(meta.wind_conditions).match(/\d+(?:-\d+)?\s*(?:kmph|km\/h|knots|kts)/i);
+    windVal = match ? match[0].replace(/kmph/i, 'km/h') : String(meta.wind_conditions).slice(0, 16);
+  }
+
+  // Status / Wave Height display
+  let statusVal = '—';
+  if (meta.wave_height_m != null) {
+    statusVal = `Hs ${Number(meta.wave_height_m).toFixed(1)} m`;
+  } else if (meta.status) {
+    statusVal = String(meta.status);
+  } else if (a.severity === 'HIGH') {
+    statusVal = 'Critical Risk';
+  } else if (a.severity === 'MODERATE') {
+    statusVal = 'Caution';
+  }
+
   return {
     id: `${a.type}-${idx}`,
     category,
@@ -59,8 +92,8 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
       ? `${t.alerts.boundaryPrefix} ${meta.boundary || 'Unknown'}`
       : t.alerts.weatherAdvisory,
     distText: distance,
-    vector: meta.wind_speed_10m != null ? `${Math.round(Number(meta.wind_speed_10m))} km/h` : '—',
-    breachTime: meta.wave_height_m != null ? `Hs ${Number(meta.wave_height_m).toFixed(1)} m` : '—',
+    vector: windVal,
+    breachTime: statusVal,
     body: a.message,
     coords: `${portInfo.latitude.toFixed(2)}° N, ${portInfo.longitude.toFixed(2)}° E`,
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
