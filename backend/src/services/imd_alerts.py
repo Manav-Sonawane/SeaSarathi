@@ -58,7 +58,19 @@ async def get_location_imd_alerts(state_name: str | None) -> list[dict]:
                     "severity": "HIGH",
                     "message": region.get("summary") or f"IMD fisherman warning active for {region.get('region_label')} — advised not to venture into the sea.",
                     "source": "imd-fisherman-warning",
-                    "metadata": {"region_label": region.get("region_label"), "wind_conditions": region.get("wind_conditions")},
+                    # wind_conditions/wave_or_swell_conditions are free-text AS
+                    # STATED in the source PDF (e.g. "35 kmph to 45 kmph"), not
+                    # a parsed number — the LLM extractor (imd_fisherman_
+                    # scraper.py) is deliberately told never to convert/round
+                    # these itself. Mobile renders them as text, not a numeric
+                    # km/h card like the geofence/weather alerts' metadata.
+                    "metadata": {
+                        "region_label": region.get("region_label"),
+                        "wind_conditions": region.get("wind_conditions"),
+                        "wave_or_swell_conditions": region.get("wave_or_swell_conditions"),
+                        "hazards": region.get("hazards"),
+                        "validity_note": region.get("validity_note"),
+                    },
                 })
                 break
 

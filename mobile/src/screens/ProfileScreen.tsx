@@ -13,6 +13,7 @@ import {
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useUserStore, VesselType, RiskTolerance, UserRole } from '../store/userStore';
+import { useShallow } from 'zustand/react/shallow';
 import { INDIAN_PORTS, INDIAN_LANGUAGES } from '../constants/portsAndLanguages';
 import { profileAPI } from '../services/api';
 import {
@@ -53,7 +54,35 @@ export function ProfileScreen() {
     loadFromBackend,
     getLanguageInfo,
     logout,
-  } = useUserStore();
+  } = useUserStore(
+    useShallow((s) => ({
+      deviceId: s.deviceId,
+      userId: s.userId,
+      userName: s.userName,
+      vesselType: s.vesselType,
+      riskTolerance: s.riskTolerance,
+      operatingPort: s.operatingPort,
+      portInfo: s.portInfo,
+      homePort: s.homePort,
+      homePortInfo: s.homePortInfo,
+      currentLocation: s.currentLocation,
+      role: s.role,
+      language: s.language,
+      isBackendSynced: s.isBackendSynced,
+      setVesselType: s.setVesselType,
+      setRiskTolerance: s.setRiskTolerance,
+      setOperatingPort: s.setOperatingPort,
+      setCurrentLocationFromCoords: s.setCurrentLocationFromCoords,
+      clearCurrentLocation: s.clearCurrentLocation,
+      setRole: s.setRole,
+      setLanguage: s.setLanguage,
+      getVesselRangeKm: s.getVesselRangeKm,
+      syncWithBackend: s.syncWithBackend,
+      loadFromBackend: s.loadFromBackend,
+      getLanguageInfo: s.getLanguageInfo,
+      logout: s.logout,
+    }))
+  );
   const t = getScreenText(getLanguageInfo().code);
 
   const [saving, setSaving] = useState(false);

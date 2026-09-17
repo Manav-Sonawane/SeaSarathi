@@ -13,6 +13,7 @@ import {
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/userStore';
+import { useShallow } from 'zustand/react/shallow';
 import { GoogleMapContainer } from '../components/GoogleMapContainer';
 import { INDIAN_PORTS } from '../constants/portsAndLanguages';
 import { useNetworkStore } from '../store/networkStore';
@@ -59,7 +60,9 @@ if (Platform.OS !== 'web') {
 }
 
 export function MapScreen({ navigation }: any) {
-  const { operatingPort, portInfo, getLanguageInfo } = useUserStore();
+  const { operatingPort, portInfo, getLanguageInfo } = useUserStore(
+    useShallow((s) => ({ operatingPort: s.operatingPort, portInfo: s.portInfo, getLanguageInfo: s.getLanguageInfo }))
+  );
   const langInfo = getLanguageInfo();
   const t = getScreenText(langInfo.code);
   const isOnline = useNetworkStore((s) => s.isOnline);

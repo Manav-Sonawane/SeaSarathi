@@ -183,7 +183,7 @@ def fetch_combined_forecasts_for_grid(lats: np.ndarray, lons: np.ndarray, foreca
     """
     weather_results = fetch_weather_for_grid(lats, lons, forecast_days=forecast_days)
     marine_results = fetch_marine_for_grid(lats, lons, forecast_days=forecast_days)
-    
+
     combined = {}
     for idx in range(len(lats)):
         point_id = generate_grid_point_id(lats[idx], lons[idx])
@@ -194,6 +194,55 @@ def fetch_combined_forecasts_for_grid(lats: np.ndarray, lons: np.ndarray, foreca
             "general_weather_forecast": weather_results.get(point_id),
             "marine_forecast": marine_results.get(point_id)
         }
+    return combined
+
+
+# ── Per-Point In-Process Cache ─────────────────────────────────────────────────
+# `fetch_combined_forecasts_for_grid` already sits behind a 1-hour HTTP-level
+# cache (see `_build_client` above) — but that only skips the network round
+# trip. Every call still re-runs openmeteo_requests' response parsing and
+# rebuilds a pandas DataFrame from scratch, and in a normal session a
+# fisherman bounces between Dashboard (/chat) and Alerts (/alerts) within
+# seconds of each other for the exact same point. This second, much shorter
+# cache sits in front of that reprocessing cost specifically — 5 minutes is
+# deliberately far shorter than the 1h HTTP cache's staleness tolerance; it
+# exists to skip duplicate CPU work within one browsing session, not to
+# serve older data than the HTTP layer already would.
+#
+# Cached per-point (not per-call), so a 2-point /chat call (user + PFZ
+# destination) can partially hit this cache even if only one of those two
+# points was already fetched by a prior request.
+_POINT_CACHE: dict[str, tuple[float, dict]] = {}
+_POINT_CACHE_TTL_SECONDS = 300
+
+
+def fetch_combined_forecasts_for_grid_cached(lats: np.ndarray, lons: np.ndarray, forecast_days: int = FORECAST_DAYS) -> dict:
+    import time
+
+    now = time.time()
+    point_ids = [generate_grid_point_id(lats[i], lons[i]) for i in range(len(lats))]
+    cache_keys = [f"{pid}_{forecast_days}" for pid in point_ids]
+
+    combined: dict = {}
+    miss_idx = []
+    for i, key in enumerate(cache_keys):
+        entry = _POINT_CACHE.get(key)
+        if entry and now - entry[0] < _POINT_CACHE_TTL_SECONDS:
+            combined[point_ids[i]] = entry[1]
+        else:
+            miss_idx.append(i)
+
+    if miss_idx:
+        miss_lats = np.array([lats[i] for i in miss_idx])
+        miss_lons = np.array([lons[i] for i in miss_idx])
+        fetched = fetch_combined_forecasts_for_grid(miss_lats, miss_lons, forecast_days=forecast_days)
+        for i in miss_idx:
+            point_id = point_ids[i]
+            data = fetched.get(point_id)
+            if data is not None:
+                combined[point_id] = data
+                _POINT_CACHE[cache_keys[i]] = (now, data)
+
     return combined
 
 # ── CLI Test ───────────────────────────────────────────────────────────────────

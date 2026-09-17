@@ -14,10 +14,12 @@ import { colors } from '../theme/colors';
 import { alertsAPI, Alert } from '../services/api';
 
 import { useUserStore } from '../store/userStore';
+import { useShallow } from 'zustand/react/shallow';
 import { getCachedBundleForOffline, buildOfflineAlerts, formatRelativeTime } from '../services/offlineService';
 import { useNetworkStore } from '../store/networkStore';
 import { getScreenText } from '../constants/screenTranslations';
 import { LocationSourceBadge } from '../components/LocationSourceBadge';
+import { ZonalNewsFeed } from '../components/ZonalNewsFeed';
 
 // Static example card shown only until the first /alerts response (live or
 // cached) arrives, so the screen isn't empty on first paint.
@@ -42,6 +44,13 @@ function severityToCategory(severity: string): 'critical' | 'advisory' | 'naviga
   if (severity === 'MODERATE') return 'advisory';
   return 'navigational';
 }
+
+// IMD's fisherman-warning PDFs state wind/wave conditions as free text
+// ("35 kmph to 45 kmph", "2.5 to 3.5 m") rather than a parsed number — the
+// LLM extractor (backend/src/services/imd_fisherman_scraper.py) is
+// deliberately told never to convert/round these itself, since a wrong
+// converted number is worse than showing the source's own wording.
+const IMD_SOURCES = new Set(['imd-fisherman-warning', 'imd-cyclone-warning', 'imd-sea-area-bulletin']);
 
 function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof getScreenText>) {
   const category = severityToCategory(a.severity);
@@ -75,6 +84,8 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
   let statusVal = '—';
   if (meta.wave_height_m != null) {
     statusVal = `Hs ${Number(meta.wave_height_m).toFixed(1)} m`;
+  } else if (meta.wave_or_swell_conditions) {
+    statusVal = String(meta.wave_or_swell_conditions);
   } else if (meta.status) {
     statusVal = String(meta.status);
   } else if (a.severity === 'HIGH') {
@@ -83,6 +94,8 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
     statusVal = 'Caution';
   }
 
+  const isImd = IMD_SOURCES.has(a.source || '');
+
   return {
     id: `${a.type}-${idx}`,
     category,
@@ -90,6 +103,8 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
     title: typeLabel,
     sub: a.source === 'geofence' || a.source === 'geofence-cache'
       ? `${t.alerts.boundaryPrefix} ${meta.boundary || 'Unknown'}`
+      : isImd
+      ? String(meta.region_label || meta.sea_area || meta.region_name || 'IMD')
       : t.alerts.weatherAdvisory,
     distText: distance,
     vector: windVal,
@@ -101,7 +116,9 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
 }
 
 export function AlertsScreen({ navigation }: any) {
-  const { operatingPort, portInfo, getLanguageInfo } = useUserStore();
+  const { operatingPort, portInfo, getLanguageInfo } = useUserStore(
+    useShallow((s) => ({ operatingPort: s.operatingPort, portInfo: s.portInfo, getLanguageInfo: s.getLanguageInfo }))
+  );
   const langInfo = getLanguageInfo();
   const t = getScreenText(langInfo.code);
 
@@ -183,6 +200,9 @@ export function AlertsScreen({ navigation }: any) {
             </View>
           </View>
         </View>
+
+        {/* Zonal Coastal News Feed */}
+        <ZonalNewsFeed />
 
         {/* Urgency Tab Filters */}
         <View style={styles.tabSection}>

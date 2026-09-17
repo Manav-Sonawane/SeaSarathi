@@ -17,12 +17,12 @@ import { colors } from '../theme/colors';
 import { useUserStore, VesselType, RiskTolerance, UserRole } from '../store/userStore';
 import { INDIAN_PORTS, INDIAN_LANGUAGES } from '../constants/portsAndLanguages';
 import { profileAPI } from '../services/api';
+import { useShallow } from 'zustand/react/shallow';
 
 export function AuthScreen() {
-  const {
-    loginWithProfile,
-    signUp,
-  } = useUserStore();
+  const { loginWithProfile, signUp } = useUserStore(
+    useShallow((s) => ({ loginWithProfile: s.loginWithProfile, signUp: s.signUp }))
+  );
 
   type AuthView = 'landing' | 'signup' | 'login';
   const [view, setView] = useState<AuthView>('landing');

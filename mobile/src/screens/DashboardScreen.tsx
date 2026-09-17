@@ -12,6 +12,7 @@ import {
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/userStore';
+import { useShallow } from 'zustand/react/shallow';
 import { chatAPI, ChatResponse, Alert, freshnessAPI, DataFreshnessInfo } from '../services/api';
 import { getCachedBundleForOffline, buildOfflineChatAnswer, formatRelativeTime } from '../services/offlineService';
 import { useNetworkStore } from '../store/networkStore';
@@ -24,8 +25,17 @@ import {
 } from '../utils/fisheryService';
 
 export function DashboardScreen({ navigation }: any) {
-  const { portInfo, getLanguageInfo, getVesselRangeKm, language, vesselType, riskTolerance, role } =
-    useUserStore();
+  const { portInfo, getLanguageInfo, getVesselRangeKm, language, vesselType, riskTolerance, role } = useUserStore(
+    useShallow((s) => ({
+      portInfo: s.portInfo,
+      getLanguageInfo: s.getLanguageInfo,
+      getVesselRangeKm: s.getVesselRangeKm,
+      language: s.language,
+      vesselType: s.vesselType,
+      riskTolerance: s.riskTolerance,
+      role: s.role,
+    }))
+  );
   const langInfo = getLanguageInfo();
   const t = getScreenText(langInfo.code);
   const vesselRange = getVesselRangeKm();
@@ -76,6 +86,15 @@ export function DashboardScreen({ navigation }: any) {
   const [freshness, setFreshness] = useState<DataFreshnessInfo | null>(null);
   const [refreshingData, setRefreshingData] = useState(false);
   const [syncBannerMessage, setSyncBannerMessage] = useState<string | null>(null);
+  // True only when BOTH the live /chat call and the offline cache fallback
+  // have failed — i.e. `conditions` is still null and there is genuinely no
+  // real data to show. Without this, the dashboard used to silently render
+  // telemetry's neutral zero/LOW defaults as if they were a real "all
+  // clear" reading (0 km/h wind, 0m waves, green "SAFE" badges) — visually
+  // indistinguishable from an actual calm-sea report, which is exactly the
+  // kind of fabricated-looking safety data ChatScreen's fake-conversation
+  // bug was fixed for earlier.
+  const [dataUnavailable, setDataUnavailable] = useState(false);
 
   useEffect(() => {
     loadConditions();
@@ -139,6 +158,7 @@ export function DashboardScreen({ navigation }: any) {
       setConditions(res);
       setConditionsLanguage(language);
       setIsOfflineData(false);
+      setDataUnavailable(false);
     } catch (err) {
       console.error('[DashboardScreen] Live /chat call failed, trying offline cache:', err);
       try {
@@ -153,10 +173,18 @@ export function DashboardScreen({ navigation }: any) {
           setConditions(offlineAnswer);
           setConditionsLanguage(language);
           setIsOfflineData(true);
+          setDataUnavailable(false);
           setOfflineAsOf(bundle.metadata.created);
+        } else {
+          // No live data AND no cached bundle to fall back to — do not
+          // leave a stale-but-now-invisible `conditions` from a previous
+          // port/session rendering as if it were current.
+          setConditions(null);
+          setDataUnavailable(true);
         }
       } catch {
-        // No cached bundle either — leave whatever was last shown (or null on first load).
+        setConditions(null);
+        setDataUnavailable(true);
       }
     } finally {
       setLoading(false);
@@ -177,6 +205,10 @@ export function DashboardScreen({ navigation }: any) {
   const isWaveGood = telemetry.waveHeight <= 1.5;
   const isRainGood = telemetry.rainfall === 0;
   const warnings: Alert[] = conditions?.alerts ?? [];
+  // Real data exists (live or offline-cached) — telemetry/warnings/advisory
+  // below are only ever rendered when this is true, never from the
+  // zero/LOW defaults alone (see `dataUnavailable` state above).
+  const hasData = conditions !== null;
 
   // Get localized fisherman safety advisory:
   // If conditions was fetched under a different language or hasn't loaded yet,
@@ -205,15 +237,28 @@ export function DashboardScreen({ navigation }: any) {
               style={[
                 styles.liveChip,
                 isOfflineData && { backgroundColor: 'rgba(180,83,9,0.35)' },
+                dataUnavailable && { backgroundColor: 'rgba(220,38,38,0.35)' },
               ]}
             >
               {loading ? (
                 <ActivityIndicator size="small" color={colors.white} />
               ) : (
-                <View style={[styles.greenPulse, isOfflineData && { backgroundColor: '#FCD34D' }]} />
+                <View
+                  style={[
+                    styles.greenPulse,
+                    isOfflineData && { backgroundColor: '#FCD34D' },
+                    dataUnavailable && { backgroundColor: colors.error },
+                  ]}
+                />
               )}
               <Text style={styles.liveChipText}>
-                {loading ? t.dashboard.syncing : isOfflineData ? t.dashboard.offlineCached : t.dashboard.live}
+                {loading
+                  ? t.dashboard.syncing
+                  : dataUnavailable
+                  ? t.dashboard.noDataChip
+                  : isOfflineData
+                  ? t.dashboard.offlineCached
+                  : t.dashboard.live}
               </Text>
             </View>
           </View>
@@ -340,6 +385,22 @@ export function DashboardScreen({ navigation }: any) {
           </View>
         </View>
 
+        {!hasData && !loading && (
+          <View style={styles.unavailableBox}>
+            <Ionicons name="cloud-offline-outline" size={20} color={colors.error} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.unavailableTitle}>{t.dashboard.dataUnavailableTitle}</Text>
+              <Text style={styles.unavailableText}>{t.dashboard.dataUnavailableBody}</Text>
+            </View>
+            <TouchableOpacity style={styles.unavailableRetryBtn} onPress={loadConditions}>
+              <Ionicons name="refresh" size={14} color={colors.white} />
+              <Text style={styles.unavailableRetryBtnText}>{t.dashboard.reFetch}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {hasData && (
+        <>
         {/* 2x3 Metric Cards with Color-Coded Condition Badges */}
         <View style={styles.metricsGrid}>
           {/* Wind Speed */}
@@ -487,6 +548,8 @@ export function DashboardScreen({ navigation }: any) {
           </View>
           <Text style={styles.recText}>{loading ? t.dashboard.fetchingConditions : safetyAdvisory}</Text>
         </View>
+        </>
+        )}
 
         {/* Fish Species Available in this Zone Section */}
         <View style={styles.fishSectionHeader}>
@@ -760,6 +823,43 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: colors.tertiary,
     flex: 1,
+  },
+  unavailableBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  unavailableTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#B91C1C',
+    marginBottom: 2,
+  },
+  unavailableText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#991B1B',
+    lineHeight: 15,
+  },
+  unavailableRetryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.error,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  unavailableRetryBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.white,
   },
   warningsSection: {
     marginBottom: 16,

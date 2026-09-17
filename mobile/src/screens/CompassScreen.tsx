@@ -21,6 +21,7 @@ import Svg, {
   Polygon,
 } from 'react-native-svg';
 import { useUserStore } from '../store/userStore';
+import { useShallow } from 'zustand/react/shallow';
 import { INDIAN_PORTS, PortInfo } from '../constants/portsAndLanguages';
 import { getScreenText } from '../constants/screenTranslations';
 import {
@@ -41,7 +42,15 @@ const R_NUMBERS = 148;
 const R_CARDINAL = 82;
 
 export function CompassScreen() {
-  const { portInfo, getLanguageInfo, userName, userId, vesselType } = useUserStore();
+  const { portInfo, getLanguageInfo, userName, userId, vesselType } = useUserStore(
+    useShallow((s) => ({
+      portInfo: s.portInfo,
+      getLanguageInfo: s.getLanguageInfo,
+      userName: s.userName,
+      userId: s.userId,
+      vesselType: s.vesselType,
+    }))
+  );
   const langInfo = getLanguageInfo();
   const t = getScreenText(langInfo.code);
 

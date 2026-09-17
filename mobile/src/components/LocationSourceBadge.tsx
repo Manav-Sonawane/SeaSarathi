@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/userStore';
 import { getScreenText } from '../constants/screenTranslations';
+import { useShallow } from 'zustand/react/shallow';
 
 /**
  * Makes it visible on-screen which location is actually driving what a
@@ -19,7 +20,9 @@ import { getScreenText } from '../constants/screenTranslations';
  * nothing told him *which* location's data he was actually looking at.
  */
 export function LocationSourceBadge() {
-  const { currentLocation, homePortInfo, portInfo } = useUserStore();
+  const { currentLocation, portInfo } = useUserStore(
+    useShallow((s) => ({ currentLocation: s.currentLocation, portInfo: s.portInfo }))
+  );
   const langCode = useUserStore((s) => s.getLanguageInfo().code);
   const t = getScreenText(langCode);
 

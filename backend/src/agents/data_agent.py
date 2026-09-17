@@ -3,7 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 from src.agents.state import AgentState
-from src.services.weather_service import fetch_combined_forecasts_for_grid, generate_grid_point_id
+from src.services.weather_service import fetch_combined_forecasts_for_grid_cached as fetch_combined_forecasts_for_grid, generate_grid_point_id
 from src.services.copernicus_service import lookup_nearest as lookup_sst_chl
 from src.services.fishing_zone_estimator import estimate_local_fishing_zones
 from src.utils.data_freshness import (

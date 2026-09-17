@@ -16,6 +16,7 @@ import { useAudioRecorder, RecordingPresets, requestRecordingPermissionsAsync, s
 import { colors } from '../theme/colors';
 import { chatAPI, ChatResponse, voiceAPI } from '../services/api';
 import { useUserStore } from '../store/userStore';
+import { useShallow } from 'zustand/react/shallow';
 import { getCachedBundleForOffline, buildOfflineChatAnswer, formatRelativeTime } from '../services/offlineService';
 import { useNetworkStore } from '../store/networkStore';
 import { detectQueryLanguage, bcp47ToAppLanguage } from '../utils/languageDetection';
@@ -34,7 +35,18 @@ interface Message {
 }
 
 export function ChatScreen({ navigation }: any) {
-  const { operatingPort, portInfo, getLanguageInfo, getVesselRangeKm, language, vesselType, riskTolerance, role } = useUserStore();
+  const { operatingPort, portInfo, getLanguageInfo, getVesselRangeKm, language, vesselType, riskTolerance, role } = useUserStore(
+    useShallow((s) => ({
+      operatingPort: s.operatingPort,
+      portInfo: s.portInfo,
+      getLanguageInfo: s.getLanguageInfo,
+      getVesselRangeKm: s.getVesselRangeKm,
+      language: s.language,
+      vesselType: s.vesselType,
+      riskTolerance: s.riskTolerance,
+      role: s.role,
+    }))
+  );
   const langInfo = getLanguageInfo();
   const t = getScreenText(langInfo.code);
   const vesselRange = getVesselRangeKm();
