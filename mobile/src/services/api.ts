@@ -77,6 +77,23 @@ export interface ChatResponse {
   data_freshness?: DataFreshnessInfo | null;
 }
 
+// Process-alive vs. data-ready are different questions (see backend
+// main.py's /health vs /health/ready) — this is the latter, used by
+// StartupSplashScreen to know when the Copernicus grid (and therefore
+// real SST/chlorophyll/PFZ numbers) is actually available, instead of the
+// app silently rendering null/zero data during the backend's ~90s cold
+// start.
+export interface ReadinessInfo {
+  ready: boolean;
+  grid: { ready: boolean; point_count: number | null; generated_at: string | null };
+  imd: { sources_cached: number; sources_total: number };
+  agent_ready: boolean;
+}
+
+export const healthAPI = {
+  getReadiness: () => api.get<ReadinessInfo>('/health/ready', { timeout: 8000 }).then((res) => res.data),
+};
+
 export const chatAPI = {
   sendMessage: (query: string, latitude: number, longitude: number, profile?: any) =>
     api
