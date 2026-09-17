@@ -40,6 +40,14 @@ export interface ScreenText {
     sectorWord: string;
     boatWord: string;
     portWord: string;
+    // Shown instead of a blank list when the live /pfz/nearest call AND the
+    // offline cache fallback both fail (see PFZScreen.tsx's `loadFailed`).
+    loadFailedTitle: string;
+    loadFailedBody: string;
+    retry: string;
+    // Shown when the backend was reached fine but genuinely returned zero
+    // zones — distinct from loadFailed, which means we couldn't reach data.
+    noZonesFound: string;
   };
   alerts: {
     sentryActive: string;
@@ -163,6 +171,7 @@ export interface ScreenText {
     syncing: string;
     offlineCached: string;
     live: string;
+    noDataChip: string; // short header-chip label shown instead of "LIVE" when dataUnavailable is true
     autoRefreshedBanner: string;
     manualRefreshBanner: string;
     freshnessTitle: string;
@@ -175,6 +184,12 @@ export interface ScreenText {
     hAgoSuffix: string;
     marinePoints: string;
     reFetch: string;
+    // Shown instead of the telemetry grid/warnings/advisory when both the
+    // live /chat call and the offline cache fallback fail — never a silent
+    // zero/LOW placeholder (see DashboardScreen.tsx's `hasData`/
+    // `dataUnavailable`).
+    dataUnavailableTitle: string;
+    dataUnavailableBody: string;
     safetyWarnings: string;
     noActiveWarnings: string; // contains "{port}" token
     fetchingConditions: string;
@@ -271,6 +286,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       sectorWord: 'Sector',
       boatWord: 'BOAT',
       portWord: 'PORT',
+      loadFailedTitle: 'Could not load fishing zones',
+      loadFailedBody: 'Could not reach the server and no cached data was found. Showing nothing until reconnected.',
+      retry: 'Retry',
+      noZonesFound: 'No potential fishing zones found for this location.',
     },
     alerts: {
       sentryActive: 'SAFETY WATCH ACTIVE',
@@ -400,6 +419,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       syncing: 'SYNCING',
       offlineCached: 'OFFLINE (CACHED)',
       live: 'LIVE',
+      noDataChip: 'NO DATA',
       autoRefreshedBanner: 'Ocean data was >6h old — Auto-refreshed live!',
       manualRefreshBanner: 'Live data re-fetch complete!',
       freshnessTitle: 'DATA FRESHNESS',
@@ -412,6 +432,8 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       hAgoSuffix: 'h ago',
       marinePoints: 'Marine Points',
       reFetch: 'Re-fetch',
+      dataUnavailableTitle: 'Live data unavailable',
+      dataUnavailableBody: 'Could not reach the server and no cached data was found. Showing nothing until reconnected — do not rely on numbers you see elsewhere.',
       safetyWarnings: 'SAFETY WARNINGS',
       noActiveWarnings: 'No active warnings for {port} right now.',
       fetchingConditions: 'Fetching current conditions…',
@@ -504,6 +526,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       sectorWord: 'സെക്ടർ',
       boatWord: 'ബോട്ട്',
       portWord: 'തുറമുഖം',
+      loadFailedTitle: 'ഫിഷിംഗ് സോണുകൾ ലോഡ് ചെയ്യാനായില്ല',
+      loadFailedBody: 'സെർവറുമായി ബന്ധിപ്പിക്കാനായില്ല, കാഷെ ചെയ്ത ഡാറ്റയും കണ്ടെത്തിയില്ല. വീണ്ടും ബന്ധിപ്പിക്കുന്നത് വരെ ഒന്നും കാണിക്കുന്നില്ല.',
+      retry: 'വീണ്ടും ശ്രമിക്കുക',
+      noZonesFound: 'ഈ സ്ഥലത്തിന് സമീപം മത്സ്യബന്ധന മേഖലകളൊന്നും കണ്ടെത്തിയില്ല.',
     },
     alerts: {
       sentryActive: 'സുരക്ഷാ നിരീക്ഷണം സജീവം',
@@ -633,6 +659,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       syncing: 'സമന്വയിപ്പിക്കുന്നു',
       offlineCached: 'ഓഫ്‌ലൈൻ (സൂക്ഷിച്ചത്)',
       live: 'തത്സമയം',
+      noDataChip: 'ഡാറ്റയില്ല',
       autoRefreshedBanner: 'സമുദ്ര വിവരം 6 മണിക്കൂറിലധികം പഴയതായിരുന്നു — സ്വയമേവ പുതുക്കി!',
       manualRefreshBanner: 'തത്സമയ പുതുക്കൽ പൂർത്തിയായി!',
       freshnessTitle: 'വിവര പുതുമ',
@@ -645,6 +672,8 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       hAgoSuffix: 'മ മുമ്പ്',
       marinePoints: 'സമുദ്ര പോയിന്റുകൾ',
       reFetch: 'വീണ്ടും ലഭ്യമാക്കുക',
+      dataUnavailableTitle: 'തത്സമയ ഡാറ്റ ലഭ്യമല്ല',
+      dataUnavailableBody: 'സെർവറുമായി ബന്ധിപ്പിക്കാനായില്ല, കാഷെ ചെയ്ത ഡാറ്റയും കണ്ടെത്തിയില്ല. വീണ്ടും ബന്ധിപ്പിക്കുന്നത് വരെ ഒന്നും കാണിക്കുന്നില്ല.',
       safetyWarnings: 'സുരക്ഷാ മുന്നറിയിപ്പുകൾ',
       noActiveWarnings: '{port}ൽ ഇപ്പോൾ സജീവ മുന്നറിയിപ്പുകൾ ഇല്ല.',
       fetchingConditions: 'നിലവിലെ അവസ്ഥ ലഭ്യമാക്കുന്നു…',
@@ -737,6 +766,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       sectorWord: 'செக்டார்',
       boatWord: 'படகு',
       portWord: 'துறைமுகம்',
+      loadFailedTitle: 'மீன்பிடி மண்டலங்களை ஏற்ற முடியவில்லை',
+      loadFailedBody: 'சேவையகத்தை அடைய முடியவில்லை, சேமிக்கப்பட்ட தரவும் இல்லை. மீண்டும் இணைக்கும் வரை எதுவும் காட்டப்படாது.',
+      retry: 'மீண்டும் முயற்சிக்கவும்',
+      noZonesFound: 'இந்த இடத்திற்கு அருகில் மீன்பிடி மண்டலங்கள் எதுவும் இல்லை.',
     },
     alerts: {
       sentryActive: 'பாதுகாப்பு கண்காணிப்பு செயலில்',
@@ -866,6 +899,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       syncing: 'ஒத்திசைக்கிறது',
       offlineCached: 'ஆஃப்லைன் (சேமிக்கப்பட்டது)',
       live: 'நேரடி',
+      noDataChip: 'தரவு இல்லை',
       autoRefreshedBanner: 'கடல் தரவு 6 மணி நேரத்திற்கும் மேலாக பழையதாக இருந்தது — தானாக புதுப்பிக்கப்பட்டது!',
       manualRefreshBanner: 'நேரடி புதுப்பித்தல் முடிந்தது!',
       freshnessTitle: 'தரவு புதுமை',
@@ -878,6 +912,8 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       hAgoSuffix: 'ம முன்',
       marinePoints: 'கடல் புள்ளிகள்',
       reFetch: 'மீண்டும் பெறு',
+      dataUnavailableTitle: 'நேரடி தரவு கிடைக்கவில்லை',
+      dataUnavailableBody: 'சேவையகத்தை அடைய முடியவில்லை, சேமிக்கப்பட்ட தரவும் இல்லை. மீண்டும் இணைக்கும் வரை எதுவும் காட்டப்படாது.',
       safetyWarnings: 'பாதுகாப்பு எச்சரிக்கைகள்',
       noActiveWarnings: '{port}ல் தற்போது செயலில் எச்சரிக்கைகள் இல்லை.',
       fetchingConditions: 'தற்போதைய நிலைமைகளைப் பெறுகிறது…',
@@ -947,6 +983,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       sectorWord: 'సెక్టార్',
       boatWord: 'పడవ',
       portWord: 'నౌకాశ్రయం',
+      loadFailedTitle: 'ఫిషింగ్ జోన్‌లను లోడ్ చేయలేకపోయాము',
+      loadFailedBody: 'సర్వర్‌ను చేరుకోలేకపోయాము మరియు కాష్ చేసిన డేటా కూడా కనుగొనబడలేదు. మళ్లీ కనెక్ట్ అయ్యే వరకు ఏమీ చూపబడదు.',
+      retry: 'మళ్లీ ప్రయత్నించండి',
+      noZonesFound: 'ఈ ప్రదేశానికి సమీపంలో మత్స్య మండలాలు ఏవీ కనుగొనబడలేదు.',
     },
     alerts: {
       sentryActive: 'భద్రతా పర్యవేక్షణ యాక్టివ్',
@@ -1076,6 +1116,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       syncing: 'సమకాలీకరిస్తోంది',
       offlineCached: 'ఆఫ్‌లైన్ (సేవ్ చేయబడింది)',
       live: 'ప్రత్యక్షం',
+      noDataChip: 'డేటా లేదు',
       autoRefreshedBanner: 'సముద్ర డేటా 6 గంటలకు మించి పాతది — స్వయంచాలకంగా రిఫ్రెష్ చేయబడింది!',
       manualRefreshBanner: 'ప్రత్యక్ష రిఫ్రెష్ పూర్తయింది!',
       freshnessTitle: 'డేటా తాజాదనం',
@@ -1088,6 +1129,8 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       hAgoSuffix: 'గం క్రితం',
       marinePoints: 'సముద్ర పాయింట్లు',
       reFetch: 'మళ్లీ పొందండి',
+      dataUnavailableTitle: 'ప్రత్యక్ష డేటా అందుబాటులో లేదు',
+      dataUnavailableBody: 'సర్వర్‌ను చేరుకోలేకపోయాము మరియు కాష్ చేసిన డేటా కూడా కనుగొనబడలేదు. మళ్లీ కనెక్ట్ అయ్యే వరకు ఏమీ చూపబడదు.',
       safetyWarnings: 'భద్రతా హెచ్చరికలు',
       noActiveWarnings: '{port}లో ప్రస్తుతం క్రియాశీల హెచ్చరికలు లేవు.',
       fetchingConditions: 'ప్రస్తుత పరిస్థితులను పొందుతోంది…',
@@ -1157,6 +1200,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       sectorWord: 'সেক্টর',
       boatWord: 'নৌকা',
       portWord: 'বন্দর',
+      loadFailedTitle: 'মৎস্য অঞ্চল লোড করা যায়নি',
+      loadFailedBody: 'সার্ভারে পৌঁছানো যায়নি এবং কোনো ক্যাশে করা ডেটাও পাওয়া যায়নি। পুনরায় সংযুক্ত না হওয়া পর্যন্ত কিছু দেখানো হচ্ছে না।',
+      retry: 'আবার চেষ্টা করুন',
+      noZonesFound: 'এই স্থানের কাছে কোনো সম্ভাব্য মৎস্য অঞ্চল পাওয়া যায়নি।',
     },
     alerts: {
       sentryActive: 'নিরাপত্তা নজরদারি সক্রিয়',
@@ -1286,6 +1333,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       syncing: 'সিঙ্ক হচ্ছে',
       offlineCached: 'অফলাইন (সংরক্ষিত)',
       live: 'লাইভ',
+      noDataChip: 'ডেটা নেই',
       autoRefreshedBanner: 'সমুদ্রের তথ্য ৬ ঘণ্টারও বেশি পুরনো ছিল — স্বয়ংক্রিয়ভাবে রিফ্রেশ হয়েছে!',
       manualRefreshBanner: 'লাইভ রিফ্রেশ সম্পন্ন হয়েছে!',
       freshnessTitle: 'তথ্যের সতেজতা',
@@ -1298,6 +1346,8 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       hAgoSuffix: 'ঘ আগে',
       marinePoints: 'সামুদ্রিক পয়েন্ট',
       reFetch: 'পুনরায় আনুন',
+      dataUnavailableTitle: 'লাইভ ডেটা উপলব্ধ নেই',
+      dataUnavailableBody: 'সার্ভারে পৌঁছানো যায়নি এবং কোনো ক্যাশে করা ডেটাও পাওয়া যায়নি। পুনরায় সংযুক্ত না হওয়া পর্যন্ত কিছু দেখানো হচ্ছে না।',
       safetyWarnings: 'নিরাপত্তা সতর্কতা',
       noActiveWarnings: '{port}-এ এখন কোনো সক্রিয় সতর্কতা নেই।',
       fetchingConditions: 'বর্তমান অবস্থা আনা হচ্ছে…',
@@ -1367,6 +1417,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       sectorWord: 'સેક્ટર',
       boatWord: 'બોટ',
       portWord: 'બંદર',
+      loadFailedTitle: 'ફિશિંગ ઝોન લોડ કરી શકાયા નથી',
+      loadFailedBody: 'સર્વર સુધી પહોંચી શકાયું નથી અને કોઈ કેશ કરેલો ડેટા મળ્યો નથી. ફરીથી કનેક્ટ ન થાય ત્યાં સુધી કંઈ બતાવવામાં આવતું નથી.',
+      retry: 'ફરી પ્રયાસ કરો',
+      noZonesFound: 'આ સ્થાન નજીક કોઈ સંભવિત મત્સ્ય ઝોન મળ્યા નથી.',
     },
     alerts: {
       sentryActive: 'સુરક્ષા દેખરેખ સક્રિય',
@@ -1496,6 +1550,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       syncing: 'સિંક થઈ રહ્યું છે',
       offlineCached: 'ઓફલાઇન (સાચવેલ)',
       live: 'લાઇવ',
+      noDataChip: 'ડેટા નથી',
       autoRefreshedBanner: 'દરિયાઈ માહિતી 6 કલાકથી વધુ જૂની હતી — આપમેળે તાજી કરાઈ!',
       manualRefreshBanner: 'લાઇવ રિફ્રેશ પૂર્ણ થયું!',
       freshnessTitle: 'માહિતીની તાજગી',
@@ -1508,6 +1563,8 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       hAgoSuffix: 'ક પહેલાં',
       marinePoints: 'દરિયાઈ પોઈન્ટ',
       reFetch: 'ફરી મેળવો',
+      dataUnavailableTitle: 'લાઇવ ડેટા ઉપલબ્ધ નથી',
+      dataUnavailableBody: 'સર્વર સુધી પહોંચી શકાયું નથી અને કોઈ કેશ કરેલો ડેટા મળ્યો નથી. ફરીથી કનેક્ટ ન થાય ત્યાં સુધી કંઈ બતાવવામાં આવતું નથી.',
       safetyWarnings: 'સુરક્ષા ચેતવણીઓ',
       noActiveWarnings: '{port} માં હાલમાં કોઈ સક્રિય ચેતવણી નથી.',
       fetchingConditions: 'હાલની સ્થિતિ મેળવી રહ્યા છીએ…',
@@ -1577,6 +1634,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       sectorWord: 'सेक्टर',
       boatWord: 'बोट',
       portWord: 'बंदर',
+      loadFailedTitle: 'फिशिंग झोन लोड करता आले नाहीत',
+      loadFailedBody: 'सर्व्हरशी संपर्क होऊ शकला नाही आणि कॅश केलेला डेटाही सापडला नाही. पुन्हा कनेक्ट होईपर्यंत काहीही दाखवले जात नाही.',
+      retry: 'पुन्हा प्रयत्न करा',
+      noZonesFound: 'या ठिकाणाजवळ कोणतेही संभाव्य मासेमारी क्षेत्र आढळले नाही.',
     },
     alerts: {
       sentryActive: 'सुरक्षा निगराणी सक्रिय',
@@ -1706,6 +1767,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       syncing: 'सिंक होत आहे',
       offlineCached: 'ऑफलाइन (जतन केलेले)',
       live: 'थेट',
+      noDataChip: 'डेटा नाही',
       autoRefreshedBanner: 'सागरी माहिती 6 तासांपेक्षा जुनी होती — आपोआप रिफ्रेश केली!',
       manualRefreshBanner: 'थेट रिफ्रेश पूर्ण झाले!',
       freshnessTitle: 'माहिती ताजेपणा',
@@ -1718,6 +1780,8 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       hAgoSuffix: 'ता आधी',
       marinePoints: 'सागरी बिंदू',
       reFetch: 'पुन्हा मिळवा',
+      dataUnavailableTitle: 'थेट डेटा उपलब्ध नाही',
+      dataUnavailableBody: 'सर्व्हरशी संपर्क होऊ शकला नाही आणि कॅश केलेला डेटाही सापडला नाही. पुन्हा कनेक्ट होईपर्यंत काहीही दाखवले जात नाही.',
       safetyWarnings: 'सुरक्षा इशारे',
       noActiveWarnings: '{port} मध्ये सध्या कोणतेही सक्रिय इशारे नाहीत.',
       fetchingConditions: 'सध्याची स्थिती मिळवत आहे…',
@@ -1787,6 +1851,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       sectorWord: 'ସେକ୍ଟର',
       boatWord: 'ଡଙ୍ଗା',
       portWord: 'ବନ୍ଦର',
+      loadFailedTitle: 'ମତ୍ସ୍ୟ ମଣ୍ଡଳ ଲୋଡ୍ ହୋଇପାରିଲା ନାହିଁ',
+      loadFailedBody: 'ସର୍ଭରକୁ ପହଞ୍ଚିହେଲା ନାହିଁ ଏବଂ କୌଣସି କ୍ୟାଶ୍ ହୋଇଥିବା ଡାଟା ମିଳିଲା ନାହିଁ। ପୁନଃ ସଂଯୋଗ ନହେବା ପର୍ଯ୍ୟନ୍ତ କିଛି ଦେଖାଯାଉ ନାହିଁ।',
+      retry: 'ପୁନः ଚେଷ୍ଟା କରନ୍ତୁ',
+      noZonesFound: 'ଏହି ସ୍ଥାନ ନିକଟରେ କୌଣସି ସମ୍ଭାବ୍ୟ ମତ୍ସ୍ୟ ମଣ୍ଡଳ ମିଳିଲା ନାହିଁ।',
     },
     alerts: {
       sentryActive: 'ସୁରକ୍ଷା ନଜର ସକ୍ରିୟ',
@@ -1916,6 +1984,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       syncing: 'ସିଙ୍କ୍ ହେଉଛି',
       offlineCached: 'ଅଫଲାଇନ (ସଂରକ୍ଷିତ)',
       live: 'ଲାଇଭ୍',
+      noDataChip: 'ତଥ୍ୟ ନାହିଁ',
       autoRefreshedBanner: 'ସାମୁଦ୍ରିକ ତଥ୍ୟ 6 ଘଣ୍ଟାରୁ ଅଧିକ ପୁରୁଣା ଥିଲା — ସ୍ୱୟଂଚାଳିତ ଭାବେ ରିଫ୍ରେଶ୍ ହେଲା!',
       manualRefreshBanner: 'ଲାଇଭ୍ ରିଫ୍ରେଶ୍ ସମ୍ପୂର୍ଣ୍ଣ ହେଲା!',
       freshnessTitle: 'ତଥ୍ୟ ସତେଜତା',
@@ -1928,6 +1997,8 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       hAgoSuffix: 'ଘ ପୂର୍ବେ',
       marinePoints: 'ସାମୁଦ୍ରିକ ପଏଣ୍ଟ',
       reFetch: 'ପୁନଃ ଆଣନ୍ତୁ',
+      dataUnavailableTitle: 'ଲାଇଭ୍ ଡାଟା ଉପଲବ୍ଧ ନାହିଁ',
+      dataUnavailableBody: 'ସର୍ଭରକୁ ପହଞ୍ଚିହେଲା ନାହିଁ ଏବଂ କୌଣସି କ୍ୟାଶ୍ ହୋଇଥିବା ଡାଟା ମିଳିଲା ନାହିଁ। ପୁନଃ ସଂଯୋଗ ନହେବା ପର୍ଯ୍ୟନ୍ତ କିଛି ଦେଖାଯାଉ ନାହିଁ।',
       safetyWarnings: 'ସୁରକ୍ଷା ସତର୍କତା',
       noActiveWarnings: '{port} ରେ ବର୍ତ୍ତମାନ କୌଣସି ସକ୍ରିୟ ସତର୍କତା ନାହିଁ।',
       fetchingConditions: 'ବର୍ତ୍ତମାନର ସ୍ଥିତି ଆଣୁଛି…',
@@ -1997,6 +2068,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       sectorWord: 'ಸೆಕ್ಟರ್',
       boatWord: 'ದೋಣಿ',
       portWord: 'ಬಂದರು',
+      loadFailedTitle: 'ಮೀನುಗಾರಿಕೆ ವಲಯಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ',
+      loadFailedBody: 'ಸರ್ವರ್ ಅನ್ನು ತಲುಪಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ ಮತ್ತು ಯಾವುದೇ ಕ್ಯಾಶ್ ಮಾಡಿದ ಡೇಟಾ ಕಂಡುಬಂದಿಲ್ಲ. ಮತ್ತೆ ಸಂಪರ್ಕಗೊಳ್ಳುವವರೆಗೆ ಏನನ್ನೂ ತೋರಿಸಲಾಗುವುದಿಲ್ಲ.',
+      retry: 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ',
+      noZonesFound: 'ಈ ಸ್ಥಳದ ಬಳಿ ಯಾವುದೇ ಸಂಭಾವ್ಯ ಮೀನುಗಾರಿಕೆ ವಲಯಗಳು ಕಂಡುಬಂದಿಲ್ಲ.',
     },
     alerts: {
       sentryActive: 'ಸುರಕ್ಷತಾ ನಿಗಾ ಸಕ್ರಿಯ',
@@ -2126,6 +2201,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       syncing: 'ಸಿಂಕ್ ಆಗುತ್ತಿದೆ',
       offlineCached: 'ಆಫ್‌ಲೈನ್ (ಉಳಿಸಲಾಗಿದೆ)',
       live: 'ಲೈವ್',
+      noDataChip: 'ಡೇಟಾ ಇಲ್ಲ',
       autoRefreshedBanner: 'ಸಮುದ್ರ ದತ್ತಾಂಶ 6 ಗಂಟೆಗಳಿಗಿಂತ ಹಳೆಯದಾಗಿತ್ತು — ಸ್ವಯಂಚಾಲಿತವಾಗಿ ರಿಫ್ರೆಶ್ ಆಗಿದೆ!',
       manualRefreshBanner: 'ಲೈವ್ ರಿಫ್ರೆಶ್ ಪೂರ್ಣಗೊಂಡಿದೆ!',
       freshnessTitle: 'ದತ್ತಾಂಶ ತಾಜಾತನ',
@@ -2138,6 +2214,8 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       hAgoSuffix: 'ಗಂ ಹಿಂದೆ',
       marinePoints: 'ಸಮುದ್ರ ಪಾಯಿಂಟ್‌ಗಳು',
       reFetch: 'ಮತ್ತೆ ಪಡೆಯಿರಿ',
+      dataUnavailableTitle: 'ಲೈವ್ ಡೇಟಾ ಲಭ್ಯವಿಲ್ಲ',
+      dataUnavailableBody: 'ಸರ್ವರ್ ಅನ್ನು ತಲುಪಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ ಮತ್ತು ಯಾವುದೇ ಕ್ಯಾಶ್ ಮಾಡಿದ ಡೇಟಾ ಕಂಡುಬಂದಿಲ್ಲ. ಮತ್ತೆ ಸಂಪರ್ಕಗೊಳ್ಳುವವರೆಗೆ ಏನನ್ನೂ ತೋರಿಸಲಾಗುವುದಿಲ್ಲ.',
       safetyWarnings: 'ಸುರಕ್ಷತಾ ಎಚ್ಚರಿಕೆಗಳು',
       noActiveWarnings: '{port} ನಲ್ಲಿ ಪ್ರಸ್ತುತ ಯಾವುದೇ ಸಕ್ರಿಯ ಎಚ್ಚರಿಕೆಗಳಿಲ್ಲ.',
       fetchingConditions: 'ಪ್ರಸ್ತುತ ಪರಿಸ್ಥಿತಿಗಳನ್ನು ಪಡೆಯುತ್ತಿದೆ…',
@@ -2207,6 +2285,10 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       sectorWord: 'सेक्टर',
       boatWord: 'नाव',
       portWord: 'बंदरगाह',
+      loadFailedTitle: 'फिशिंग ज़ोन लोड नहीं हो सके',
+      loadFailedBody: 'सर्वर तक नहीं पहुंच सके और कोई कैश्ड डेटा भी नहीं मिला। दोबारा कनेक्ट होने तक कुछ भी नहीं दिखाया जा रहा है।',
+      retry: 'पुनः प्रयास करें',
+      noZonesFound: 'इस स्थान के पास कोई संभावित मत्स्य क्षेत्र नहीं मिला।',
     },
     alerts: {
       sentryActive: 'सुरक्षा निगरानी सक्रिय',
@@ -2336,6 +2418,7 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       syncing: 'सिंक हो रहा है',
       offlineCached: 'ऑफलाइन (सहेजा गया)',
       live: 'लाइव',
+      noDataChip: 'डेटा नहीं',
       autoRefreshedBanner: 'समुद्री डेटा 6 घंटे से अधिक पुराना था — स्वचालित रूप से रीफ्रेश किया गया!',
       manualRefreshBanner: 'लाइव रीफ्रेश पूरा हुआ!',
       freshnessTitle: 'डेटा ताज़गी',
@@ -2348,6 +2431,8 @@ export const SCREEN_TEXT: Record<string, ScreenText> = {
       hAgoSuffix: 'घं पहले',
       marinePoints: 'समुद्री बिंदु',
       reFetch: 'फिर से प्राप्त करें',
+      dataUnavailableTitle: 'लाइव डेटा उपलब्ध नहीं है',
+      dataUnavailableBody: 'सर्वर तक नहीं पहुंच सके और कोई कैश्ड डेटा भी नहीं मिला। दोबारा कनेक्ट होने तक कुछ भी नहीं दिखाया जा रहा है।',
       safetyWarnings: 'सुरक्षा चेतावनियां',
       noActiveWarnings: '{port} में फिलहाल कोई सक्रिय चेतावनी नहीं है।',
       fetchingConditions: 'वर्तमान स्थिति प्राप्त हो रही है…',

@@ -44,6 +44,15 @@ function severityToCategory(severity: string): 'critical' | 'advisory' | 'naviga
   return 'navigational';
 }
 
+// IMD's fisherman-warning PDFs state wind/wave conditions as free text
+// ("35 kmph to 45 kmph", "2.5 to 3.5 m") rather than a parsed number — the
+// LLM extractor (backend/src/services/imd_fisherman_scraper.py) is
+// deliberately told never to convert/round these itself, since a wrong
+// converted number is worse than showing the source's own wording. So this
+// card shows that text as-is instead of leaving "—" the way it used to
+// when it only looked for a numeric wind_speed_10m/wave_height_m field.
+const IMD_SOURCES = new Set(['imd-fisherman-warning', 'imd-cyclone-warning', 'imd-sea-area-bulletin']);
+
 function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof getScreenText>) {
   const category = severityToCategory(a.severity);
   const meta = a.metadata || {};
@@ -51,6 +60,19 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
   // Falls back to the raw backend code (readable, just untranslated) for
   // any alert type not yet in alertTypes — never crashes on a new one.
   const typeLabel = t.alerts.alertTypes[a.type] || a.type.replace(/_/g, ' ');
+  const isImd = IMD_SOURCES.has(a.source || '');
+
+  const vector = meta.wind_speed_10m != null
+    ? `${Math.round(Number(meta.wind_speed_10m))} km/h`
+    : meta.wind_conditions
+    ? String(meta.wind_conditions)
+    : '—';
+  const breachTime = meta.wave_height_m != null
+    ? `Hs ${Number(meta.wave_height_m).toFixed(1)} m`
+    : meta.wave_or_swell_conditions
+    ? String(meta.wave_or_swell_conditions)
+    : '—';
+
   return {
     id: `${a.type}-${idx}`,
     category,
@@ -58,10 +80,12 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
     title: typeLabel,
     sub: a.source === 'geofence' || a.source === 'geofence-cache'
       ? `${t.alerts.boundaryPrefix} ${meta.boundary || 'Unknown'}`
+      : isImd
+      ? (meta.region_label || meta.sea_area || meta.region_name || 'IMD')
       : t.alerts.weatherAdvisory,
     distText: distance,
-    vector: meta.wind_speed_10m != null ? `${Math.round(Number(meta.wind_speed_10m))} km/h` : '—',
-    breachTime: meta.wave_height_m != null ? `Hs ${Number(meta.wave_height_m).toFixed(1)} m` : '—',
+    vector,
+    breachTime,
     body: a.message,
     coords: `${portInfo.latitude.toFixed(2)}° N, ${portInfo.longitude.toFixed(2)}° E`,
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',

@@ -33,6 +33,11 @@ export function PFZScreen({ navigation }: any) {
   // No fabricated placeholder zones — starts empty and only ever shows real
   // /pfz/nearest data (live) or real cached PFZ geometry (offline fallback).
   const [zones, setZones] = useState<any[]>([]);
+  // True only when both the live call and the offline cache fallback come
+  // back with nothing — distinguishes "we couldn't load PFZ data" from
+  // "we loaded it and there's genuinely nothing", since zones stayed
+  // silently empty (blank screen, no error) for both cases before this.
+  const [loadFailed, setLoadFailed] = useState(false);
 
   useEffect(() => {
     loadZones();
@@ -65,6 +70,12 @@ export function PFZScreen({ navigation }: any) {
         }));
         setZones(formatted);
         setIsOfflineData(false);
+        setLoadFailed(false);
+      } else {
+        // Backend reached fine but returned zero zones (e.g. PFZ.geojson
+        // genuinely has nothing) — real result, not a fetch failure.
+        setZones([]);
+        setLoadFailed(false);
       }
     } catch (err) {
       console.error('[PFZScreen] Live /pfz/nearest call failed, trying offline cache:', err);
@@ -89,11 +100,19 @@ export function PFZScreen({ navigation }: any) {
             }));
             setZones(formatted);
             setIsOfflineData(true);
+            setLoadFailed(false);
             setOfflineAsOf(bundle.metadata.created);
+          } else {
+            setZones([]);
+            setLoadFailed(true);
           }
+        } else {
+          setZones([]);
+          setLoadFailed(true);
         }
       } catch {
-        // No cached bundle either — leave the existing (static placeholder) zones.
+        setZones([]);
+        setLoadFailed(true);
       }
     } finally {
       setLoading(false);
@@ -162,6 +181,27 @@ export function PFZScreen({ navigation }: any) {
             <Text style={styles.offlineBannerText}>
               {t.pfz.offlineNotice} ({formatRelativeTime(offlineAsOf)})
             </Text>
+          </View>
+        )}
+
+        {!loading && loadFailed && (
+          <View style={styles.errorBox}>
+            <Ionicons name="cloud-offline-outline" size={20} color={colors.error} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.errorTitle}>{t.pfz.loadFailedTitle}</Text>
+              <Text style={styles.errorText}>{t.pfz.loadFailedBody}</Text>
+            </View>
+            <TouchableOpacity style={styles.errorRetryBtn} onPress={loadZones}>
+              <Ionicons name="refresh" size={14} color={colors.white} />
+              <Text style={styles.errorRetryBtnText}>{t.pfz.retry}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {!loading && !loadFailed && zones.length === 0 && (
+          <View style={styles.emptyBox}>
+            <Ionicons name="information-circle-outline" size={18} color={colors.onSurfaceVariant} />
+            <Text style={styles.emptyText}>{t.pfz.noZonesFound}</Text>
           </View>
         )}
 
@@ -475,6 +515,58 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     color: colors.tertiary,
+    flex: 1,
+  },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FEE2E2',
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+  },
+  errorTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#B91C1C',
+    marginBottom: 2,
+  },
+  errorText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#991B1B',
+    lineHeight: 15,
+  },
+  errorRetryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.error,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  errorRetryBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.white,
+  },
+  emptyBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+  },
+  emptyText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
     flex: 1,
   },
   zoneCard: {
