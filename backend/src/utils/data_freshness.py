@@ -97,7 +97,8 @@ def _refresh_grid_blocking() -> bool:
         # picks up what we just wrote, instead of serving stale data from
         # memory until the process restarts.
         from src.services.copernicus_service import _load_grid
-        _load_grid.cache_clear()
+        if hasattr(_load_grid, "cache_clear"):
+            _load_grid.cache_clear()
 
         # Clean expired openmeteo cached entries as well
         try:

@@ -63,6 +63,15 @@ def _load_grid() -> Optional[dict]:
     return grid
 
 
+def _clear_grid_cache():
+    global _cached_grid, _cached_mtime
+    _cached_grid = None
+    _cached_mtime = 0.0
+
+
+_load_grid.cache_clear = _clear_grid_cache
+
+
 def _nan_to_none(value: float) -> Optional[float]:
     """Fast check to convert float NaN into Python None for JSON compliance."""
     return None if value != value else value
