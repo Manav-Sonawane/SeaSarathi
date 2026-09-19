@@ -1,0 +1,5 @@
+{$DOMAIN} {
+	encode gzip
+	# No read timeout on purpose: chat / voice / offline-sync calls can take a while.
+	reverse_proxy api:8000
+}

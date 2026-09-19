@@ -1,0 +1,21 @@
+# Keep the backend image small and free of secrets/local state.
+.git
+mobile
+stitch_screens
+*.pptx
+*.html
+*.md
+
+# secrets — supplied at runtime via env_file, never baked in
+**/.env
+**/.env.*
+!**/.env.example
+
+# local state (persisted in Docker volumes on the server instead)
+backend/venv
+backend/data
+backend/.cache
+data/dynamic
+**/__pycache__
+**/*.pyc
+**/*.sqlite

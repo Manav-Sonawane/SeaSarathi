@@ -56,9 +56,15 @@ if (!API_BASE_URL) {
   );
 }
 
+// Shared secret the deployed backend checks (backend API_KEY, see main.py).
+// Inlined at build time like EXPO_PUBLIC_API_URL, so it is readable from the
+// APK — it deters casual abuse of a public server, it isn't real auth.
+const API_KEY = process.env.EXPO_PUBLIC_API_KEY || '';
+
 export const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 60000,
+  headers: API_KEY ? { 'x-api-key': API_KEY } : undefined,
 });
 
 export interface DataFreshnessInfo {

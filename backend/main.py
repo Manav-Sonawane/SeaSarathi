@@ -78,6 +78,27 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Shared-secret gate for a PUBLIC deployment. The API has no user auth, and
+# several endpoints (chat, voice, translation) spend the server's Sarvam
+# credits, so anyone who finds the URL could run up the bill. When API_KEY is
+# set every request except /health* (used by the app's startup check and
+# uptime monitors) and CORS preflights must carry a matching `x-api-key`
+# header. The key ships inside the app (EXPO_PUBLIC_API_KEY), so it is a
+# speed bump against casual abuse, not real authentication — rotate it by
+# changing the env var and rebuilding the app. Unset (local dev) = no check.
+_API_KEY = os.getenv("API_KEY", "")
+if _API_KEY:
+    import hmac
+    from fastapi.responses import JSONResponse
+
+    @app.middleware("http")
+    async def require_api_key(request, call_next):
+        if request.method == "OPTIONS" or request.url.path.startswith("/health"):
+            return await call_next(request)
+        if not hmac.compare_digest(request.headers.get("x-api-key", ""), _API_KEY):
+            return JSONResponse({"detail": "Missing or invalid API key"}, status_code=401)
+        return await call_next(request)
+
 from src.routers import (
     health,
     chat,
