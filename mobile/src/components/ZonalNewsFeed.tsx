@@ -65,7 +65,7 @@ export function ZonalNewsFeed({ refreshKey = 0 }: { refreshKey?: number }) {
   const langInfo = getLanguageInfo();
   const t = getScreenText(langInfo.code);
 
-  const [expanded, setExpanded] = useState(true);
+  const [expanded, setExpanded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [zones, setZones] = useState<ZoneBulletin[]>([]);

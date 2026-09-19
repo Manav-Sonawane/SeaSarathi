@@ -233,6 +233,30 @@ export interface ImdStatus {
   bulletin: ImdBulletinInfo | null;
 }
 
+// Key facts boiled down from IMD's timestamped data (backend
+// src/services/imd_simplifier.py). Numbers/places/times are copied from the
+// source facts — never model-written; the newest source wins any conflict.
+export interface SimpleFactItem {
+  kind: 'wind' | 'swell' | 'thunderstorm' | 'storm';
+  place?: string | null;
+  issued_text?: string | null;
+  valid_until_text?: string | null;
+  // wind
+  wind_min?: number; wind_max?: number; gust?: number | null; unit?: string; period?: string | null;
+  // swell
+  height_min?: number; height_max?: number; period_min?: number | null; period_max?: number | null;
+  from_text?: string | null; until_text?: string | null;
+  // thunderstorm / storm: IMD's own sentence
+  text?: string | null; text_translated?: string;
+}
+export interface SimpleSummary {
+  items: SimpleFactItem[];
+  advice: { text: string | null; text_translated?: string; issued_text?: string | null } | null;
+  plain: string | null;
+  plain_translated?: string;
+  method: 'llm' | 'rules';
+}
+
 export const alertsAPI = {
   getAlerts: (latitude: number, longitude: number) =>
     api
@@ -241,8 +265,14 @@ export const alertsAPI = {
 
   getAlertsWithStatus: (latitude: number, longitude: number, lang?: string) =>
     api
-      .get<{ alerts: Alert[]; imd_status?: ImdStatus }>('/alerts', { params: { latitude, longitude, lang } })
-      .then((res) => ({ alerts: res.data.alerts || [], imdStatus: res.data.imd_status ?? null })),
+      .get<{ alerts: Alert[]; imd_status?: ImdStatus; simple_summary?: SimpleSummary | null }>('/alerts', {
+        params: { latitude, longitude, lang },
+      })
+      .then((res) => ({
+        alerts: res.data.alerts || [],
+        imdStatus: res.data.imd_status ?? null,
+        simpleSummary: res.data.simple_summary ?? null,
+      })),
 };
 
 // Zonal news feed (backend/src/services/imd_news_feed.py) — the same IMD

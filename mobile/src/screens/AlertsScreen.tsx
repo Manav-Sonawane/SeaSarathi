@@ -11,7 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import { alertsAPI, Alert, ImdStatus } from '../services/api';
+import { alertsAPI, Alert, ImdStatus, SimpleSummary, SimpleFactItem } from '../services/api';
 
 import { useUserStore } from '../store/userStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -47,6 +47,28 @@ function formatAge(t: ReturnType<typeof getScreenText>, minutes: number | null |
   if (minutes < 60) return fillText(t.alerts.ageMinutes, { n: Math.round(minutes) });
   if (minutes < 60 * 48) return fillText(t.alerts.ageHours, { n: Math.round(minutes / 60) });
   return fillText(t.alerts.ageDays, { n: Math.round(minutes / 1440) });
+}
+
+// One key fact as two short lines: the figure(s), then where/when. Numbers,
+// places and times are the source's own (see SimpleSummary in api.ts).
+function keyFactLines(f: SimpleFactItem, t: ReturnType<typeof getScreenText>): { main: string; sub: string } {
+  const unit = (f.unit || 'km/h').replace(/kmph/i, 'km/h');
+  if (f.kind === 'wind') {
+    const gust = f.gust ? ` · ${fillText(t.alerts.keyGusts, { n: f.gust })}` : '';
+    // period looks like "Day 1 · 21 Sep": keep only the date part, the "Day n" is English.
+    const dates = (f.period || '').split(' · ')[1];
+    return {
+      main: `${t.alerts.keyWind} ${f.wind_min}–${f.wind_max} ${unit}${gust}`,
+      sub: [f.place, dates].filter(Boolean).join(' · '),
+    };
+  }
+  if (f.kind === 'swell') {
+    const period = f.period_min != null && f.period_max != null ? ` · ${fillText(t.alerts.keyPeriod, { a: f.period_min, b: f.period_max })}` : '';
+    const when = f.from_text && f.until_text ? `${f.from_text} → ${f.until_text}` : '';
+    return { main: `${t.alerts.keySwell} ${f.height_min}–${f.height_max} m${period}`, sub: [f.place, when].filter(Boolean).join(' · ') };
+  }
+  // thunderstorm / storm: IMD's own sentence
+  return { main: f.text_translated || f.text || '', sub: f.place || '' };
 }
 
 // Reload alerts this often while the screen is open, and whenever the tab is
@@ -194,6 +216,7 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
     // a safety warning is always visible. Other alerts are rebuilt locally.
     body: a.message_translated || localizedMessage(a, t),
     bodyOriginal: a.message_translated ? a.message : '',
+    isImd: isImd,
     coords: `${portInfo.latitude.toFixed(2)}° N, ${portInfo.longitude.toFixed(2)}° E`,
     // For IMD alerts show WHEN IMD issued the bulletin, not the phone's clock —
     // otherwise an old bulletin looks like it was just published.
@@ -216,7 +239,11 @@ export function AlertsScreen({ navigation }: any) {
   const [loading, setLoading] = useState(false);
   const [isOfflineData, setIsOfflineData] = useState(false);
   const [offlineAsOf, setOfflineAsOf] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'critical' | 'advisory' | 'navigational'>('all');
+  // False until the first live or cached result arrives — until then the list is
+  // only a placeholder card, so no "No warnings" summary or card actions yet.
+  const [hasLoaded, setHasLoaded] = useState(false);
+  // Cards start compact; this holds the ones the user expanded via "More details".
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   // Per-alert, not a single shared boolean — that used to make acknowledging
   // one critical alert flip the "Acknowledged" label on every critical
   // alert card at once.
@@ -225,6 +252,8 @@ export function AlertsScreen({ navigation }: any) {
   const [alertsList, setAlertsList] = useState<any[]>(PLACEHOLDER_ALERTS(portInfo, operatingPort, t.alerts.fetching));
   // How current the IMD data behind the cards is (null = offline/cached or not loaded yet).
   const [imdStatus, setImdStatus] = useState<ImdStatus | null>(null);
+  // IMD's key facts (wind / swell / place / times), newest source winning conflicts.
+  const [simpleSummary, setSimpleSummary] = useState<SimpleSummary | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const lastLoadRef = useRef(0);
 
@@ -258,14 +287,17 @@ export function AlertsScreen({ navigation }: any) {
     setLoading(true);
     try {
       if (!isOnline) throw new Error('No network connection (known offline)');
-      const { alerts: data, imdStatus: status } = await alertsAPI.getAlertsWithStatus(portInfo.latitude, portInfo.longitude, langInfo.code);
+      const { alerts: data, imdStatus: status, simpleSummary } = await alertsAPI.getAlertsWithStatus(portInfo.latitude, portInfo.longitude, langInfo.code);
       // Show the backend's real alert list as-is (empty list = no active alerts,
       // which is a valid, meaningful result — not treated as a failure).
       setAlertsList(data.map((a, idx) => alertToCard(a, idx, portInfo, t)));
       setImdStatus(status);
+      setSimpleSummary(simpleSummary);
       setIsOfflineData(false);
+      setHasLoaded(true);
     } catch (err) {
       setImdStatus(null); // nothing live to describe — the offline banner takes over below
+      setSimpleSummary(null);
       console.error('[AlertsScreen] Live /alerts call failed, trying offline cache:', err);
       try {
         const bundle = await getCachedBundleForOffline();
@@ -274,6 +306,7 @@ export function AlertsScreen({ navigation }: any) {
           setAlertsList(offlineAlerts.map((a, idx) => alertToCard(a as unknown as Alert, idx, portInfo, t)));
           setIsOfflineData(true);
           setOfflineAsOf(bundle.metadata.created);
+          setHasLoaded(true);
         }
       } catch {
         // No cached bundle either — leave the placeholder cards showing.
@@ -283,86 +316,104 @@ export function AlertsScreen({ navigation }: any) {
     }
   };
 
-  const filteredAlerts = alertsList.filter((item) => {
-    if (filter === 'all') return true;
-    return item.category === filter;
-  });
+  // Overall level near the fisherman — worst alert wins. Shown first as one
+  // word + colour so it can be read at a glance without reading any alert.
+  const level: 'danger' | 'caution' | 'clear' = alertsList.some((a) => a.category === 'critical')
+    ? 'danger'
+    : alertsList.some((a) => a.category === 'advisory')
+    ? 'caution'
+    : 'clear';
+  const imdBulletin = imdStatus?.bulletin;
+  const imdRefreshFailed = !!imdStatus && (!!imdStatus.last_error || !!imdStatus.stale);
+  const imdExpired = imdBulletin?.status === 'expired';
+  const imdWarn = imdRefreshFailed || imdExpired || imdBulletin?.status === 'unknown';
+  // "No warnings" is only fair to say when the data behind it is live and
+  // current — never on cached data, an unreachable IMD, or an expired bulletin.
+  const dataIsCurrent = !isOfflineData && !!imdStatus && !imdWarn;
+  const showSummary = hasLoaded && (level !== 'clear' || dataIsCurrent);
+  const showKeyFacts = !isOfflineData && !!simpleSummary && simpleSummary.items.length > 0;
+  const alertCount = alertsList.filter((a) => a.category !== 'navigational').length;
+  const levelStyle = {
+    danger: { bg: colors.errorContainer, fg: colors.onErrorContainer, accent: colors.error, icon: 'alert-circle' as const, label: t.alerts.statusDanger },
+    caution: { bg: '#FFF7E6', fg: colors.tertiary, accent: colors.riskModerate, icon: 'warning' as const, label: t.alerts.statusCaution },
+    clear: { bg: colors.secondaryContainer, fg: colors.onSecondaryContainer, accent: colors.secondary, icon: 'checkmark-circle' as const, label: t.alerts.statusClear },
+  }[level];
+
+  const toggleExpanded = (id: string) =>
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* Tactical Sentry Status Banner */}
-        <View style={styles.sentryBanner}>
-          <View style={styles.sentryHeader}>
-            <View style={styles.sentryHeaderLeft}>
-              <View style={styles.greenDot} />
-              <Text style={styles.sentryTitle}>{t.alerts.sentryActive} • {operatingPort.toUpperCase()} ({portInfo.state.toUpperCase()})</Text>
-            </View>
-          </View>
+        {/* Which location this is for (GPS vs home port) + refresh */}
+        <View style={styles.headerRow}>
+          <LocationSourceBadge />
+          <TouchableOpacity onPress={manualRefresh} disabled={loading} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+            <Ionicons name="refresh" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
 
-          <View style={styles.sentryBody}>
-            <View style={styles.radarIconBox}>
-              <MaterialCommunityIcons name="radar" size={24} color={colors.inversePrimary} />
+        {/* Overall level */}
+        {showSummary && (
+          <View style={[styles.summaryCard, { backgroundColor: levelStyle.bg, borderColor: levelStyle.accent }]}>
+            <Ionicons name={levelStyle.icon} size={40} color={levelStyle.accent} />
+            <View style={styles.summaryTextCol}>
+              <Text style={[styles.summaryLabel, { color: levelStyle.fg }]}>{levelStyle.label}</Text>
+              <Text style={[styles.summarySub, { color: levelStyle.fg }]}>
+                {level === 'clear' ? t.alerts.noActive : `${operatingPort} (${portInfo.state})`}
+              </Text>
             </View>
-            <View style={styles.sentryTextCol}>
-              <Text style={styles.sentryHeading}>{t.alerts.geofenceWatch}</Text>
-              <View style={styles.sentryBadgesRow}>
-                <Text style={styles.sentrySubBadge}>📍 {operatingPort}</Text>
+            {level !== 'clear' && (
+              <View style={[styles.summaryCount, { backgroundColor: levelStyle.accent }]}>
+                <Text style={styles.summaryCountText}>{alertCount}</Text>
               </View>
-              <LocationSourceBadge />
-            </View>
+            )}
           </View>
-        </View>
+        )}
 
-        {/* Zonal Coastal News Feed */}
-        <ZonalNewsFeed refreshKey={refreshKey} />
-
-        {/* Urgency Tab Filters */}
-        <View style={styles.tabSection}>
-          <Text style={styles.tabSectionTitle}>{t.alerts.severityQueues}</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabRow}>
-            <TouchableOpacity
-              style={[styles.tabBtn, filter === 'all' && styles.tabBtnActive]}
-              onPress={() => setFilter('all')}
-            >
-              <Text style={[styles.tabText, filter === 'all' && styles.tabTextActive]}>
-                {t.alerts.all} ({alertsList.length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tabBtn, filter === 'critical' && styles.tabBtnActive]}
-              onPress={() => setFilter('critical')}
-            >
-              <View style={[styles.filterDot, { backgroundColor: colors.error }]} />
-              <Text style={[styles.tabText, filter === 'critical' && styles.tabTextActive]}>
-                {t.alerts.critical} ({alertsList.filter((a) => a.category === 'critical').length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tabBtn, filter === 'advisory' && styles.tabBtnActive]}
-              onPress={() => setFilter('advisory')}
-            >
-              <View style={[styles.filterDot, { backgroundColor: colors.riskModerate }]} />
-              <Text style={[styles.tabText, filter === 'advisory' && styles.tabTextActive]}>
-                {t.alerts.advisories} ({alertsList.filter((a) => a.category === 'advisory').length})
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.tabBtn, filter === 'navigational' && styles.tabBtnActive]}
-              onPress={() => setFilter('navigational')}
-            >
-              <View style={[styles.filterDot, { backgroundColor: colors.primaryContainer }]} />
-              <Text style={[styles.tabText, filter === 'navigational' && styles.tabTextActive]}>
-                {t.alerts.navigational} ({alertsList.filter((a) => a.category === 'navigational').length})
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
+        {/* IMD in short: wind / swell / place / times, newest source winning any conflict */}
+        {showKeyFacts && simpleSummary && (
+          <View style={styles.keyFactsCard}>
+            {!!(simpleSummary.plain_translated || simpleSummary.plain) && (
+              <Text style={styles.keyFactsPlain}>{simpleSummary.plain_translated || simpleSummary.plain}</Text>
+            )}
+            {simpleSummary.items.map((f, i) => {
+              const { main, sub } = keyFactLines(f, t);
+              return (
+                <View key={i} style={styles.keyFactRow}>
+                  <Ionicons
+                    name={f.kind === 'swell' ? 'water-outline' : f.kind === 'wind' ? 'flag-outline' : 'thunderstorm-outline'}
+                    size={18}
+                    color={colors.primary}
+                  />
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.keyFactMain}>{main}</Text>
+                    {!!sub && <Text style={styles.keyFactSub}>{sub}</Text>}
+                  </View>
+                </View>
+              );
+            })}
+            {!!simpleSummary.advice?.text && (
+              <View style={styles.keyFactAdvice}>
+                <Text style={styles.keyFactAdviceLabel}>
+                  {t.alerts.imdBulletinLabel}
+                  {simpleSummary.advice.issued_text ? ` · ${fillText(t.alerts.imdIssuedLabel, { text: simpleSummary.advice.issued_text })}` : ''}
+                </Text>
+                <Text style={styles.keyFactAdviceText}>{simpleSummary.advice.text_translated || simpleSummary.advice.text}</Text>
+                {!!simpleSummary.advice.text_translated && (
+                  <Text style={styles.alertBodyOriginal}>EN: {simpleSummary.advice.text}</Text>
+                )}
+              </View>
+            )}
+          </View>
+        )}
 
         {loading && (
           <View style={styles.loadingBox}>
@@ -380,89 +431,59 @@ export function AlertsScreen({ navigation }: any) {
           </View>
         )}
 
-        {/* IMD data freshness — always explicit when online */}
-        {!isOfflineData && imdStatus && (() => {
-          const b = imdStatus.bulletin;
-          const refreshFailed = !!imdStatus.last_error || !!imdStatus.stale;
-          const expired = b?.status === 'expired';
-          const warn = refreshFailed || expired || b?.status === 'unknown';
-          return (
-            <View style={[styles.imdBanner, warn ? styles.imdBannerWarn : styles.imdBannerOk]}>
-              <Ionicons
-                name={warn ? 'warning-outline' : 'checkmark-circle-outline'}
-                size={16}
-                color={warn ? colors.tertiary : colors.secondary}
-              />
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.imdBannerTitle, { color: warn ? colors.tertiary : colors.secondary }]}>
-                  {fillText(refreshFailed ? t.alerts.imdRefreshFailed : t.alerts.imdChecked, {
-                    age: formatAge(t, imdStatus.age_minutes),
-                  })}
+        {/* IMD data freshness: a full warning only when something is wrong,
+            otherwise one quiet line. */}
+        {!isOfflineData && imdStatus && imdWarn && (
+          <View style={[styles.imdBanner, styles.imdBannerWarn]}>
+            <Ionicons name="warning-outline" size={16} color={colors.tertiary} />
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.imdBannerTitle, { color: colors.tertiary }]}>
+                {fillText(imdRefreshFailed ? t.alerts.imdRefreshFailed : t.alerts.imdChecked, {
+                  age: formatAge(t, imdStatus.age_minutes),
+                })}
+              </Text>
+              {imdBulletin ? (
+                <Text style={styles.imdBannerText}>
+                  {[
+                    `${t.alerts.imdBulletinLabel}: ${
+                      imdBulletin.region_label ? fillText(t.alerts.imdRegion, { region: imdBulletin.region_label.split(',')[0] }) + ' · ' : ''
+                    }${fillText(t.alerts.imdIssuedLabel, { text: imdBulletin.issued_at_text })}`,
+                    imdBulletin.valid_until_text ? fillText(t.alerts.imdValidUntil, { text: imdBulletin.valid_until_text }) : null,
+                    imdExpired ? t.alerts.imdExpired : imdBulletin.status === 'unknown' ? t.alerts.imdUnverified : null,
+                  ]
+                    .filter(Boolean)
+                    .join(' · ')}
                 </Text>
-                {b ? (
-                  <Text style={styles.imdBannerText}>
-                    {[
-                      `${t.alerts.imdBulletinLabel}: ${
-                        b.region_label ? fillText(t.alerts.imdRegion, { region: b.region_label.split(',')[0] }) + ' · ' : ''
-                      }${fillText(t.alerts.imdIssuedLabel, { text: b.issued_at_text })}`,
-                      b.valid_until_text ? fillText(t.alerts.imdValidUntil, { text: b.valid_until_text }) : null,
-                      expired ? t.alerts.imdExpired : b.status === 'unknown' ? t.alerts.imdUnverified : null,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')}
-                  </Text>
-                ) : (
-                  <Text style={styles.imdBannerText}>{t.alerts.imdNoBulletin}</Text>
-                )}
-                {!!imdStatus.last_error && <Text style={styles.imdBannerText}>{imdStatus.last_error}</Text>}
-              </View>
-              <TouchableOpacity onPress={manualRefresh} disabled={loading} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                <Ionicons name="refresh" size={18} color={colors.primary} />
-              </TouchableOpacity>
+              ) : (
+                <Text style={styles.imdBannerText}>{t.alerts.imdNoBulletin}</Text>
+              )}
             </View>
-          );
-        })()}
+          </View>
+        )}
+        {!isOfflineData && imdStatus && !imdWarn && (
+          <Text style={styles.freshnessText}>
+            {fillText(t.alerts.imdChecked, { age: formatAge(t, imdStatus.age_minutes) })}
+          </Text>
+        )}
 
-        {!loading && !isOfflineData && filteredAlerts.length === 0 && (
+        {!loading && !isOfflineData && hasLoaded && alertsList.length === 0 && !showSummary && (
           <View style={styles.emptyBox}>
             <Ionicons name="checkmark-done-circle-outline" size={20} color={colors.secondary} />
             <Text style={styles.emptyText}>{t.alerts.noActive}</Text>
           </View>
         )}
 
-        {/* Alert Cards Stream */}
-        {filteredAlerts.map((item) => {
-          let topBarColor = colors.primaryContainer;
-          let badgeBg = colors.surfaceContainerHigh;
-          let badgeTextColor = colors.primary;
-
-          if (item.category === 'critical') {
-            topBarColor = colors.error;
-            badgeBg = colors.errorContainer;
-            badgeTextColor = colors.onErrorContainer;
-          } else if (item.category === 'advisory') {
-            topBarColor = colors.riskModerate;
-            badgeBg = colors.surfaceContainerHigh;
-            badgeTextColor = colors.tertiaryContainer;
-          }
+        {/* Alert cards: title + short text up front, the rest behind "More details" */}
+        {alertsList.map((item) => {
+          const topBarColor =
+            item.category === 'critical' ? colors.error : item.category === 'advisory' ? colors.riskModerate : colors.primaryContainer;
+          const isExpanded = expandedIds.has(item.id);
 
           return (
             <View key={item.id} style={styles.alertCard}>
               <View style={[styles.alertTopBar, { backgroundColor: topBarColor }]} />
 
               <View style={styles.alertCardBody}>
-                {/* Header Row */}
-                <View style={styles.alertHeaderRow}>
-                  <View style={[styles.badgeChip, { backgroundColor: badgeBg }]}>
-                    {item.category === 'critical' && <View style={styles.redPulseDot} />}
-                    <Text style={[styles.badgeChipText, { color: badgeTextColor }]}>
-                      {item.type}
-                    </Text>
-                  </View>
-                  <Text style={styles.distTag}>{item.distText}</Text>
-                </View>
-
-                {/* Title & Icon */}
                 <View style={styles.titleRow}>
                   <View style={styles.titleIconBox}>
                     {item.category === 'critical' ? (
@@ -479,91 +500,104 @@ export function AlertsScreen({ navigation }: any) {
                   </View>
                 </View>
 
-                {/* Telemetry Strip */}
-                <View style={styles.telemetryBox}>
-                  <View style={styles.telCol}>
-                    <Text style={styles.telLabel}>{t.alerts.vectorSpeed}</Text>
-                    <Text style={styles.telVal}>{item.vector}</Text>
-                  </View>
-                  <View style={styles.telCol}>
-                    <Text style={styles.telLabel}>{t.alerts.statusEstimate}</Text>
-                    <Text
-                      style={[
-                        styles.telVal,
-                        item.category === 'critical' && { color: colors.error },
-                      ]}
-                    >
-                      {item.breachTime}
-                    </Text>
-                  </View>
-                </View>
+                {/* IMD cards' long wording is already boiled down in the key-facts card above; keep it one tap away */}
+                {(!item.isImd || !showKeyFacts || isExpanded) && (
+                  <Text style={styles.alertBodyText} numberOfLines={isExpanded || !hasLoaded ? undefined : 3}>
+                    {item.body}
+                  </Text>
+                )}
 
-                {/* Body Text */}
-                <Text style={styles.alertBodyText}>{item.body}</Text>
-                {!!item.bodyOriginal && <Text style={styles.alertBodyOriginal}>EN: {item.bodyOriginal}</Text>}
+                {hasLoaded && (
+                  <TouchableOpacity style={styles.detailsToggle} onPress={() => toggleExpanded(item.id)}>
+                    <Text style={styles.detailsToggleText}>{isExpanded ? t.alerts.lessDetails : t.alerts.moreDetails}</Text>
+                    <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.primary} />
+                  </TouchableOpacity>
+                )}
 
-                {/* IMD detail: per-day wind/gust for open-sea areas, per-district swell */}
-                {item.detailRows && item.detailRows.length > 0 && (
-                  <View style={styles.detailBox}>
-                    {!!item.detailTitle && <Text style={styles.detailTitle}>{item.detailTitle}</Text>}
-                    {item.detailRows.map((row: { label: string; text: string }, i: number) => (
-                      <View key={i} style={styles.detailRow}>
-                        <Text style={styles.detailLabel}>{row.label}</Text>
-                        <Text style={styles.detailText}>{row.text}</Text>
+                {hasLoaded && isExpanded && (
+                  <View>
+                    <Text style={styles.distTag}>{item.distText}</Text>
+
+                    <View style={styles.telemetryBox}>
+                      <View style={styles.telCol}>
+                        <Text style={styles.telLabel}>{t.alerts.vectorSpeed}</Text>
+                        <Text style={styles.telVal}>{item.vector}</Text>
                       </View>
-                    ))}
+                      <View style={styles.telCol}>
+                        <Text style={styles.telLabel}>{t.alerts.statusEstimate}</Text>
+                        <Text style={[styles.telVal, item.category === 'critical' && { color: colors.error }]}>
+                          {item.breachTime}
+                        </Text>
+                      </View>
+                    </View>
+
+                    {/* Original English of a machine-translated IMD warning */}
+                    {!!item.bodyOriginal && <Text style={styles.alertBodyOriginal}>EN: {item.bodyOriginal}</Text>}
+
+                    {/* IMD detail: per-day wind/gust for open-sea areas, per-district swell */}
+                    {item.detailRows && item.detailRows.length > 0 && (
+                      <View style={styles.detailBox}>
+                        {!!item.detailTitle && <Text style={styles.detailTitle}>{item.detailTitle}</Text>}
+                        {item.detailRows.map((row: { label: string; text: string }, i: number) => (
+                          <View key={i} style={styles.detailRow}>
+                            <Text style={styles.detailLabel}>{row.label}</Text>
+                            <Text style={styles.detailText}>{row.text}</Text>
+                          </View>
+                        ))}
+                      </View>
+                    )}
+
+                    <View style={styles.posFooter}>
+                      <View style={styles.posLeft}>
+                        <Ionicons name="navigate-outline" size={14} color={colors.primary} />
+                        <Text style={styles.posCoords}>{item.coords}</Text>
+                      </View>
+                      <Text style={styles.posTime}>{item.time}</Text>
+                    </View>
                   </View>
                 )}
 
-                {/* Position Footer */}
-                <View style={styles.posFooter}>
-                  <View style={styles.posLeft}>
-                    <Ionicons name="navigate-outline" size={14} color={colors.primary} />
-                    <Text style={styles.posCoords}>{item.coords}</Text>
-                  </View>
-                  <Text style={styles.posTime}>{item.time}</Text>
-                </View>
-
-                {/* Action Buttons */}
-                <View style={styles.alertActions}>
-                  <TouchableOpacity
-                    style={[
-                      styles.actionBtnMap,
-                      item.category === 'critical' && { backgroundColor: colors.error },
-                    ]}
-                    onPress={() => navigation.navigate('Map')}
-                  >
-                    <Ionicons name="map" size={16} color={colors.white} />
-                    <Text style={styles.actionBtnMapText}>{t.alerts.openMap}</Text>
-                  </TouchableOpacity>
-
-                  {item.category === 'critical' && (
+                {hasLoaded && (
+                  <View style={styles.alertActions}>
                     <TouchableOpacity
-                      style={styles.actionBtnAck}
-                      onPress={() =>
-                        setAcknowledgedIds((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(item.id)) next.delete(item.id);
-                          else next.add(item.id);
-                          return next;
-                        })
-                      }
+                      style={[styles.actionBtnMap, item.category === 'critical' && { backgroundColor: colors.error }]}
+                      onPress={() => navigation.navigate('Map')}
                     >
-                      <Ionicons
-                        name={acknowledgedIds.has(item.id) ? 'checkmark-circle' : 'bookmark-outline'}
-                        size={16}
-                        color={colors.primary}
-                      />
-                      <Text style={styles.actionBtnAckText}>
-                        {acknowledgedIds.has(item.id) ? t.alerts.acknowledged : t.alerts.acknowledgeBuffer}
-                      </Text>
+                      <Ionicons name="map" size={16} color={colors.white} />
+                      <Text style={styles.actionBtnMapText}>{t.alerts.openMap}</Text>
                     </TouchableOpacity>
-                  )}
-                </View>
+
+                    {item.category === 'critical' && (
+                      <TouchableOpacity
+                        style={styles.actionBtnAck}
+                        onPress={() =>
+                          setAcknowledgedIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(item.id)) next.delete(item.id);
+                            else next.add(item.id);
+                            return next;
+                          })
+                        }
+                      >
+                        <Ionicons
+                          name={acknowledgedIds.has(item.id) ? 'checkmark-circle' : 'bookmark-outline'}
+                          size={16}
+                          color={colors.primary}
+                        />
+                        <Text style={styles.actionBtnAckText}>
+                          {acknowledgedIds.has(item.id) ? t.alerts.acknowledged : t.alerts.acknowledgeBuffer}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
               </View>
             </View>
           );
         })}
+
+        {/* Other coastal zones' bulletins — secondary, so below the user's own alerts and collapsed */}
+        <ZonalNewsFeed refreshKey={refreshKey} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -577,109 +611,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     padding: 16,
     paddingBottom: 24,
-  },
-  sentryBanner: {
-    backgroundColor: colors.inverseSurface,
-    borderRadius: 16,
-    padding: 14,
-    marginBottom: 16,
-  },
-  sentryHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(255,255,255,0.1)',
-    paddingBottom: 8,
-  },
-  sentryHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  greenDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.secondaryContainer,
-  },
-  sentryTitle: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.secondaryContainer,
-    letterSpacing: 0.5,
-  },
-  sentryBody: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  radarIconBox: {
-    width: 40,
-    height: 40,
-    borderRadius: 10,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sentryTextCol: {
-    flex: 1,
-  },
-  sentryHeading: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.inverseOnSurface,
-    marginBottom: 4,
-  },
-  sentryBadgesRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  sentrySubBadge: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.inverseOnSurface,
-    opacity: 0.8,
-  },
-  tabSection: {
-    marginBottom: 16,
-  },
-  tabSectionTitle: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: colors.onSurfaceVariant,
-    letterSpacing: 0.5,
-    marginBottom: 8,
-  },
-  tabRow: {
-    flexDirection: 'row',
-  },
-  tabBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.surfaceContainerHigh,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 8,
-    marginRight: 8,
-  },
-  tabBtnActive: {
-    backgroundColor: colors.primaryContainer,
-  },
-  filterDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  tabText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.onSurface,
-  },
-  tabTextActive: {
-    color: colors.white,
   },
   loadingBox: {
     flexDirection: 'row',
@@ -741,31 +672,6 @@ const styles = StyleSheet.create({
   },
   alertCardBody: {
     padding: 14,
-  },
-  alertHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  badgeChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-  },
-  redPulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: colors.error,
-  },
-  badgeChipText: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.5,
   },
   distTag: {
     fontSize: 11,
@@ -837,6 +743,115 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     marginTop: -4,
     marginBottom: 10,
+  },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  summaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 2,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  summaryTextCol: {
+    flex: 1,
+  },
+  summaryLabel: {
+    fontSize: 22,
+    fontWeight: '800',
+  },
+  summarySub: {
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  summaryCount: {
+    minWidth: 32,
+    height: 32,
+    borderRadius: 16,
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  summaryCountText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.white,
+  },
+  keyFactsCard: {
+    backgroundColor: colors.surfaceContainerLowest,
+    borderRadius: 16,
+    padding: 14,
+    marginBottom: 12,
+    gap: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+  },
+  keyFactsPlain: {
+    fontSize: 15,
+    fontWeight: '700',
+    lineHeight: 21,
+    color: colors.onSurface,
+  },
+  keyFactRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  keyFactMain: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.primary,
+  },
+  keyFactSub: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+    marginTop: 1,
+  },
+  keyFactAdvice: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: 10,
+    padding: 10,
+  },
+  keyFactAdviceLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: colors.onSurfaceVariant,
+    marginBottom: 3,
+  },
+  keyFactAdviceText: {
+    fontSize: 13,
+    color: colors.onSurface,
+    lineHeight: 18,
+  },
+  freshnessText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+    marginBottom: 12,
+  },
+  detailsToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingVertical: 6,
+    marginBottom: 8,
+  },
+  detailsToggleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
   },
   posFooter: {
     flexDirection: 'row',
