@@ -110,6 +110,17 @@ def _bulletin_meta(region: dict, facts: dict) -> dict:
     }
 
 
+def _evidence(source: str, kind: str, place: str, issued_at_utc: str | None,
+              valid_until_utc: str | None = None, **fields) -> dict:
+    """One extracted fact, stamped with when its source issued it. These ride in
+    each alert's metadata["evidence"] and feed imd_simplifier.py, which decides
+    which facts matter and — when two facts about the same place and kind
+    disagree — keeps the one with the latest issue time. `issued_at_utc` is None
+    when the source doesn't say (such facts are never overridden by timestamp)."""
+    return {"source": source, "kind": kind, "place": place, "issued_at_utc": issued_at_utc,
+            "valid_until_utc": valid_until_utc, **{k: v for k, v in fields.items() if v is not None}}
+
+
 def _pick_bulletin(fisherman: dict, state: str, now: datetime):
     """The bulletin that speaks for this state: newest CURRENT one if any;
     otherwise the newest of whatever matched (so the caller can say it's
@@ -176,12 +187,21 @@ def _fisherman_alerts(fisherman: dict, state: str, district: str | None, now: da
         if advisory:
             lines.append(advisory)
         rows = [{"label": _day_label(g["days"], g.get("dates")), "text": f"{_wind_text(g)} — {g['text']}"} for g in coast_stmts]
+        evidence = [
+            _evidence(src, "wind", _title(state), meta["issued_at_utc"], meta["valid_until_utc"],
+                      wind_min=g["wind_min"], wind_max=g["wind_max"], gust=g.get("gust"), unit=g["unit"],
+                      period=_day_label(g["days"], g.get("dates")), sea_state=g.get("sea_state"))
+            for g in coast_stmts
+        ]
+        if advisory:
+            evidence.append(_evidence(src, "advisory", _title(state), meta["issued_at_utc"], meta["valid_until_utc"], text=advisory))
         alerts.append({
             "type": "IMD_COAST_WIND_WARNING",
             "severity": "HIGH" if severe else "MODERATE",
             "message": " ".join(lines),
             "source": src,
-            "metadata": {**meta, "wind_conditions": _wind_text(top), "detail_title": validity, "detail_rows": rows},
+            "metadata": {**meta, "wind_conditions": _wind_text(top), "detail_title": validity, "detail_rows": rows,
+                         "evidence": evidence},
         })
 
     # ── 2. INCOIS swell surge / high wave alerts (still in force) ───────────
@@ -226,9 +246,20 @@ def _fisherman_alerts(fisherman: dict, state: str, district: str | None, now: da
         if facts["unparsed_swell_alerts"]:
             head += (f" {facts['unparsed_swell_alerts']} further alert(s) in the bulletin could not be read — "
                      "see incois.gov.in/site/services/hwa.jsp.")
+        # Only alerts that apply to the user's own coast/district become facts;
+        # the "active elsewhere on the coast" INFO case (no `mine`) has none.
+        evidence = [
+            _evidence(src, "swell", ", ".join(x.title() for x in a["districts"]) or a["place"].title(),
+                      meta["issued_at_utc"], a["until_utc"],
+                      height_min=a["height_m"][0], height_max=a["height_m"][1],
+                      period_min=a["period_s"][0], period_max=a["period_s"][1],
+                      from_utc=a["from_utc"], until_utc=a["until_utc"])
+            for a in mine
+        ]
         alerts.append({
             "type": "IMD_SWELL_SURGE_ALERT", "severity": sev, "message": head, "source": src,
-            "metadata": {**meta, "wave_or_swell_conditions": swell_meta, "detail_title": "INCOIS alert via IMD · " + validity, "detail_rows": rows},
+            "metadata": {**meta, "wave_or_swell_conditions": swell_meta, "detail_title": "INCOIS alert via IMD · " + validity,
+                         "detail_rows": rows, "evidence": evidence},
         })
 
     # ── 3. Thunderstorm warning naming this state ───────────────────────────
@@ -237,7 +268,9 @@ def _fisherman_alerts(fisherman: dict, state: str, district: str | None, now: da
         alerts.append({
             "type": "IMD_THUNDERSTORM_WARNING", "severity": "MODERATE",
             "message": f"IMD thunderstorm warning: {ts['text']}",
-            "source": src, "metadata": {**meta, "detail_title": validity, "detail_rows": []},
+            "source": src, "metadata": {**meta, "detail_title": validity, "detail_rows": [],
+                                        "evidence": [_evidence(src, "thunderstorm", _title(state), meta["issued_at_utc"],
+                                                               meta["valid_until_utc"], text=ts["text"])]},
         })
 
     # ── 4. Open-sea warnings for THIS coast's sea (not the user's coast) ────
@@ -295,8 +328,10 @@ def _cyclone_archive_alert(cyclone: dict, state: str, now: datetime) -> dict | N
                 continue
             text = (w.get("warning") or w.get("message") or "").strip()
             issued_txt = _fmt_ist(issued.astimezone(timezone.utc).isoformat())
+            issued_utc = issued.astimezone(timezone.utc).isoformat()
             meta = {"region_name": region.get("region_name"), "issue_datetime_ist": w.get("issue_datetime_ist"),
-                    "issued_at_text": issued_txt, "source_url": w.get("pdf_url"), "distance_km": 0}
+                    "issued_at_text": issued_txt, "issued_at_utc": issued_utc, "source_url": w.get("pdf_url"), "distance_km": 0,
+                    "evidence": [_evidence("imd-cyclone-warning", "advisory", _title(state), issued_utc, text=text)]}
             if _STORM_WORDS.search(text):
                 return {"type": "IMD_CYCLONE_WARNING", "severity": "HIGH", "message": text,
                         "source": "imd-cyclone-warning", "metadata": meta}
@@ -345,7 +380,10 @@ async def get_location_imd_alerts(state_name: str | None, district: str | None =
                 "type": "IMD_CYCLONE_TTT_WARNING", "severity": "HIGH",
                 "message": f"IMD storm warning for the {bulletin.get('sea_area')}: {ttt}",
                 "source": "imd-sea-area-bulletin",
-                "metadata": {"sea_area": bulletin.get("sea_area"), "ttt_warning": ttt, "valid_until_utc": until, "distance_km": 0},
+                "metadata": {"sea_area": bulletin.get("sea_area"), "ttt_warning": ttt, "valid_until_utc": until, "distance_km": 0,
+                             # This feed states no issue time — only how long it holds.
+                             "evidence": [_evidence("imd-sea-area-bulletin", "storm", str(bulletin.get("sea_area") or _title(state)),
+                                                    None, until, text=str(ttt))]},
             })
 
     return alerts

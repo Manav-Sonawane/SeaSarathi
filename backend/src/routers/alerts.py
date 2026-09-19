@@ -78,6 +78,24 @@ async def get_alerts(response: Response, latitude: float = 8.5, longitude: float
                 # New dict: the alert objects may be shared with the IMD cache.
                 all_alerts[i] = {**all_alerts[i], "message_translated": text, "message_lang": lang}
 
+    # Key facts (wind / swell / place / times) boiled down from the timestamped
+    # facts behind the IMD alerts, newest source winning any conflict — see
+    # src/services/imd_simplifier.py. The raw evidence is internal, so it's
+    # stripped from the alerts that go out (new dicts: they may be cache-shared).
+    from src.services.imd_simplifier import simplify
+    simple_summary = None
+    try:
+        simple_summary = await simplify(imd_alerts)
+    except Exception as e:
+        print(f"[Alerts] Key-facts summary failed: {e}")
+    if simple_summary and is_translatable(lang):
+        simple_summary = await _translate_summary(simple_summary, lang)
+    all_alerts = [
+        {**a, "metadata": {k: v for k, v in a["metadata"].items() if k != "evidence"}}
+        if "evidence" in (a.get("metadata") or {}) else a
+        for a in all_alerts
+    ]
+
     from datetime import datetime, timezone
     from src.services.imd_cache import cache_status
     from src.services.imd_alerts import get_location_bulletin_summary
@@ -94,6 +112,7 @@ async def get_alerts(response: Response, latitude: float = 8.5, longitude: float
         "alerts": all_alerts,
         "alert_count": len(all_alerts),
         "has_high_severity": any(a["severity"] == "HIGH" for a in all_alerts),
+        "simple_summary": simple_summary,
         # How current the IMD side is, stated explicitly so the app can tell
         # "IMD published nothing new" from "we could not reach IMD".
         "imd_status": {
@@ -103,6 +122,26 @@ async def get_alerts(response: Response, latitude: float = 8.5, longitude: float
             "bulletin": await get_location_bulletin_summary(state_name),
         },
     }
+
+
+async def _translate_summary(summary: dict, lang: str) -> dict:
+    """Adds machine translations of the summary's free-text bits (the plain
+    sentence, IMD's quoted advice, storm/thunderstorm sentences) as `*_translated`,
+    keeping the English. Returns a copy — the summary object is cached."""
+    import copy
+    from src.services.translation_service import translate_many
+    out = copy.deepcopy(summary)
+    targets: list[tuple[dict, str]] = []
+    if out.get("plain"):
+        targets.append((out, "plain"))
+    if out.get("advice") and out["advice"].get("text"):
+        targets.append((out["advice"], "text"))
+    targets += [(it, "text") for it in out["items"] if it.get("text")]
+    translated = await translate_many([t[0][t[1]] for t in targets], lang)
+    for (holder, key), text in zip(targets, translated):
+        if text:
+            holder[f"{key}_translated"] = text
+    return out
 
 
 def _compute_alerts(latitude: float, longitude: float) -> dict:
