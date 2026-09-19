@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { DashboardScreen } from '../screens/DashboardScreen';
 import { CompassScreen } from '../screens/CompassScreen';
@@ -31,6 +32,7 @@ export type RootTabParamList = {
 const Tab = createBottomTabNavigator<RootTabParamList>();
 
 export function RootNavigator() {
+  const insets = useSafeAreaInsets();
   const isOnline = useNetworkStore((s) => s.isOnline);
   const initListener = useNetworkStore((s) => s.initListener);
   const loadFromBackend = useUserStore((s) => s.loadFromBackend);
@@ -51,14 +53,31 @@ export function RootNavigator() {
     return unsubscribe;
   }, []);
 
+  // The user profile is persisted to AsyncStorage, which loads ASYNCHRONOUSLY
+  // after first render. Until it finishes, the store still holds its
+  // hard-coded defaults (demo user id, isLoggedIn: true) — syncing with the
+  // backend or picking a screen based on those would act on the wrong
+  // identity (e.g. fetch the demo profile, and briefly flash the main app
+  // for someone who is actually logged out).
+  const [hydrated, setHydrated] = useState(useUserStore.persist.hasHydrated());
+  useEffect(() => {
+    // Re-check inside the effect: hydration may have finished between the
+    // useState initializer above and this subscription being registered.
+    if (useUserStore.persist.hasHydrated()) {
+      setHydrated(true);
+      return;
+    }
+    return useUserStore.persist.onFinishHydration(() => setHydrated(true));
+  }, []);
+
   // Reconcile the local (persisted) profile with the backend's copy once at
   // app start, regardless of which tab the user lands on first — this used
   // to only ever run inside ProfileScreen's own effect, so a cold start
   // landing on any other tab ran on stale/default profile data until the
   // user happened to visit Profile.
   useEffect(() => {
-    loadFromBackend();
-  }, []);
+    if (hydrated) loadFromBackend();
+  }, [hydrated]);
 
   // "Return to Shore" (UPDATE.md 3.4): detect offline → online and refresh
   // the offline bundle in the background if one already exists and is due
@@ -69,6 +88,11 @@ export function RootNavigator() {
     }
     wasOnline.current = isOnline;
   }, [isOnline]);
+
+  // Same background as the auth/splash screens so the handoff isn't a flash.
+  if (!hydrated) {
+    return <View style={{ flex: 1, backgroundColor: colors.background }} />;
+  }
 
   if (!isLoggedIn) {
     return (
@@ -110,11 +134,14 @@ export function RootNavigator() {
             tabBarShowLabel: false,
             tabBarActiveTintColor: colors.primaryContainer,
             tabBarInactiveTintColor: colors.onSurfaceVariant,
+            // 56 = DESIGN.md's bar height; the bottom inset is added on top
+            // so the gesture/nav bar (edge-to-edge on Android) never overlaps
+            // the tab icons. A hard-coded 56 with no inset put them under it.
             tabBarStyle: {
               backgroundColor: colors.surfaceContainerLowest,
               borderTopColor: colors.surfaceContainerHigh,
-              height: 56,
-              paddingBottom: 0,
+              height: 56 + insets.bottom,
+              paddingBottom: insets.bottom,
               paddingTop: 0,
             },
           }}

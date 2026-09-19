@@ -52,7 +52,7 @@ function formatRelative(iso: string, t: ReturnType<typeof getScreenText>): strin
  * coast) and rewritten as short news-anchor-style bulletins rather than
  * raw structured warning data.
  */
-export function ZonalNewsFeed() {
+export function ZonalNewsFeed({ refreshKey = 0 }: { refreshKey?: number }) {
   const { portInfo, getLanguageInfo } = useUserStore(
     useShallow((s) => ({ portInfo: s.portInfo, getLanguageInfo: s.getLanguageInfo }))
   );
@@ -85,10 +85,14 @@ export function ZonalNewsFeed() {
     }
   };
 
+  // Reload when the parent asks (Alerts refresh) and every 10 minutes, so a
+  // screen left open for hours/days never keeps showing an old bulletin.
   useEffect(() => {
     load();
+    const id = setInterval(load, 10 * 60 * 1000);
+    return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refreshKey]);
 
   const toggleExpanded = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -161,7 +165,8 @@ export function ZonalNewsFeed() {
                   ? t.alerts.zonalNewsNoWarnings
                   : t.alerts.zonalNewsWarningsActive.replace('{count}', String(activeZone.alert_count))}
                 {'  •  '}
-                {formatRelative(activeZone.generated_at, t)}
+                {/* When IMD's data was last fetched — not when this text was composed. */}
+                {formatRelative(activeZone.imd_checked_at || activeZone.generated_at, t)}
               </Text>
             </View>
           )}

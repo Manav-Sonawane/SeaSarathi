@@ -39,10 +39,25 @@ const DEFAULT_API_URL = detectedHost
 // EXPO_PUBLIC_API_URL in mobile/.env still wins if set (e.g. pointing at a
 // deployed backend instead of your dev machine) — but for local dev, leave
 // it unset and let auto-detection handle network switches for you.
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? DEFAULT_API_URL;
+//
+// Release/preview APKs (`!__DEV__`) have NO dev server to detect and
+// 'localhost'/'10.0.2.2' can never reach a real backend from an installed
+// app (and cleartext http is blocked there unless the build was configured
+// for it — see app.config.js). EXPO_PUBLIC_API_URL is inlined at build time,
+// so a release build without it is misconfigured: fail loudly (splash screen
+// shows the resolved URL) instead of quietly talking to a dead address.
+// `||` not `??` so an empty-string env var (unset in EAS) counts as unset.
+export const API_BASE_URL: string = process.env.EXPO_PUBLIC_API_URL || (__DEV__ ? DEFAULT_API_URL : '');
+
+if (!API_BASE_URL) {
+  console.error(
+    '[api] EXPO_PUBLIC_API_URL was not set when this build was created — every backend call will fail. ' +
+      'Rebuild with EXPO_PUBLIC_API_URL pointing at your backend (see ANDROID_BUILD.md).'
+  );
+}
 
 export const api = axios.create({
-  baseURL: API_URL,
+  baseURL: API_BASE_URL,
   timeout: 60000,
 });
 
@@ -186,11 +201,36 @@ export interface Alert {
   [key: string]: unknown;
 }
 
+// How current the IMD data behind /alerts is (backend routers/alerts.py). Lets
+// the UI say WHEN IMD was last checked and which bulletin the alerts come from,
+// and warn when the backend could not reach IMD.
+export interface ImdBulletinInfo {
+  region_label: string | null;
+  issued_at_text: string;
+  valid_until_text: string | null;
+  validity_note: string | null;
+  status: 'current' | 'expired' | 'unknown';
+}
+
+export interface ImdStatus {
+  checked_at: string | null; // when the backend last fetched IMD's fisherman PDFs
+  age_minutes: number | null;
+  stale: boolean | null; // older than its refresh interval
+  last_error: string | null; // set if the latest attempt to reach IMD failed
+  server_time_utc?: string;
+  bulletin: ImdBulletinInfo | null;
+}
+
 export const alertsAPI = {
   getAlerts: (latitude: number, longitude: number) =>
     api
       .get<{ alerts: Alert[] }>('/alerts', { params: { latitude, longitude } })
       .then((res) => res.data.alerts || []),
+
+  getAlertsWithStatus: (latitude: number, longitude: number) =>
+    api
+      .get<{ alerts: Alert[]; imd_status?: ImdStatus }>('/alerts', { params: { latitude, longitude } })
+      .then((res) => ({ alerts: res.data.alerts || [], imdStatus: res.data.imd_status ?? null })),
 };
 
 // Zonal news feed (backend/src/services/imd_news_feed.py) — the same IMD
@@ -204,6 +244,7 @@ export interface ZoneBulletin {
   body: string;
   alert_count: number;
   generated_at: string;
+  imd_checked_at?: string | null; // when the IMD data this bulletin was built from was last fetched
 }
 
 export const newsAPI = {

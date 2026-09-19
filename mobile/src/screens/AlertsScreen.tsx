@@ -1,17 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import { alertsAPI, Alert } from '../services/api';
+import { alertsAPI, Alert, ImdStatus } from '../services/api';
 
 import { useUserStore } from '../store/userStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -39,6 +39,20 @@ const PLACEHOLDER_ALERTS = (portInfo: any, operatingPort: string, fetchingText: 
   },
 ];
 
+// "3 min ago" / "2 h ago" / "1 d ago" for an age in minutes.
+function formatAge(minutes: number | null | undefined): string {
+  if (minutes == null) return 'unknown time ago';
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${Math.round(minutes)} min ago`;
+  if (minutes < 60 * 48) return `${Math.round(minutes / 60)} h ago`;
+  return `${Math.round(minutes / 1440)} d ago`;
+}
+
+// Reload alerts this often while the screen is open, and whenever the tab is
+// re-opened — a screen left open must never keep showing hours-old alerts.
+const AUTO_REFRESH_MS = 10 * 60 * 1000;
+const MIN_RELOAD_GAP_MS = 20 * 1000;
+
 function severityToCategory(severity: string): 'critical' | 'advisory' | 'navigational' {
   if (severity === 'HIGH') return 'critical';
   if (severity === 'MODERATE') return 'advisory';
@@ -51,6 +65,20 @@ function severityToCategory(severity: string): 'critical' | 'advisory' | 'naviga
 // deliberately told never to convert/round these itself, since a wrong
 // converted number is worse than showing the source's own wording.
 const IMD_SOURCES = new Set(['imd-fisherman-warning', 'imd-cyclone-warning', 'imd-sea-area-bulletin']);
+
+// English labels for the IMD alert types added with the bulletin-facts parser
+// (backend/src/services/imd_alerts.py). Not yet in the per-language
+// alertTypes tables, so they fall back to this rather than a raw code.
+const IMD_TYPE_LABELS: Record<string, string> = {
+  IMD_COAST_WIND_WARNING: 'IMD COAST WIND WARNING',
+  IMD_SWELL_SURGE_ALERT: 'SWELL SURGE ALERT',
+  IMD_THUNDERSTORM_WARNING: 'THUNDERSTORM WARNING',
+  IMD_OPEN_SEA_WARNING: 'OPEN-SEA WARNING (NOT YOUR COAST)',
+  IMD_COAST_CLEAR: 'IMD: COAST CLEAR',
+  IMD_BULLETIN_EXPIRED: 'IMD BULLETIN EXPIRED',
+  IMD_BULLETIN_UNVERIFIED: 'IMD BULLETIN UNVERIFIED',
+  IMD_FISHERMEN_ARCHIVE_ADVISORY: 'IMD ARCHIVE ADVISORY',
+};
 
 function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof getScreenText>) {
   const category = severityToCategory(a.severity);
@@ -67,7 +95,7 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
 
   // Falls back to the raw backend code (readable, just untranslated) for
   // any alert type not yet in alertTypes — never crashes on a new one.
-  const typeLabel = t.alerts.alertTypes[a.type] || a.type.replace(/_/g, ' ');
+  const typeLabel = t.alerts.alertTypes[a.type] || IMD_TYPE_LABELS[a.type] || a.type.replace(/_/g, ' ');
 
   // Wind speed display: checks numeric wind speed, gusts, or wind_conditions text
   let windVal = '—';
@@ -75,6 +103,8 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
     windVal = `${Math.round(Number(meta.wind_speed_10m))} km/h`;
   } else if (meta.wind_gusts_10m != null) {
     windVal = `${Math.round(Number(meta.wind_gusts_10m))} km/h`;
+  } else if (meta.wind_conditions && a.source === 'imd-fisherman-warning') {
+    windVal = String(meta.wind_conditions);
   } else if (meta.wind_conditions) {
     const match = String(meta.wind_conditions).match(/\d+(?:-\d+)?\s*(?:kmph|km\/h|knots|kts)/i);
     windVal = match ? match[0].replace(/kmph/i, 'km/h') : String(meta.wind_conditions).slice(0, 16);
@@ -95,6 +125,7 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
   }
 
   const isImd = IMD_SOURCES.has(a.source || '');
+  const detailRows: { label: string; text: string }[] = Array.isArray(meta.detail_rows) ? (meta.detail_rows as any[]) : [];
 
   return {
     id: `${a.type}-${idx}`,
@@ -111,7 +142,13 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
     breachTime: statusVal,
     body: a.message,
     coords: `${portInfo.latitude.toFixed(2)}° N, ${portInfo.longitude.toFixed(2)}° E`,
-    time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
+    // For IMD alerts show WHEN IMD issued the bulletin, not the phone's clock —
+    // otherwise an old bulletin looks like it was just published.
+    time: meta.issued_at_text
+      ? `IMD issued ${meta.issued_at_text}`
+      : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
+    detailTitle: meta.detail_title ? String(meta.detail_title) : '',
+    detailRows,
   };
 }
 
@@ -133,24 +170,49 @@ export function AlertsScreen({ navigation }: any) {
   const [acknowledgedIds, setAcknowledgedIds] = useState<Set<string>>(new Set());
 
   const [alertsList, setAlertsList] = useState<any[]>(PLACEHOLDER_ALERTS(portInfo, operatingPort, t.alerts.fetching));
+  // How current the IMD data behind the cards is (null = offline/cached or not loaded yet).
+  const [imdStatus, setImdStatus] = useState<ImdStatus | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const lastLoadRef = useRef(0);
 
   useEffect(() => {
-    loadAlerts();
+    loadAlerts(true);
     // Also re-run on language change — alertToCard translates the type/sub
     // labels using `t`, so switching language without changing port would
     // otherwise leave already-loaded cards showing the old language.
   }, [operatingPort, langInfo.code]);
 
-  const loadAlerts = async () => {
+  // Refetch whenever this tab is (re)opened and every 10 minutes while it is
+  // open. Before this the screen fetched once at mount and never again.
+  useEffect(() => {
+    const unsubscribe = navigation?.addListener?.('focus', () => loadAlerts());
+    const timer = setInterval(() => loadAlerts(true), AUTO_REFRESH_MS);
+    return () => {
+      unsubscribe?.();
+      clearInterval(timer);
+    };
+  }, [operatingPort, langInfo.code, isOnline]);
+
+  const manualRefresh = () => {
+    setRefreshKey((k) => k + 1); // also reloads the zonal news feed
+    loadAlerts(true);
+  };
+
+  const loadAlerts = async (force = false) => {
+    // Skip if we just loaded (the focus event also fires right after mount).
+    if (!force && Date.now() - lastLoadRef.current < MIN_RELOAD_GAP_MS) return;
+    lastLoadRef.current = Date.now();
     setLoading(true);
     try {
       if (!isOnline) throw new Error('No network connection (known offline)');
-      const data = await alertsAPI.getAlerts(portInfo.latitude, portInfo.longitude);
+      const { alerts: data, imdStatus: status } = await alertsAPI.getAlertsWithStatus(portInfo.latitude, portInfo.longitude);
       // Show the backend's real alert list as-is (empty list = no active alerts,
       // which is a valid, meaningful result — not treated as a failure).
       setAlertsList(data.map((a, idx) => alertToCard(a, idx, portInfo, t)));
+      setImdStatus(status);
       setIsOfflineData(false);
     } catch (err) {
+      setImdStatus(null); // nothing live to describe — the offline banner takes over below
       console.error('[AlertsScreen] Live /alerts call failed, trying offline cache:', err);
       try {
         const bundle = await getCachedBundleForOffline();
@@ -202,7 +264,7 @@ export function AlertsScreen({ navigation }: any) {
         </View>
 
         {/* Zonal Coastal News Feed */}
-        <ZonalNewsFeed />
+        <ZonalNewsFeed refreshKey={refreshKey} />
 
         {/* Urgency Tab Filters */}
         <View style={styles.tabSection}>
@@ -264,6 +326,43 @@ export function AlertsScreen({ navigation }: any) {
             </Text>
           </View>
         )}
+
+        {/* IMD data freshness — always explicit when online */}
+        {!isOfflineData && imdStatus && (() => {
+          const b = imdStatus.bulletin;
+          const refreshFailed = !!imdStatus.last_error || !!imdStatus.stale;
+          const expired = b?.status === 'expired';
+          const warn = refreshFailed || expired || b?.status === 'unknown';
+          return (
+            <View style={[styles.imdBanner, warn ? styles.imdBannerWarn : styles.imdBannerOk]}>
+              <Ionicons
+                name={warn ? 'warning-outline' : 'checkmark-circle-outline'}
+                size={16}
+                color={warn ? colors.tertiary : colors.secondary}
+              />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.imdBannerTitle, { color: warn ? colors.tertiary : colors.secondary }]}>
+                  {refreshFailed
+                    ? `Could not refresh IMD data — showing data checked ${formatAge(imdStatus.age_minutes)}`
+                    : `IMD data checked ${formatAge(imdStatus.age_minutes)}`}
+                </Text>
+                {b ? (
+                  <Text style={styles.imdBannerText}>
+                    {`IMD bulletin: ${b.region_label ? b.region_label.split(',')[0] + ' region · ' : ''}issued ${b.issued_at_text}`}
+                    {b.valid_until_text ? ` · valid until ${b.valid_until_text}` : ''}
+                    {expired ? ' · EXPIRED' : b.status === 'unknown' ? ' · date unverified' : ''}
+                  </Text>
+                ) : (
+                  <Text style={styles.imdBannerText}>No IMD fisherman bulletin covers this area.</Text>
+                )}
+                {!!imdStatus.last_error && <Text style={styles.imdBannerText}>{imdStatus.last_error}</Text>}
+              </View>
+              <TouchableOpacity onPress={manualRefresh} disabled={loading} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                <Ionicons name="refresh" size={18} color={colors.primary} />
+              </TouchableOpacity>
+            </View>
+          );
+        })()}
 
         {!loading && !isOfflineData && filteredAlerts.length === 0 && (
           <View style={styles.emptyBox}>
@@ -342,6 +441,19 @@ export function AlertsScreen({ navigation }: any) {
 
                 {/* Body Text */}
                 <Text style={styles.alertBodyText}>{item.body}</Text>
+
+                {/* IMD detail: per-day wind/gust for open-sea areas, per-district swell */}
+                {item.detailRows && item.detailRows.length > 0 && (
+                  <View style={styles.detailBox}>
+                    {!!item.detailTitle && <Text style={styles.detailTitle}>{item.detailTitle}</Text>}
+                    {item.detailRows.map((row: { label: string; text: string }, i: number) => (
+                      <View key={i} style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>{row.label}</Text>
+                        <Text style={styles.detailText}>{row.text}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
 
                 {/* Position Footer */}
                 <View style={styles.posFooter}>
@@ -677,6 +789,64 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: colors.onSurface,
     fontFamily: 'monospace',
+  },
+  imdBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginBottom: 12,
+  },
+  imdBannerOk: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderColor: colors.outlineVariant,
+  },
+  imdBannerWarn: {
+    backgroundColor: '#FFF7E6',
+    borderColor: colors.tertiaryContainer,
+  },
+  imdBannerTitle: {
+    fontSize: 11,
+    fontWeight: '800',
+  },
+  imdBannerText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.onSurfaceVariant,
+    marginTop: 2,
+  },
+  detailBox: {
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: 8,
+    padding: 10,
+    marginBottom: 10,
+    gap: 6,
+  },
+  detailTitle: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: colors.onSurfaceVariant,
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  detailRow: {
+    borderTopWidth: 1,
+    borderTopColor: colors.outlineVariant,
+    paddingTop: 6,
+  },
+  detailLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: colors.primary,
+    marginBottom: 2,
+  },
+  detailText: {
+    fontSize: 12,
+    color: colors.onSurfaceVariant,
+    lineHeight: 17,
   },
   posTime: {
     fontSize: 10,

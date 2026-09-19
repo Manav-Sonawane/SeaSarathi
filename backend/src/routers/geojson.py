@@ -4,18 +4,19 @@ boundaries) plus the derived risk heatmap layer.
 """
 import os
 from fastapi import APIRouter, HTTPException
-from src.utils.geojson_store import DATA_DIR, load_geojson
+from src.utils.geojson_store import DATA_DIR, load_geojson, load_geojson_for_mobile
 
 router = APIRouter()
 
 
 @router.get("/geojson/pfz", summary="PFZ Zones GeoJSON")
 async def get_pfz_geojson():
-    """Returns all 52 Potential Fishing Zones as GeoJSON FeatureCollection."""
+    """Returns all 52 Potential Fishing Zones as GeoJSON FeatureCollection
+    (geometry simplified for mobile rendering — see geojson_store.py)."""
     path = os.path.join(DATA_DIR, "PFZ.geojson")
     if not os.path.exists(path):
         raise HTTPException(status_code=404, detail="PFZ.geojson not found in /data/static/")
-    return load_geojson(path)
+    return load_geojson_for_mobile(path)
 
 
 @router.get("/geojson/landing", summary="Landing Centers GeoJSON")
@@ -29,13 +30,14 @@ async def get_landing_geojson():
 
 @router.get("/geojson/boundaries", summary="Maritime Boundaries GeoJSON")
 async def get_boundaries_geojson():
-    """Returns India EEZ + international maritime boundaries as one FeatureCollection."""
+    """Returns India EEZ + international maritime boundaries as one FeatureCollection
+    (geometry simplified for mobile rendering — see geojson_store.py)."""
     eez_path = os.path.join(DATA_DIR, "INDIA-EEZ.geojson")
     boundaries_path = os.path.join(DATA_DIR, "INDIAN-WATER-BOUNDARIES.geojson")
     if not os.path.exists(eez_path) or not os.path.exists(boundaries_path):
         raise HTTPException(status_code=404, detail="INDIA-EEZ.geojson or INDIAN-WATER-BOUNDARIES.geojson not found in /data/static/")
-    eez = load_geojson(eez_path)
-    boundaries = load_geojson(boundaries_path)
+    eez = load_geojson_for_mobile(eez_path)
+    boundaries = load_geojson_for_mobile(boundaries_path)
     return {
         "type": "FeatureCollection",
         "features": eez.get("features", []) + boundaries.get("features", []),

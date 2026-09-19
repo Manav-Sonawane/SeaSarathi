@@ -4,14 +4,14 @@ alerts.py — unified marine safety alerts, combining geofence + live weather
 (src/services/imd_alerts.py).
 """
 import asyncio
-from fastapi import APIRouter
+from fastapi import APIRouter, Response
 from src.utils.geojson_store import DATA_DIR, load_geojson
 
 router = APIRouter()
 
 
 @router.get("/alerts", summary="Marine Safety Alerts")
-async def get_alerts(latitude: float = 8.5, longitude: float = 76.2):
+async def get_alerts(response: Response, latitude: float = 8.5, longitude: float = 76.2):
     """
     Unified marine safety alerts combining geofence + weather + IMD live-feed
     checks (src/services/imd_alerts.py, cache-backed — never blocks on a
@@ -23,45 +23,71 @@ async def get_alerts(latitude: float = 8.5, longitude: float = 76.2):
     # network I/O blocking the event loop is worse than the disk-I/O
     # blocking fixed elsewhere (see /pfz/nearest), since it can take seconds
     # and stalls every other concurrent request meanwhile.
-    base = await asyncio.to_thread(_compute_alerts, latitude, longitude)
+    # Never let a cache/proxy/browser hand back an old copy of a safety alert.
+    response.headers["Cache-Control"] = "no-store"
+
+    # IMD data older than its TTL is re-scraped BEFORE answering (bounded wait,
+    # one shared scrape) rather than served stale while a refresh runs in the
+    # background. If IMD can't be reached, imd_status below says so explicitly.
+    from src.services.imd_cache import get_fresh
+    imd_fetch = asyncio.gather(*(get_fresh(n) for n in ("fisherman_warnings", "sea_area_bulletins", "cyclone_warnings")))
+    base_task = asyncio.to_thread(_compute_alerts, latitude, longitude)
+    _, base = await asyncio.gather(imd_fetch, base_task)
 
     from src.services.imd_alerts import get_location_imd_alerts
     from src.utils.geo import find_nearest_landing_sites
     import os
     state_name = None
+    district = None
     try:
         landing_path = os.path.join(DATA_DIR, "LANDING-LOCATIONS.geojson")
         if os.path.exists(landing_path):
             nearest = find_nearest_landing_sites(latitude, longitude, load_geojson(landing_path), n=1)
             if nearest:
                 state_name = nearest[0]["sector"]
+                district = nearest[0].get("district")
     except Exception as e:
         print(f"[Alerts] Nearest-state lookup for IMD alerts failed: {e}")
 
-    imd_alerts = await get_location_imd_alerts(state_name)
-    telemetry = base.get("telemetry", {})
+    imd_alerts = await get_location_imd_alerts(state_name, district)
+    # IMD cards carry ONLY what IMD published. This used to copy Open-Meteo's
+    # wind/gust/wave onto them, so a 45-55 km/h IMD warning showed "23 km/h"
+    # (the model's reading at the port) as if IMD had said it. Open-Meteo has
+    # its own alerts above; its numbers stay on those.
+    status_by_severity = {"HIGH": "Critical Risk", "MODERATE": "Caution", "INFO": "Information"}
     for a in imd_alerts:
         m = a.setdefault("metadata", {})
-        if "distance_km" not in m:
-            m["distance_km"] = 0
-        if "wind_speed_10m" not in m and telemetry.get("wind_speed_10m") is not None:
-            m["wind_speed_10m"] = round(telemetry["wind_speed_10m"], 1)
-        if "wind_gusts_10m" not in m and telemetry.get("wind_gusts_10m") is not None:
-            m["wind_gusts_10m"] = round(telemetry["wind_gusts_10m"], 1)
-        if "wave_height_m" not in m and telemetry.get("wave_height_m") is not None:
-            m["wave_height_m"] = round(telemetry["wave_height_m"], 1)
-        if "status" not in m:
-            m["status"] = "Critical Risk" if a.get("severity") == "HIGH" else "Caution"
+        m.setdefault("distance_km", 0)
+        m.setdefault("status", status_by_severity.get(a.get("severity"), "Caution"))
 
     all_alerts = base["alerts"] + imd_alerts
     sev_rank = {"HIGH": 0, "MODERATE": 1, "INFO": 2}
     all_alerts.sort(key=lambda a: sev_rank.get(a["severity"], 99))
 
+    from datetime import datetime, timezone
+    from src.services.imd_cache import cache_status
+    from src.services.imd_alerts import get_location_bulletin_summary
+    src_status = cache_status()
+
+    def _src(name: str) -> dict:
+        st = src_status.get(name, {})
+        return {"checked_at": st.get("cached_at"), "age_minutes": st.get("age_minutes"),
+                "stale": st.get("stale"), "last_error": st.get("last_error")}
+
+    fisherman = _src("fisherman_warnings")
     return {
         **base,
         "alerts": all_alerts,
         "alert_count": len(all_alerts),
         "has_high_severity": any(a["severity"] == "HIGH" for a in all_alerts),
+        # How current the IMD side is, stated explicitly so the app can tell
+        # "IMD published nothing new" from "we could not reach IMD".
+        "imd_status": {
+            **fisherman,                                   # top-level = the fisherman-warning PDFs
+            "sources": {n: _src(n) for n in ("fisherman_warnings", "sea_area_bulletins", "cyclone_warnings")},
+            "server_time_utc": datetime.now(timezone.utc).isoformat(),
+            "bulletin": await get_location_bulletin_summary(state_name),
+        },
     }
 
 

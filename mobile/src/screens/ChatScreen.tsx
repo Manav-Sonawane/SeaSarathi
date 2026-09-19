@@ -7,10 +7,11 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
-  SafeAreaView,
+  KeyboardAvoidingView,
   StatusBar,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useAudioRecorder, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
 import { colors } from '../theme/colors';
@@ -304,6 +305,10 @@ export function ChatScreen({ navigation }: any) {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="dark-content" />
 
+      {/* Android is edge-to-edge (no adjustResize), so without this the
+          keyboard covers the input bar. 'padding' is the mode that works
+          there; iOS uses it too. */}
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior="padding">
       <ScrollView contentContainerStyle={styles.scrollContent}>
         {/* GPS Location Strip */}
         <View style={styles.gpsStrip}>
@@ -524,6 +529,7 @@ export function ChatScreen({ navigation }: any) {
           <Ionicons name="send" size={18} color={colors.white} />
         </TouchableOpacity>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

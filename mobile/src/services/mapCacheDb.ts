@@ -292,6 +292,51 @@ export async function getCachedLandingCentersDb(): Promise<CachedLandingCenter[]
   }
 }
 
+/**
+ * Rebuilds the `bundle.static` GeoJSON shape (see OfflineBundle in api.ts) from
+ * the SQLite rows. Android's AsyncStorage can't hold the static geometry in
+ * one value (hard size limits), so offlineService.ts keeps it here only and
+ * calls this to put it back on the bundle when the offline lookups
+ * (findNearestZonesOffline / findNearestLandingOffline) need it. Only the
+ * properties those consumers read are reconstructed.
+ * Returns null if nothing is cached (or SQLite is unavailable).
+ */
+export async function getCachedStaticBundle(): Promise<OfflineBundle['static'] | null> {
+  const [pfz, boundaries, landing] = await Promise.all([
+    getCachedPfzZonesDb(),
+    getCachedBoundariesDb(),
+    getCachedLandingCentersDb(),
+  ]);
+  if (!pfz.length && !boundaries.length && !landing.length) return null;
+
+  return {
+    pfz_zones: {
+      type: 'FeatureCollection',
+      features: pfz.map((z) => ({
+        type: 'Feature',
+        properties: { SECTORNAME: z.sector, UID: z.id },
+        geometry: z.geometry,
+      })),
+    },
+    maritime_boundaries: {
+      type: 'FeatureCollection',
+      features: boundaries.map((b) => ({
+        type: 'Feature',
+        properties: { LINE_NAME: b.name, LINE_TYPE: b.line_type },
+        geometry: b.geometry,
+      })),
+    },
+    landing_centers: {
+      type: 'FeatureCollection',
+      features: landing.map((l) => ({
+        type: 'Feature',
+        properties: { LC_NAME: l.name, DIST_NAME: l.district, LC_UNIQUE_: l.id },
+        geometry: { type: 'Point', coordinates: [l.lon, l.lat] },
+      })),
+    },
+  };
+}
+
 export async function clearMapCacheDb(): Promise<void> {
   const db = await getDb();
   if (!db) return;

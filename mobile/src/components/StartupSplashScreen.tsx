@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
-import { healthAPI } from '../services/api';
+import { healthAPI, API_BASE_URL } from '../services/api';
 
 const POLL_INTERVAL_MS = 3000;
 // Copernicus grid fetch is ~90s on a genuinely cold start (see backend
@@ -88,6 +88,7 @@ export function StartupSplashScreen({
       ) : (
         <>
           <Text style={styles.detail}>Taking longer than usual — you can continue with partial data.</Text>
+          <Text style={styles.detailMuted}>Backend: {API_BASE_URL || 'NOT CONFIGURED (build has no EXPO_PUBLIC_API_URL)'}</Text>
           <TouchableOpacity style={styles.continueBtn} onPress={onDone}>
             <Text style={styles.continueBtnText}>Continue anyway</Text>
           </TouchableOpacity>

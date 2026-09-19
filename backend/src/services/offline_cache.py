@@ -45,6 +45,7 @@ import pandas as pd
 from src.services.weather_service import fetch_combined_forecasts_for_grid, generate_grid_point_id
 from src.services.copernicus_service import lookup_nearest as lookup_current_sst_chl
 from src.utils.geofence import check_geofence, is_in_indian_waters
+from src.utils.geojson_store import load_geojson_for_mobile
 
 # File is at: backend/src/services/offline_cache.py
 # Data is at:  SeaSarathi/data/static/
@@ -62,8 +63,10 @@ def _load_geojson(filename: str) -> dict:
     if not os.path.exists(path):
         print(f"[offline_cache] WARNING: {filename} not found in data/static/ — omitting from bundle.")
         return {"type": "FeatureCollection", "features": []}
-    with open(path, encoding="utf-8") as f:
-        return json.load(f)
+    # Simplified for the phone (see utils/geojson_store.py): the raw files total
+    # ~23 MB, which is too much to download over a fisherman's mobile
+    # connection and too big to persist on-device in one piece.
+    return load_geojson_for_mobile(path)
 
 
 @lru_cache(maxsize=1)
@@ -71,8 +74,8 @@ def _load_static_bundle() -> dict:
     """
     Static reference geometry never changes at runtime (it's the same 52 PFZ
     zones / EEZ+boundary lines / 1223 landing centers for every request), so
-    load and cache it once per server process instead of re-reading ~23MB of
-    GeoJSON from disk on every bundle build.
+    load, simplify and cache it once per server process instead of re-reading
+    and re-simplifying the raw GeoJSON on every bundle build.
     """
     pfz = _load_geojson("PFZ.geojson")
     eez = _load_geojson("INDIA-EEZ.geojson")

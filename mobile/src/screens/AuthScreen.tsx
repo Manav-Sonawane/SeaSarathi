@@ -5,13 +5,13 @@ import {
   View,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   TextInput,
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useUserStore, VesselType, RiskTolerance, UserRole } from '../store/userStore';
@@ -208,7 +208,9 @@ export function AuthScreen() {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar barStyle="light-content" backgroundColor="#071E3D" />
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        // 'padding' on Android too: it's edge-to-edge (no adjustResize), so
+        // `undefined` left the password fields hidden behind the keyboard.
+        behavior="padding"
         style={{ flex: 1 }}
       >
         <ScrollView

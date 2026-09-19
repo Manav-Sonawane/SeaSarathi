@@ -5,17 +5,18 @@ import {
   View,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   TextInput,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useUserStore, VesselType, RiskTolerance, UserRole } from '../store/userStore';
 import { useShallow } from 'zustand/react/shallow';
 import { INDIAN_PORTS, INDIAN_LANGUAGES } from '../constants/portsAndLanguages';
 import { profileAPI } from '../services/api';
+import { getCurrentCoords } from '../services/locationService';
 import {
   downloadOfflineBundle,
   getBundleMeta,
@@ -157,34 +158,36 @@ export function ProfileScreen() {
   // queries (chat/map/alerts/PFZ) until cleared. Matters most for the real
   // landing locations sitting between major ports — e.g. the ~200km gap
   // between Gujarat's southernmost major port and Mumbai's northernmost
-  // one still has ~40 real landing locations in it. navigator.geolocation
-  // matches the pattern already used in CompassScreen.tsx — no new native
-  // dependency.
-  const handleUseMyLocation = () => {
+  // one still has ~40 real landing locations in it. Position comes from
+  // locationService (expo-location) — React Native has no
+  // navigator.geolocation, so the previous implementation always reported
+  // "GPS unavailable" on Android/iOS.
+  const handleUseMyLocation = async () => {
     setGpsError('');
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setGpsError(t.profile.toastGpsUnavailable);
-      return;
-    }
     setLocatingGps(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        const result = await setCurrentLocationFromCoords(pos.coords.latitude, pos.coords.longitude);
-        setLocatingGps(false);
-        if (!result.success) {
-          setGpsError(result.error || t.profile.toastGpsFailed);
-        } else {
-          setToastMessage(`${t.profile.toastLocationFound} ${result.portInfo?.name}`);
-          setSavedSuccess(true);
-          setTimeout(() => setSavedSuccess(false), 3500);
-        }
-      },
-      () => {
-        setLocatingGps(false);
-        setGpsError(t.profile.toastGpsPermissionDenied);
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
-    );
+    try {
+      const fix = await getCurrentCoords();
+      if (!fix.ok) {
+        setGpsError(
+          fix.reason === 'permission_denied'
+            ? t.profile.toastGpsPermissionDenied
+            : fix.reason === 'timeout'
+              ? t.profile.toastGpsFailed
+              : t.profile.toastGpsUnavailable
+        );
+        return;
+      }
+      const result = await setCurrentLocationFromCoords(fix.latitude, fix.longitude);
+      if (!result.success) {
+        setGpsError(result.error || t.profile.toastGpsFailed);
+      } else {
+        setToastMessage(`${t.profile.toastLocationFound} ${result.portInfo?.name}`);
+        setSavedSuccess(true);
+        setTimeout(() => setSavedSuccess(false), 3500);
+      }
+    } finally {
+      setLocatingGps(false);
+    }
   };
 
   const handleSave = async () => {

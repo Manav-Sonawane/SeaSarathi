@@ -115,5 +115,37 @@ async def imd_all_cached():
 
 @router.get("/alerts/imd/status", summary="IMD Cache Status")
 async def imd_cache_status():
-    from src.services.imd_cache import cache_status
-    return cache_status()
+    """Cache age per source, plus — for the fisherman-warning PDFs — each
+    region's own issue time and whether IMD's bulletin is still within its
+    validity. This is the quickest way to tell 'IMD's own PDF is old' (IMD
+    never updated that region) from 'our copy is old' (cache/refresh problem)."""
+    from datetime import datetime, timezone
+    from src.services.imd_cache import cache_status, get_cached
+    from src.services.imd_bulletin_facts import extract_facts
+
+    status = cache_status()
+    fisherman = await get_cached("fisherman_warnings", refresh_if_missing=False)
+    bulletins = []
+    now = datetime.now(timezone.utc)
+    for r in (fisherman or {}).get("fisherman_warnings", []):
+        if "error" in r:
+            bulletins.append({"region_id": r["region_id"], "region_label": r.get("region_label"), "error": r["error"]})
+            continue
+        f = extract_facts(r.get("raw_text", ""), now)
+        bulletins.append({
+            "region_id": r["region_id"], "region_label": r.get("region_label"),
+            "pdf_url": r.get("pdf_url"),
+            "issued_at_ist": f["issued_at_ist"], "valid_until_utc": f["valid_until_utc"],
+            "status": f["status"], "validity_note": f["validity_note"],
+        })
+    status["fisherman_bulletins"] = bulletins
+    return status
+
+
+@router.post("/alerts/imd/refresh", summary="Force-refresh all IMD live feeds now")
+async def imd_force_refresh():
+    """Re-scrapes every IMD source immediately (~30-60 s) instead of waiting for
+    the background loop, then returns the same payload as /alerts/imd/status."""
+    from src.services.imd_cache import refresh_all_now
+    await refresh_all_now()
+    return await imd_cache_status()

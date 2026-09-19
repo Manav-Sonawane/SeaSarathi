@@ -49,7 +49,7 @@ from src.services.imd_port_warning_scraper import scrape_port_warnings
 
 
 class _CacheEntry:
-    __slots__ = ("fetch", "ttl_hours", "data", "cached_at", "error")
+    __slots__ = ("fetch", "ttl_hours", "data", "cached_at", "error", "last_attempt", "task")
 
     def __init__(self, fetch: Callable[[], Awaitable[dict]], ttl_hours: float):
         self.fetch = fetch
@@ -57,19 +57,26 @@ class _CacheEntry:
         self.data: dict | None = None
         self.cached_at: datetime | None = None
         self.error: str | None = None
+        self.last_attempt: datetime | None = None
+        self.task: asyncio.Task | None = None   # the ONE in-flight refresh, shared by every caller
 
 
 _CACHE: dict[str, _CacheEntry] = {
-    "fisherman_warnings": _CacheEntry(scrape_fisherman_warnings, ttl_hours=3.0),
-    "sea_area_bulletins": _CacheEntry(scrape_sea_area_bulletins, ttl_hours=6.0),
+    # 1h: regional offices publish once or twice a day (0530-0600 IST is the main
+    # issue) — a 3h TTL could hold a superseded bulletin for most of a morning.
+    "fisherman_warnings": _CacheEntry(scrape_fisherman_warnings, ttl_hours=1.0),
+    # 2h: this page carries the storm (TTT) warning and is re-issued every 12h — a new
+    # warning must not wait up to 6h to show.
+    "sea_area_bulletins": _CacheEntry(scrape_sea_area_bulletins, ttl_hours=2.0),
     "cyclone_warnings": _CacheEntry(lambda: scrape_cyclone_warnings(), ttl_hours=1.0),
     "port_warnings": _CacheEntry(lambda: scrape_port_warnings(), ttl_hours=3.0),
 }
 
-# How often the background loop re-checks staleness — same reasoning as
+# How often the background loop re-checks staleness (5 min, so a request almost never
+# has to wait for a scrape itself; see get_fresh) — same reasoning as
 # data_freshness.py: much shorter than the shortest TTL above (1h) so
 # nothing waits a full hour past going stale before being caught.
-CHECK_INTERVAL_SECONDS = 15 * 60
+CHECK_INTERVAL_SECONDS = 5 * 60
 
 
 def _age_hours(entry: _CacheEntry) -> float | None:
@@ -84,12 +91,9 @@ def is_stale(name: str) -> bool:
     return age is None or age > entry.ttl_hours
 
 
-async def refresh(name: str) -> bool:
-    """Unconditional refresh of one source. Returns True on success. A
-    failure keeps the previous cached data in place (with `error` recorded)
-    rather than wiping it out — a transient IMD outage shouldn't turn
-    "slightly stale but real" data into "nothing at all"."""
+async def _do_refresh(name: str) -> bool:
     entry = _CACHE[name]
+    entry.last_attempt = datetime.now(timezone.utc)
     try:
         entry.data = await entry.fetch()
         entry.cached_at = datetime.now(timezone.utc)
@@ -99,6 +103,32 @@ async def refresh(name: str) -> bool:
         entry.error = f"{type(e).__name__}: {e}"
         print(f"[imd_cache] Refresh of '{name}' failed: {entry.error}")
         return False
+
+
+_BACKGROUND_TASKS: set = set()
+
+
+def _start_refresh(name: str) -> asyncio.Task:
+    """Starts a refresh, or joins the one already running. Concurrent callers
+    (startup, the periodic loop, several /alerts requests at once) share ONE
+    scrape instead of each hammering IMD."""
+    entry = _CACHE[name]
+    if entry.task is not None and not entry.task.done():
+        return entry.task
+    task = asyncio.get_running_loop().create_task(_do_refresh(name))
+    entry.task = task
+    _BACKGROUND_TASKS.add(task)                 # keep a reference so it can't be GC'd mid-flight
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
+    return task
+
+
+async def refresh(name: str) -> bool:
+    """Unconditional refresh of one source (joins an in-flight one). Returns True
+    on success. A failure keeps the previous cached data in place (with `error`
+    recorded) rather than wiping it out — a transient IMD outage shouldn't turn
+    "slightly stale but real" data into "nothing at all". Shielded: a cancelled
+    caller doesn't kill the scrape other callers are waiting on."""
+    return await asyncio.shield(_start_refresh(name))
 
 
 async def refresh_all_now() -> None:
@@ -137,12 +167,58 @@ async def get_cached(name: str, refresh_if_missing: bool = True) -> dict | None:
     """Returns the cached data for one source, refreshing synchronously
     first if nothing has ever been cached yet (cold start, e.g. a request
     landing before the startup refresh finished) and `refresh_if_missing`.
-    Returns None if there's still nothing after that — callers (e.g. the
-    chat agent) must treat that as "IMD data unavailable right now", never
-    fabricate a substitute."""
+    Stale data is returned immediately while a background refresh starts.
+    Returns None if there's still nothing — callers (e.g. the chat agent)
+    must treat that as "IMD data unavailable right now", never fabricate a
+    substitute. Request paths that must show CURRENT data (GET /alerts,
+    /news/feed) use get_fresh() instead."""
     entry = _CACHE[name]
     if entry.data is None and refresh_if_missing:
         await refresh(name)
+    elif entry.data is None or is_stale(name):
+        _revalidate_in_background(name)
+    return entry.data
+
+
+# A failing source must not be hammered on every request while stale.
+_MIN_RETRY_SECONDS = 5 * 60
+FRESH_WAIT_SECONDS = 20
+
+
+def _recently_failed(entry: _CacheEntry) -> bool:
+    return bool(entry.error and entry.last_attempt
+                and (datetime.now(timezone.utc) - entry.last_attempt).total_seconds() < _MIN_RETRY_SECONDS)
+
+
+def _revalidate_in_background(name: str) -> None:
+    """Stale-while-revalidate for callers that can't wait: serve what we have,
+    start one background refresh so the NEXT request is fresh."""
+    entry = _CACHE[name]
+    if _recently_failed(entry):
+        return
+    if entry.last_attempt and not entry.error and (datetime.now(timezone.utc) - entry.last_attempt).total_seconds() < _MIN_RETRY_SECONDS:
+        return
+    try:
+        _start_refresh(name)
+    except RuntimeError:
+        pass   # no running loop (e.g. a sync test) — nothing to schedule
+
+
+async def get_fresh(name: str, timeout: float = FRESH_WAIT_SECONDS) -> dict | None:
+    """Data for a request that must not show stale IMD content: if the cache is
+    older than its TTL, WAIT (up to `timeout`s) for a fresh scrape before
+    answering. If IMD can't be reached in time, or failed within the last few
+    minutes, the previous data is returned and `cache_status()` says it is
+    stale + why — the caller must surface that, never present it as current.
+    The scrape keeps running after a timeout so the next request benefits."""
+    entry = _CACHE[name]
+    if entry.data is not None and not is_stale(name):
+        return entry.data
+    if not _recently_failed(entry):
+        try:
+            await asyncio.wait_for(asyncio.shield(_start_refresh(name)), timeout)
+        except asyncio.TimeoutError:
+            print(f"[imd_cache] '{name}' refresh still running after {timeout}s — answering with previous data")
     return entry.data
 
 

@@ -4,12 +4,12 @@ import {
   Text,
   View,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Platform,
   PanResponder,
   ActivityIndicator,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { colors } from '../theme/colors';
 import { useUserStore } from '../store/userStore';
@@ -28,6 +28,9 @@ import { getScreenText } from '../constants/screenTranslations';
 // on the web/fallback path (GoogleMapContainer). Native react-native-maps has
 // no such URL limit, but it's kept for the shared nearest-N logic below too.
 const MAX_RISK_MARKERS = 40;
+
+// Cap on native landing-center pins (see landingFeatures below).
+const MAX_NATIVE_LANDING_MARKERS = 150;
 
 function haversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371.0;
@@ -260,20 +263,26 @@ export function MapScreen({ navigation }: any) {
   }, [isOnline, landingGeo]);
 
   const landingFeatures: { id: string; name: string; district: string; sector: string; latitude: number; longitude: number }[] =
-    React.useMemo(
-      () =>
-        !landingGeo
-          ? []
-          : landingGeo.features.map((f, i) => ({
-              id: f.properties.LC_UNIQUE_ || `landing-${i}`,
-              name: f.properties.LC_NAME || 'Landing Center',
-              district: f.properties.DIST_NAME || '',
-              sector: f.properties.SECTOR_NAM || '',
-              latitude: f.geometry.coordinates[1],
-              longitude: f.geometry.coordinates[0],
-            })),
-      [landingGeo]
-    );
+    React.useMemo(() => {
+      if (!landingGeo) return [];
+      const all = landingGeo.features.map((f, i) => ({
+        id: f.properties.LC_UNIQUE_ || `landing-${i}`,
+        name: f.properties.LC_NAME || 'Landing Center',
+        district: f.properties.DIST_NAME || '',
+        sector: f.properties.SECTOR_NAM || '',
+        latitude: f.geometry.coordinates[1],
+        longitude: f.geometry.coordinates[0],
+      }));
+      if (Platform.OS === 'web') return all;
+      // Each native <Marker> with a custom child view is its own bitmap, so
+      // mounting all ~1223 at once janks/OOMs mid-range Android phones. The
+      // map opens on the active port, so the nearest N are the ones that matter.
+      return all
+        .map((site) => ({ site, d: haversineKm(portInfo.latitude, portInfo.longitude, site.latitude, site.longitude) }))
+        .sort((a, b) => a.d - b.d)
+        .slice(0, MAX_NATIVE_LANDING_MARKERS)
+        .map(({ site }) => site);
+    }, [landingGeo, portInfo.latitude, portInfo.longitude]);
 
   // No fabricated default — the card only appears once the fisherman taps a
   // real PFZ line, boundary, landing pin, or (on the web/Static-Maps path) a

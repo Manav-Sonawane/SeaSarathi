@@ -21,12 +21,29 @@
  *     distinguishable as a cached/offline answer)
  */
 import { offlineAPI, OfflineBundle } from './api';
-import { saveMapCacheFromBundle, clearMapCacheDb } from './mapCacheDb';
+import { saveMapCacheFromBundle, clearMapCacheDb, getCachedStaticBundle } from './mapCacheDb';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BUNDLE_KEY = 'seasarathi_offline_bundle';
 const BUNDLE_META_KEY = 'seasarathi_offline_bundle_meta';
+
+// Placeholder `static` for the AsyncStorage copy of a bundle whose geometry is
+// stored in SQLite instead (see downloadOfflineBundle).
+const EMPTY_STATIC: OfflineBundle['static'] = {
+  pfz_zones: { type: 'FeatureCollection', features: [] },
+  maritime_boundaries: { type: 'FeatureCollection', features: [] },
+  landing_centers: { type: 'FeatureCollection', features: [] },
+};
+
+function hasStaticData(bundle: OfflineBundle): boolean {
+  const s = bundle.static;
+  return (
+    (s?.pfz_zones?.features?.length ?? 0) > 0 ||
+    (s?.landing_centers?.features?.length ?? 0) > 0 ||
+    (s?.maritime_boundaries?.features?.length ?? 0) > 0
+  );
+}
 
 export interface BundleMeta {
   createdAt: string;
@@ -55,18 +72,25 @@ export async function downloadOfflineBundle(
     tripDays,
   };
 
-  await AsyncStorage.setItem(BUNDLE_KEY, JSON.stringify(bundle));
-  await AsyncStorage.setItem(BUNDLE_META_KEY, JSON.stringify(meta));
-
-  // Persist the map geometry portion into SQLite too (see mapCacheDb.ts) —
-  // best-effort: a failure here (e.g. web, no native SQLite) must not fail
-  // the bundle download itself, since the AsyncStorage copy above already
-  // has everything the chat/PFZ/alerts fallbacks need.
+  // Map geometry (PFZ zones, boundaries, landing centers) lives in SQLite
+  // (see mapCacheDb.ts) — best-effort, since web has no native SQLite.
+  let staticSavedToSqlite = false;
   try {
-    await saveMapCacheFromBundle(bundle);
+    staticSavedToSqlite = (await saveMapCacheFromBundle(bundle)) !== null;
   } catch (e) {
     console.error('[offlineService] Map cache DB write failed (non-fatal):', e);
   }
+
+  // Keep the static geometry OUT of the AsyncStorage copy whenever SQLite has
+  // it. On Android, AsyncStorage caps the whole database at ~6 MB by default
+  // and a single multi-MB value is unreliable to read back, so one big JSON
+  // blob made setItem() throw and offline mode never worked at all.
+  // getCachedBundleForOffline() puts `static` back from SQLite on read. If
+  // SQLite isn't available (web) the full bundle is stored as before — the
+  // server now sends simplified geometry (~1 MB), so that fits.
+  const bundleToStore: OfflineBundle = staticSavedToSqlite ? { ...bundle, static: EMPTY_STATIC } : bundle;
+  await AsyncStorage.setItem(BUNDLE_KEY, JSON.stringify(bundleToStore));
+  await AsyncStorage.setItem(BUNDLE_META_KEY, JSON.stringify(meta));
   return meta;
 }
 
@@ -88,7 +112,13 @@ export async function isBundleValid(): Promise<boolean> {
 export async function getCachedBundleForOffline(): Promise<OfflineBundle | null> {
   try {
     const raw = await AsyncStorage.getItem(BUNDLE_KEY);
-    return raw ? (JSON.parse(raw) as OfflineBundle) : null;
+    if (!raw) return null;
+    const bundle = JSON.parse(raw) as OfflineBundle;
+    if (!hasStaticData(bundle)) {
+      const staticFromSqlite = await getCachedStaticBundle();
+      if (staticFromSqlite) bundle.static = staticFromSqlite;
+    }
+    return bundle;
   } catch {
     return null;
   }

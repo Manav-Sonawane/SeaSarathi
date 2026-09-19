@@ -4,14 +4,18 @@ cached IMD data behind GET /alerts into short, coastal-zone news bulletins
 (Gujarat-Maharashtra, Goa-Karnataka-Kerala, etc.) for the Alerts screen's
 collapsible zonal feed.
 """
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response
 
 router = APIRouter()
 
 
 @router.get("/news/feed", summary="Zonal IMD News Feed")
-async def news_feed():
+async def news_feed(response: Response):
+    import asyncio
+    from src.services.imd_cache import get_fresh
     from src.services.imd_news_feed import get_news_feed
+    response.headers["Cache-Control"] = "no-store"
+    await asyncio.gather(*(get_fresh(n) for n in ("fisherman_warnings", "sea_area_bulletins", "cyclone_warnings")))
     return await get_news_feed()
 
 

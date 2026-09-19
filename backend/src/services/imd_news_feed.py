@@ -28,6 +28,7 @@ every GET /news/feed hit would be slow and wasteful when the underlying
 IMD sources themselves only refresh every 1-6h (imd_cache.py's own TTLs).
 """
 import asyncio
+import os
 from datetime import datetime, timezone
 
 from src.services.imd_cache import get_cached
@@ -48,70 +49,54 @@ _BULLETIN_TTL_MINUTES = 30.0
 
 
 class _ZoneBulletinCache:
-    __slots__ = ("data", "cached_at")
+    __slots__ = ("data", "cached_at", "source_stamp")
 
     def __init__(self):
         self.data: dict | None = None
         self.cached_at: datetime | None = None
+        self.source_stamp: tuple | None = None   # which IMD scrapes this bulletin was built from
 
 
 _BULLETIN_CACHE: dict[str, _ZoneBulletinCache] = {z["id"]: _ZoneBulletinCache() for z in ZONES}
 
 
+def _source_stamp() -> tuple:
+    """When each IMD source feeding these bulletins was last scraped. A bulletin
+    built from an older scrape than the current one is out of date even if it is
+    younger than its own TTL."""
+    from src.services.imd_cache import cache_status
+    st = cache_status()
+    return tuple(st[n]["cached_at"] for n in ("fisherman_warnings", "sea_area_bulletins", "cyclone_warnings"))
+
+
 def _is_stale(zone_id: str) -> bool:
     entry = _BULLETIN_CACHE[zone_id]
-    if entry.cached_at is None:
+    if entry.cached_at is None or entry.source_stamp != _source_stamp():
         return True
     age_minutes = (datetime.now(timezone.utc) - entry.cached_at).total_seconds() / 60.0
     return age_minutes > _BULLETIN_TTL_MINUTES
 
 
 async def _collect_zone_alerts(zone_states: set[str]) -> list[dict]:
-    """Same per-state matching imd_alerts.py does for one state, fanned out
-    across every state in a zone. Never triggers a live scrape
-    (refresh_if_missing=False) — must stay fast on the request path, same
-    reasoning as imd_alerts.py."""
+    """Same alert builder GET /alerts uses (imd_alerts.py), fanned out across
+    every state in the zone at state level (no district) and de-duplicated —
+    so News, Alerts and Chat can never disagree about what IMD said. That
+    builder is what enforces bulletin freshness (an expired PDF becomes an
+    'expired' notice, never a warning) and separates warnings for the coast
+    from open-sea ones. Never triggers a live scrape."""
+    from src.services.imd_alerts import get_location_imd_alerts
+
     alerts: list[dict] = []
-
-    fisherman = await get_cached("fisherman_warnings", refresh_if_missing=False)
-    if fisherman:
-        for region in fisherman.get("fisherman_warnings", []):
-            label_upper = region.get("region_label", "").upper()
-            if any(s in label_upper for s in zone_states) and region.get("venture_advisory"):
-                alerts.append({
-                    "type": "IMD_FISHERMAN_WARNING",
-                    "severity": "HIGH",
-                    "message": region.get("summary") or f"IMD fisherman warning active for {region.get('region_label')} — advised not to venture into the sea.",
-                    "region_label": region.get("region_label"),
-                })
-
-    cyclone = await get_cached("cyclone_warnings", refresh_if_missing=False)
-    if cyclone:
-        for region in cyclone.get("cyclone_warnings", []):
-            region_upper = region.get("region_name", "").upper()
-            if not any(s in region_upper for s in zone_states):
+    seen: set[tuple] = set()
+    for state in sorted(zone_states):
+        for a in await get_location_imd_alerts(state):
+            meta = a.get("metadata") or {}
+            label = meta.get("region_label") or meta.get("region_name") or meta.get("sea_area")
+            key = (a["type"], label, a["message"])
+            if key in seen:
                 continue
-            hit = next((w for w in region.get("warnings", []) if w.get("severity") == "HIGH" and w.get("venture_advisory")), None)
-            if hit:
-                alerts.append({
-                    "type": "IMD_CYCLONE_WARNING",
-                    "severity": "HIGH",
-                    "message": hit.get("warning") or hit.get("message"),
-                    "region_label": region.get("region_name"),
-                })
-
-    sea_area_id = "arabian_sea" if zone_states & _WEST_COAST_STATES else "bay_of_bengal"
-    sea = await get_cached("sea_area_bulletins", refresh_if_missing=False)
-    bulletin = (sea or {}).get("sea_area_bulletins", {}).get(sea_area_id)
-    ttt = (bulletin or {}).get("ttt_warning")
-    if ttt and ttt.strip().upper() not in _NO_ACTIVE_TTT:
-        alerts.append({
-            "type": "IMD_CYCLONE_TTT_WARNING",
-            "severity": "HIGH",
-            "message": f"IMD storm warning for the {(bulletin or {}).get('sea_area')}: {ttt}",
-            "region_label": (bulletin or {}).get("sea_area"),
-        })
-
+            seen.add(key)
+            alerts.append({**a, "region_label": label})
     return alerts
 
 
@@ -128,7 +113,7 @@ _NEWS_SYSTEM_PROMPT = (
 def _build_prompt(zone_label: str, alerts: list[dict]) -> str:
     lines = [f"Zone: {zone_label} coast", "Active IMD warnings:"]
     for a in alerts:
-        lines.append(f"- [{a['type']}] {a['message']} (region: {a.get('region_label') or 'n/a'})")
+        lines.append(f"- [{a['severity']}/{a['type']}] {a['message']} (region: {a.get('region_label') or 'n/a'})")
     lines.append(
         "\nWrite this as a coastal news bulletin with exactly two parts:\n"
         "HEADLINE: a single punchy line (max 12 words)\n"
@@ -138,6 +123,55 @@ def _build_prompt(zone_label: str, alerts: list[dict]) -> str:
         "Output strictly as:\nHEADLINE: ...\nBODY: ..."
     )
     return "\n".join(lines)
+
+
+# Short names for the headline, in the order they should appear.
+_HEADLINE_LABELS = {
+    "IMD_CYCLONE_WARNING": "Cyclone warning",
+    "IMD_CYCLONE_TTT_WARNING": "Storm warning",
+    "IMD_COAST_WIND_WARNING": "Coastal wind warning",
+    "IMD_SWELL_SURGE_ALERT": "Swell surge alert",
+    "IMD_THUNDERSTORM_WARNING": "Thunderstorm warning",
+    "IMD_FISHERMEN_ARCHIVE_ADVISORY": "IMD archive advisory",
+}
+_MAX_BODY_CHARS = 700
+
+
+def _compose_bulletin(zone_label: str, alerts: list[dict]) -> tuple[str, str]:
+    """Headline + body written straight from the verified alerts' own wording.
+
+    Deliberately NOT rewritten by an LLM: run live (2026-09-19) the rewrite
+    invented instructions IMD never gave — "Do not venture out" for a Gujarat
+    bulletin that said "be cautious", and for Kerala swell alerts that said
+    "boats to ply with utmost vigilance". In a safety bulletin the wording of the
+    advice must be IMD's, so this only orders and trims what imd_alerts.py
+    already produced. (Set IMD_NEWS_LLM=1 to re-enable the anchor-style rewrite.)"""
+    order = {"HIGH": 0, "MODERATE": 1}
+    ranked = sorted(alerts, key=lambda a: order.get(a["severity"], 2))
+    warnings = [a for a in ranked if a["severity"] in ("HIGH", "MODERATE")]
+    infos = [a for a in ranked if a["severity"] not in ("HIGH", "MODERATE")]
+
+    if warnings:
+        names = []
+        for a in warnings:
+            label = _HEADLINE_LABELS.get(a["type"], "IMD warning")
+            if label not in names:
+                names.append(label)
+        headline = f"{', '.join(names)} — {zone_label}"
+    elif any(a["type"] == "IMD_BULLETIN_EXPIRED" for a in infos):
+        headline = f"IMD bulletin expired — {zone_label}"
+    else:
+        headline = f"No coastal warning — {zone_label}"
+
+    parts = [a["message"] for a in warnings]
+    for a in infos:
+        # Informational notices: just their lead sentence (e.g. "IMD lists Kerala coast as NIL"),
+        # the full detail is on the Alerts screen cards.
+        parts.append(a["message"] if a["type"].startswith("IMD_BULLETIN") else a["message"].split(". ")[0].rstrip(".") + ".")
+    body = " ".join(dict.fromkeys(parts))       # de-dupe identical sentences across states
+    if len(body) > _MAX_BODY_CHARS:
+        body = body[: _MAX_BODY_CHARS - 1].rsplit(" ", 1)[0] + "…"
+    return headline, body
 
 
 def _parse_bulletin(raw: str, fallback_headline: str) -> tuple[str, str]:
@@ -165,17 +199,21 @@ async def _generate_zone_bulletin(zone: dict) -> dict:
             "generated_at": now,
         }
 
-    severity = "HIGH" if any(a["severity"] == "HIGH" for a in alerts) else "MODERATE"
-    fallback_headline = f"{len(alerts)} active IMD warning(s) for {zone['label']}"
-    try:
-        raw = await asyncio.to_thread(
-            sarvam_generate, _build_prompt(zone["label"], alerts), 300, 0.3,
-        )
-        headline, body = _parse_bulletin(raw, fallback_headline)
-    except Exception as e:
-        print(f"[imd_news_feed] LLM bulletin failed for {zone['id']}: {e}")
-        headline = fallback_headline
-        body = " ".join(a["message"] for a in alerts)
+    severity = ("HIGH" if any(a["severity"] == "HIGH" for a in alerts)
+                else "MODERATE" if any(a["severity"] == "MODERATE" for a in alerts)
+                else "NORMAL")   # only informational notices (open-sea areas, expired bulletin)
+    n_warn = sum(1 for a in alerts if a["severity"] in ("HIGH", "MODERATE"))
+    fallback_headline = (f"{n_warn} active IMD warning(s) for {zone['label']}" if n_warn
+                         else f"IMD advisories for {zone['label']}")
+    headline, body = _compose_bulletin(zone["label"], alerts)
+    if os.getenv("IMD_NEWS_LLM") == "1":
+        try:
+            raw = await asyncio.to_thread(
+                sarvam_generate, _build_prompt(zone["label"], alerts), 300, 0.3,
+            )
+            headline, body = _parse_bulletin(raw, fallback_headline)
+        except Exception as e:
+            print(f"[imd_news_feed] LLM bulletin failed for {zone['id']}: {e} — using composed bulletin")
 
     return {
         "zone_id": zone["id"],
@@ -183,7 +221,7 @@ async def _generate_zone_bulletin(zone: dict) -> dict:
         "severity": severity,
         "headline": headline,
         "body": body,
-        "alert_count": len(alerts),
+        "alert_count": n_warn,
         "raw_alerts": alerts,
         "generated_at": now,
     }
@@ -195,7 +233,10 @@ async def get_zone_bulletin(zone_id: str, force_refresh: bool = False) -> dict |
         return None
     entry = _BULLETIN_CACHE[zone_id]
     if force_refresh or _is_stale(zone_id):
+        stamp = _source_stamp()
         entry.data = await _generate_zone_bulletin(zone)
+        entry.data["imd_checked_at"] = stamp[0]     # when the IMD fisherman PDFs were last fetched
+        entry.source_stamp = stamp
         entry.cached_at = datetime.now(timezone.utc)
     return entry.data
 

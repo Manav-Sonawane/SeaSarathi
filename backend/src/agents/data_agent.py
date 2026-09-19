@@ -336,7 +336,11 @@ async def data_agent(state: AgentState) -> AgentState:
     try:
         from src.services.imd_alerts import get_location_imd_alerts
         state_name = (nearest_landing or {}).get("sector", "").strip()
-        imd_alerts = await get_location_imd_alerts(state_name)
+        district = (nearest_landing or {}).get("district")
+        imd_alerts = await get_location_imd_alerts(state_name, district)
+        # The response prompt only sees the first few alerts — put the serious
+        # ones first so informational IMD notices can't push them out.
+        imd_alerts.sort(key=lambda a: {"HIGH": 0, "MODERATE": 1}.get(a["severity"], 2))
         alerts.extend(imd_alerts)
         sources.extend(a["source"] for a in imd_alerts)
         # `cyclone` (below) was previously hardcoded to MOCK_DATA's False and

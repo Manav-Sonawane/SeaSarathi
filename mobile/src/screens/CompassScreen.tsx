@@ -5,13 +5,13 @@ import {
   View,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   StatusBar,
   Platform,
   Linking,
   Modal,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, {
   Circle,
@@ -24,6 +24,14 @@ import { useUserStore } from '../store/userStore';
 import { useShallow } from 'zustand/react/shallow';
 import { INDIAN_PORTS, PortInfo } from '../constants/portsAndLanguages';
 import { getScreenText } from '../constants/screenTranslations';
+import {
+  getCurrentCoords,
+  watchPosition,
+  watchHeading,
+  LocationFix,
+  LocationFailure,
+  Subscription,
+} from '../services/locationService';
 import {
   calculateBearing,
   calculateDistanceKm,
@@ -73,8 +81,40 @@ export function CompassScreen() {
   const vesselSpeedKnots =
     vesselType === 'small' ? 5 : vesselType === 'medium' ? 9 : 12;
 
-  // 1. Hardware Orientation / Magnetometer Sensor (Works 100% offline without cellular)
+  // GPS course-over-ground only tracks direction of travel, so it must never
+  // override a real compass reading — read via ref inside the GPS callbacks.
+  const hasMagnetometerRef = useRef(false);
   useEffect(() => {
+    hasMagnetometerRef.current = hasMagnetometer;
+  }, [hasMagnetometer]);
+  // Why there's no GPS fix (null until one fails) — drives the honest status line below.
+  const [gpsIssue, setGpsIssue] = useState<LocationFailure | null>(null);
+
+  // 1a. Native compass heading (expo-location's orientation sensors — works
+  // offline, no cellular needed). This is the only heading source on
+  // Android/iOS; the DeviceOrientation path below only exists on web.
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    let cancelled = false;
+    let subscription: Subscription | null = null;
+
+    watchHeading((degrees) => {
+      setHeading(Math.round(degrees));
+      setHasMagnetometer(true);
+    }).then((sub) => {
+      if (cancelled) sub?.remove();
+      else subscription = sub;
+    });
+
+    return () => {
+      cancelled = true;
+      subscription?.remove();
+    };
+  }, []);
+
+  // 1b. Web-only: browser DeviceOrientation API.
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
     let handleOrientation: ((e: any) => void) | null = null;
 
     if (typeof window !== 'undefined') {
@@ -112,42 +152,38 @@ export function CompassScreen() {
     };
   }, []);
 
-  // 2. Watch Direct Satellite GPS (Works 100% offline without Internet/cellular)
+  // 2. Direct satellite GPS (works without Internet/cellular). Uses
+  // expo-location — React Native has no navigator.geolocation, so the old
+  // implementation never produced a fix on Android/iOS.
   useEffect(() => {
-    let watchId: number | null = null;
+    let cancelled = false;
+    let subscription: Subscription | null = null;
 
-    if (typeof navigator !== 'undefined' && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (pos) => {
-          setVesselLat(pos.coords.latitude);
-          setVesselLon(pos.coords.longitude);
-          setHasGpsFix(true);
-          if (pos.coords.heading != null && !isNaN(pos.coords.heading) && pos.coords.heading >= 0) {
-            setHeading(Math.round(pos.coords.heading));
-          }
-        },
-        () => {},
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
-      );
+    const applyFix = (fix: LocationFix) => {
+      if (cancelled) return;
+      setVesselLat(fix.latitude);
+      setVesselLon(fix.longitude);
+      setHasGpsFix(true);
+      setGpsIssue(null);
+      if (!hasMagnetometerRef.current && fix.heading != null) {
+        setHeading(Math.round(fix.heading));
+      }
+    };
 
-      watchId = navigator.geolocation.watchPosition(
-        (pos) => {
-          setVesselLat(pos.coords.latitude);
-          setVesselLon(pos.coords.longitude);
-          setHasGpsFix(true);
-          if (pos.coords.heading != null && !isNaN(pos.coords.heading) && pos.coords.heading >= 0) {
-            setHeading(Math.round(pos.coords.heading));
-          }
-        },
-        () => {},
-        { enableHighAccuracy: true, maximumAge: 5000 }
-      );
-    }
+    (async () => {
+      const first = await getCurrentCoords();
+      if (cancelled) return;
+      if (first.ok) applyFix(first);
+      else setGpsIssue(first.reason);
+
+      const sub = await watchPosition(applyFix);
+      if (cancelled) sub?.remove();
+      else subscription = sub;
+    })();
 
     return () => {
-      if (watchId != null && typeof navigator !== 'undefined' && navigator.geolocation) {
-        navigator.geolocation.clearWatch(watchId);
-      }
+      cancelled = true;
+      subscription?.remove();
     };
   }, []);
 
@@ -259,7 +295,13 @@ export function CompassScreen() {
           <View style={styles.offlineStatusRow}>
             <View style={styles.liveGreenDot} />
             <Text style={styles.offlineStatusText}>
-              {hasGpsFix ? 'OFFLINE SATELLITE GPS ACTIVE' : 'CALAMITY SAFE MODE • 100% OFFLINE'}
+              {hasGpsFix
+                ? 'OFFLINE SATELLITE GPS ACTIVE'
+                : gpsIssue === 'permission_denied'
+                  ? 'NO GPS: LOCATION PERMISSION DENIED • POSITION SIMULATED'
+                  : gpsIssue === 'services_disabled'
+                    ? 'NO GPS: TURN ON LOCATION • POSITION SIMULATED'
+                    : 'ACQUIRING GPS FIX • POSITION SIMULATED'}
             </Text>
           </View>
           <TouchableOpacity
