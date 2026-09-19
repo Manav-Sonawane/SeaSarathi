@@ -20,6 +20,7 @@ import { useNetworkStore } from '../store/networkStore';
 import { getScreenText } from '../constants/screenTranslations';
 import { LocationSourceBadge } from '../components/LocationSourceBadge';
 import { ZonalNewsFeed } from '../components/ZonalNewsFeed';
+import { fillText } from '../utils/formatText';
 
 // Static example card shown only until the first /alerts response (live or
 // cached) arrives, so the screen isn't empty on first paint.
@@ -40,12 +41,12 @@ const PLACEHOLDER_ALERTS = (portInfo: any, operatingPort: string, fetchingText: 
 ];
 
 // "3 min ago" / "2 h ago" / "1 d ago" for an age in minutes.
-function formatAge(minutes: number | null | undefined): string {
-  if (minutes == null) return 'unknown time ago';
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${Math.round(minutes)} min ago`;
-  if (minutes < 60 * 48) return `${Math.round(minutes / 60)} h ago`;
-  return `${Math.round(minutes / 1440)} d ago`;
+function formatAge(t: ReturnType<typeof getScreenText>, minutes: number | null | undefined): string {
+  if (minutes == null) return t.alerts.ageUnknown;
+  if (minutes < 1) return t.alerts.ageJustNow;
+  if (minutes < 60) return fillText(t.alerts.ageMinutes, { n: Math.round(minutes) });
+  if (minutes < 60 * 48) return fillText(t.alerts.ageHours, { n: Math.round(minutes / 60) });
+  return fillText(t.alerts.ageDays, { n: Math.round(minutes / 1440) });
 }
 
 // Reload alerts this often while the screen is open, and whenever the tab is
@@ -66,36 +67,81 @@ function severityToCategory(severity: string): 'critical' | 'advisory' | 'naviga
 // converted number is worse than showing the source's own wording.
 const IMD_SOURCES = new Set(['imd-fisherman-warning', 'imd-cyclone-warning', 'imd-sea-area-bulletin']);
 
-// English labels for the IMD alert types added with the bulletin-facts parser
-// (backend/src/services/imd_alerts.py). Not yet in the per-language
-// alertTypes tables, so they fall back to this rather than a raw code.
-const IMD_TYPE_LABELS: Record<string, string> = {
-  IMD_COAST_WIND_WARNING: 'IMD COAST WIND WARNING',
-  IMD_SWELL_SURGE_ALERT: 'SWELL SURGE ALERT',
-  IMD_THUNDERSTORM_WARNING: 'THUNDERSTORM WARNING',
-  IMD_OPEN_SEA_WARNING: 'OPEN-SEA WARNING (NOT YOUR COAST)',
-  IMD_COAST_CLEAR: 'IMD: COAST CLEAR',
-  IMD_BULLETIN_EXPIRED: 'IMD BULLETIN EXPIRED',
-  IMD_BULLETIN_UNVERIFIED: 'IMD BULLETIN UNVERIFIED',
-  IMD_FISHERMEN_ARCHIVE_ADVISORY: 'IMD ARCHIVE ADVISORY',
-};
+const finiteOrNull = (v: unknown): number | null => (v != null && Number.isFinite(Number(v)) ? Number(v) : null);
+
+// The backend (and the offline recompute) only produce English text for its
+// own weather/geofence alerts. Those messages are fixed templates around a few
+// numbers that are also in `metadata`, so rebuild them in the user's language
+// from that. Anything else — notably free-text IMD bulletins, which are IMD's
+// own wording — keeps the server's message.
+function localizedMessage(a: Alert, t: ReturnType<typeof getScreenText>): string {
+  const meta = a.metadata || {};
+  const A = t.alerts;
+  const wind = finiteOrNull(meta.wind_speed_10m);
+  const gust = finiteOrNull(meta.wind_gusts_10m);
+  const rain = finiteOrNull(meta.precipitation_mm);
+  const vis = finiteOrNull(meta.visibility_m);
+  const wave = finiteOrNull(meta.wave_height_m);
+  const dist = finiteOrNull(meta.distance_km);
+  const boundary = meta.boundary != null ? String(meta.boundary) : null;
+
+  let text: string | null = null;
+  switch (a.type) {
+    case 'HIGH_WIND':
+      if (wind != null && gust != null) text = fillText(A.msgHighWind, { wind: Math.round(wind), gust: Math.round(gust) });
+      break;
+    case 'MODERATE_WIND':
+      if (wind != null) text = fillText(A.msgModerateWind, { wind: Math.round(wind) });
+      break;
+    case 'HEAVY_RAIN':
+      if (rain != null) text = fillText(A.msgHeavyRain, { rain: Math.round(rain) });
+      break;
+    case 'LOW_VISIBILITY':
+      if (vis != null) text = fillText(A.msgLowVisibility, { vis: (vis / 1000).toFixed(1) });
+      break;
+    case 'THUNDERSTORM':
+      text = A.msgThunderstorm;
+      break;
+    case 'DANGEROUS_WAVES':
+      if (wave != null) text = fillText(A.msgDangerousWaves, { wave: wave.toFixed(1) });
+      break;
+    case 'HIGH_WAVES':
+      if (wave != null) text = fillText(A.msgHighWaves, { wave: wave.toFixed(1) });
+      break;
+    case 'GEOFENCE_DANGER':
+      if (dist != null && boundary) text = fillText(A.msgGeofenceDanger, { dist: dist.toFixed(1), boundary });
+      break;
+    case 'GEOFENCE_WARNING':
+      if (dist != null && boundary) text = fillText(A.msgGeofenceWarning, { dist: dist.toFixed(1), boundary });
+      break;
+    case 'INTERNATIONAL_WATERS':
+      text = A.msgInternationalWaters;
+      break;
+    case 'SYSTEM':
+      text = A.msgSystem;
+      break;
+  }
+  if (text == null) return a.message;
+  // Offline-recomputed alerts carry a "[cached]" tag in the English message.
+  return a.source === 'offline-cache' ? `${text} [${t.profile.cachedSuffix}]` : text;
+}
 
 function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof getScreenText>) {
   const category = severityToCategory(a.severity);
   const meta = a.metadata || {};
   
   // Distance tag: e.g. "0 km (Port)" or "15 km" or "Maritime Border"
-  let distance = '0 km (Port)';
+  let distance = t.alerts.distAtPort;
   if (meta.distance_km != null) {
     const d = Number(meta.distance_km);
-    distance = d === 0 ? '0 km (Port)' : `${d.toFixed(1)} km`;
+    distance = d === 0 ? t.alerts.distAtPort : `${d.toFixed(1)} km`;
   } else if (a.source === 'geofence' || a.source === 'geofence-cache') {
-    distance = 'Maritime Border';
+    distance = t.alerts.maritimeBorder;
   }
 
   // Falls back to the raw backend code (readable, just untranslated) for
   // any alert type not yet in alertTypes — never crashes on a new one.
-  const typeLabel = t.alerts.alertTypes[a.type] || IMD_TYPE_LABELS[a.type] || a.type.replace(/_/g, ' ');
+  const typeLabel = t.alerts.alertTypes[a.type] || t.alerts.imdAlertTypes[a.type] || a.type.replace(/_/g, ' ');
 
   // Wind speed display: checks numeric wind speed, gusts, or wind_conditions text
   let windVal = '—';
@@ -111,17 +157,20 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
   }
 
   // Status / Wave Height display
+  // meta.status is backend English text; statusLabels maps the known ones and
+  // anything else (e.g. IMD's own status wording) is shown as sent.
+  const statusLabel = (s: string) => t.alerts.statusLabels[s] || s;
   let statusVal = '—';
   if (meta.wave_height_m != null) {
-    statusVal = `Hs ${Number(meta.wave_height_m).toFixed(1)} m`;
+    statusVal = fillText(t.alerts.waveHeight, { n: Number(meta.wave_height_m).toFixed(1) });
   } else if (meta.wave_or_swell_conditions) {
     statusVal = String(meta.wave_or_swell_conditions);
   } else if (meta.status) {
-    statusVal = String(meta.status);
+    statusVal = statusLabel(String(meta.status));
   } else if (a.severity === 'HIGH') {
-    statusVal = 'Critical Risk';
+    statusVal = statusLabel('Critical Risk');
   } else if (a.severity === 'MODERATE') {
-    statusVal = 'Caution';
+    statusVal = statusLabel('Caution');
   }
 
   const isImd = IMD_SOURCES.has(a.source || '');
@@ -133,19 +182,23 @@ function alertToCard(a: Alert, idx: number, portInfo: any, t: ReturnType<typeof 
     type: typeLabel,
     title: typeLabel,
     sub: a.source === 'geofence' || a.source === 'geofence-cache'
-      ? `${t.alerts.boundaryPrefix} ${meta.boundary || 'Unknown'}`
+      ? `${t.alerts.boundaryPrefix} ${meta.boundary || t.alerts.unknownBoundary}`
       : isImd
       ? String(meta.region_label || meta.sea_area || meta.region_name || 'IMD')
       : t.alerts.weatherAdvisory,
     distText: distance,
     vector: windVal,
     breachTime: statusVal,
-    body: a.message,
+    // IMD alerts: the server's machine translation when it has one, with the
+    // original English kept alongside (bodyOriginal) so the source wording of
+    // a safety warning is always visible. Other alerts are rebuilt locally.
+    body: a.message_translated || localizedMessage(a, t),
+    bodyOriginal: a.message_translated ? a.message : '',
     coords: `${portInfo.latitude.toFixed(2)}° N, ${portInfo.longitude.toFixed(2)}° E`,
     // For IMD alerts show WHEN IMD issued the bulletin, not the phone's clock —
     // otherwise an old bulletin looks like it was just published.
     time: meta.issued_at_text
-      ? `IMD issued ${meta.issued_at_text}`
+      ? fillText(t.alerts.imdIssuedCard, { text: String(meta.issued_at_text) })
       : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' IST',
     detailTitle: meta.detail_title ? String(meta.detail_title) : '',
     detailRows,
@@ -205,7 +258,7 @@ export function AlertsScreen({ navigation }: any) {
     setLoading(true);
     try {
       if (!isOnline) throw new Error('No network connection (known offline)');
-      const { alerts: data, imdStatus: status } = await alertsAPI.getAlertsWithStatus(portInfo.latitude, portInfo.longitude);
+      const { alerts: data, imdStatus: status } = await alertsAPI.getAlertsWithStatus(portInfo.latitude, portInfo.longitude, langInfo.code);
       // Show the backend's real alert list as-is (empty list = no active alerts,
       // which is a valid, meaningful result — not treated as a failure).
       setAlertsList(data.map((a, idx) => alertToCard(a, idx, portInfo, t)));
@@ -342,18 +395,24 @@ export function AlertsScreen({ navigation }: any) {
               />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.imdBannerTitle, { color: warn ? colors.tertiary : colors.secondary }]}>
-                  {refreshFailed
-                    ? `Could not refresh IMD data — showing data checked ${formatAge(imdStatus.age_minutes)}`
-                    : `IMD data checked ${formatAge(imdStatus.age_minutes)}`}
+                  {fillText(refreshFailed ? t.alerts.imdRefreshFailed : t.alerts.imdChecked, {
+                    age: formatAge(t, imdStatus.age_minutes),
+                  })}
                 </Text>
                 {b ? (
                   <Text style={styles.imdBannerText}>
-                    {`IMD bulletin: ${b.region_label ? b.region_label.split(',')[0] + ' region · ' : ''}issued ${b.issued_at_text}`}
-                    {b.valid_until_text ? ` · valid until ${b.valid_until_text}` : ''}
-                    {expired ? ' · EXPIRED' : b.status === 'unknown' ? ' · date unverified' : ''}
+                    {[
+                      `${t.alerts.imdBulletinLabel}: ${
+                        b.region_label ? fillText(t.alerts.imdRegion, { region: b.region_label.split(',')[0] }) + ' · ' : ''
+                      }${fillText(t.alerts.imdIssuedLabel, { text: b.issued_at_text })}`,
+                      b.valid_until_text ? fillText(t.alerts.imdValidUntil, { text: b.valid_until_text }) : null,
+                      expired ? t.alerts.imdExpired : b.status === 'unknown' ? t.alerts.imdUnverified : null,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
                   </Text>
                 ) : (
-                  <Text style={styles.imdBannerText}>No IMD fisherman bulletin covers this area.</Text>
+                  <Text style={styles.imdBannerText}>{t.alerts.imdNoBulletin}</Text>
                 )}
                 {!!imdStatus.last_error && <Text style={styles.imdBannerText}>{imdStatus.last_error}</Text>}
               </View>
@@ -441,6 +500,7 @@ export function AlertsScreen({ navigation }: any) {
 
                 {/* Body Text */}
                 <Text style={styles.alertBodyText}>{item.body}</Text>
+                {!!item.bodyOriginal && <Text style={styles.alertBodyOriginal}>EN: {item.bodyOriginal}</Text>}
 
                 {/* IMD detail: per-day wind/gust for open-sea areas, per-district swell */}
                 {item.detailRows && item.detailRows.length > 0 && (
@@ -768,6 +828,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.onSurfaceVariant,
     lineHeight: 18,
+    marginBottom: 10,
+  },
+  alertBodyOriginal: {
+    fontSize: 11,
+    color: colors.onSurfaceVariant,
+    opacity: 0.8,
+    lineHeight: 16,
+    marginTop: -4,
     marginBottom: 10,
   },
   posFooter: {

@@ -21,6 +21,11 @@ SARVAM_BASE_URL = "https://api.sarvam.ai"
 SARVAM_LLM_MODEL = "sarvam-105b"
 SARVAM_STT_MODEL = "saaras:v3"
 SARVAM_TTS_MODEL = "bulbul:v3"
+SARVAM_TRANSLATE_MODEL = "sarvam-translate:v1"
+
+# /translate request cap for sarvam-translate:v1 is 2000 chars per call; stay
+# a little under it.
+SARVAM_TRANSLATE_MAX_CHARS = 1800
 
 # App language codes (see mobile/src/constants/portsAndLanguages.ts) -> Sarvam's
 # BCP-47 codes. Sarvam's Indian-language coverage happens to match this app's
@@ -204,6 +209,53 @@ def sarvam_text_to_speech(text: str, language_code: str, speaker: str = "shubh")
             result = response.json()
             audios.extend(result.get("audios", []))
     return audios
+
+
+def sarvam_translate(text: str, target_language: str, source_language: str = "en") -> str:
+    """
+    Translates text via Sarvam's /translate (sarvam-translate:v1) — a dedicated
+    translation model, not the chat LLM, so it renders the source wording
+    rather than paraphrasing it (which matters for safety warnings).
+
+    Args:
+        text: Text to translate. Longer than SARVAM_TRANSLATE_MAX_CHARS is
+            split at sentence boundaries and translated piece by piece.
+        target_language / source_language: this app's language codes ("hi",
+            "ml", ...) — mapped to Sarvam's BCP-47 codes via LANGUAGE_BCP47.
+
+    Raises if the API call fails or the language is unsupported (callers fall
+    back to the original text).
+    """
+    if not SARVAM_API_KEY:
+        raise ValueError("SARVAM_API_KEY is not set in backend/.env")
+    if target_language not in LANGUAGE_BCP47 or source_language not in LANGUAGE_BCP47:
+        raise ValueError(f"Unsupported translation language: {source_language} -> {target_language}")
+    if not text.strip():
+        return text
+
+    headers = {
+        "api-subscription-key": SARVAM_API_KEY,
+        "Content-Type": "application/json",
+    }
+    out: list[str] = []
+    with httpx.Client(timeout=30.0) as client:
+        for chunk in _split_into_chunks(text, SARVAM_TRANSLATE_MAX_CHARS):
+            response = client.post(
+                f"{SARVAM_BASE_URL}/translate",
+                headers=headers,
+                json={
+                    "input": chunk,
+                    "source_language_code": LANGUAGE_BCP47[source_language],
+                    "target_language_code": LANGUAGE_BCP47[target_language],
+                    "model": SARVAM_TRANSLATE_MODEL,
+                },
+            )
+            response.raise_for_status()
+            translated = response.json().get("translated_text")
+            if not translated:
+                raise ValueError(f"Empty translation from Sarvam: {response.text[:200]}")
+            out.append(translated)
+    return " ".join(out)
 
 
 def _split_into_chunks(text: str, max_chars: int) -> list[str]:

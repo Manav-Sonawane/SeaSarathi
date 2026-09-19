@@ -11,7 +11,7 @@ router = APIRouter()
 
 
 @router.get("/alerts", summary="Marine Safety Alerts")
-async def get_alerts(response: Response, latitude: float = 8.5, longitude: float = 76.2):
+async def get_alerts(response: Response, latitude: float = 8.5, longitude: float = 76.2, lang: str = "en"):
     """
     Unified marine safety alerts combining geofence + weather + IMD live-feed
     checks (src/services/imd_alerts.py, cache-backed — never blocks on a
@@ -63,6 +63,20 @@ async def get_alerts(response: Response, latitude: float = 8.5, longitude: float
     all_alerts = base["alerts"] + imd_alerts
     sev_rank = {"HIGH": 0, "MODERATE": 1, "INFO": 2}
     all_alerts.sort(key=lambda a: sev_rank.get(a["severity"], 99))
+
+    # Optional translation of the IMD alerts' free-text message (IMD publishes
+    # English only). The original `message` is always kept — safety text must
+    # stay verifiable against the source — and the translation rides along as
+    # `message_translated`. Weather/geofence alerts aren't translated here: the
+    # app renders those in the user's language itself from their metadata.
+    from src.services.translation_service import is_translatable, translate_many
+    if is_translatable(lang):
+        imd_idx = [i for i, a in enumerate(all_alerts) if str(a.get("type", "")).startswith("IMD_") and a.get("message")]
+        translated = await translate_many([all_alerts[i]["message"] for i in imd_idx], lang)
+        for i, text in zip(imd_idx, translated):
+            if text:
+                # New dict: the alert objects may be shared with the IMD cache.
+                all_alerts[i] = {**all_alerts[i], "message_translated": text, "message_lang": lang}
 
     from datetime import datetime, timezone
     from src.services.imd_cache import cache_status

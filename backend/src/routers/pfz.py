@@ -74,7 +74,13 @@ def _compute_nearest_pfz(latitude: float, longitude: float, limit: int) -> dict:
             zone["sst"] = sst_val
             zone["chlorophyll"] = chl_val
             date_str = str(sst_chl.get("sst_time") or sst_chl.get("chl_time") or "")[:10] or "current"
-            zone["data_note"] = f"SST/Chlorophyll from Copernicus grid ({date_str}), ~{round(sst_chl['distance_km'], 1)} km from zone centroid"
+            grid_km = round(sst_chl['distance_km'], 1)
+            zone["data_note"] = f"SST/Chlorophyll from Copernicus grid ({date_str}), ~{grid_km} km from zone centroid"
+            # Structured form of data_note so the app can render it in the
+            # user's language instead of showing this English sentence.
+            zone["data_source"] = "copernicus"
+            zone["data_date"] = date_str
+            zone["data_km"] = grid_km
             if sst_chl["distance_km"] > 60:
                 confidence = max(20, confidence - 10)
         else:
@@ -83,6 +89,7 @@ def _compute_nearest_pfz(latitude: float, longitude: float, limit: int) -> dict:
             zone["sst"] = fallback_sst
             zone["chlorophyll"] = 0.35
             zone["data_note"] = "SST/Chlorophyll estimated from Indian EEZ regional ocean baseline"
+            zone["data_source"] = "baseline"
 
         zone["confidence"] = confidence
 

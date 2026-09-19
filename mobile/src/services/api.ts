@@ -166,6 +166,11 @@ export interface PFZZone {
   confidence: number;
   bearing?: string;
   dataNote?: string;
+  // Structured form of dataNote (backend /pfz/nearest) — lets the UI render
+  // the note in the user's language; dataNote stays as the English fallback.
+  dataSource?: 'copernicus' | 'baseline';
+  dataDate?: string;
+  dataKm?: number;
 }
 
 export const pfzAPI = {
@@ -188,6 +193,9 @@ export const pfzAPI = {
           confidence: z.confidence,
           bearing: z.direction ?? z.bearing,
           dataNote: z.data_note,
+          dataSource: z.data_source,
+          dataDate: z.data_date,
+          dataKm: z.data_km,
         })) as PFZZone[];
       }),
 };
@@ -196,6 +204,10 @@ export interface Alert {
   type: string; // e.g. HIGH_WIND, DANGEROUS_WAVES, GEOFENCE_DANGER, THUNDERSTORM, ...
   severity: 'HIGH' | 'MODERATE' | 'INFO';
   message: string;
+  // Machine translation of `message` (IMD alerts only) into the requested
+  // `lang`; absent when unavailable. `message` is always the original.
+  message_translated?: string;
+  message_lang?: string;
   source?: string;
   metadata?: Record<string, unknown>;
   [key: string]: unknown;
@@ -227,9 +239,9 @@ export const alertsAPI = {
       .get<{ alerts: Alert[] }>('/alerts', { params: { latitude, longitude } })
       .then((res) => res.data.alerts || []),
 
-  getAlertsWithStatus: (latitude: number, longitude: number) =>
+  getAlertsWithStatus: (latitude: number, longitude: number, lang?: string) =>
     api
-      .get<{ alerts: Alert[]; imd_status?: ImdStatus }>('/alerts', { params: { latitude, longitude } })
+      .get<{ alerts: Alert[]; imd_status?: ImdStatus }>('/alerts', { params: { latitude, longitude, lang } })
       .then((res) => ({ alerts: res.data.alerts || [], imdStatus: res.data.imd_status ?? null })),
 };
 
@@ -245,10 +257,16 @@ export interface ZoneBulletin {
   alert_count: number;
   generated_at: string;
   imd_checked_at?: string | null; // when the IMD data this bulletin was built from was last fetched
+  // Machine translation of headline/body into the requested `lang` (backend
+  // /news/feed?lang=); absent when unavailable. headline/body stay English.
+  translated?: { headline: string; body: string; lang: string };
 }
 
 export const newsAPI = {
-  getFeed: () => api.get<{ zones: ZoneBulletin[]; generated_at: string }>('/news/feed').then((res) => res.data),
+  getFeed: (lang?: string) =>
+    api
+      .get<{ zones: ZoneBulletin[]; generated_at: string }>('/news/feed', { params: { lang } })
+      .then((res) => res.data),
 };
 
 export interface RiskHeatmapFeature {

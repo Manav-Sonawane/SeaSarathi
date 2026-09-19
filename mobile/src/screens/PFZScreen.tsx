@@ -18,15 +18,29 @@ import { useShallow } from 'zustand/react/shallow';
 import { getCachedBundleForOffline, findNearestZonesOffline, formatRelativeTime } from '../services/offlineService';
 import { useNetworkStore } from '../store/networkStore';
 import { getScreenText } from '../constants/screenTranslations';
+import { fillText } from '../utils/formatText';
 
-function formatEstArrival(distanceNm: number, speedKts = 11): string {
+type ScreenT = ReturnType<typeof getScreenText>;
+
+function formatEstArrival(t: ScreenT, distanceNm: number, speedKts = 11): string {
   const totalMinutes = Math.round((distanceNm / speedKts) * 60);
   const hours = Math.floor(totalMinutes / 60);
   const mins = totalMinutes % 60;
   if (hours > 0) {
-    return `${hours}h ${mins}m @ ${speedKts} kts`;
+    return fillText(t.pfz.etaHoursMins, { h: hours, m: mins, kts: speedKts });
   }
-  return `${mins}m @ ${speedKts} kts`;
+  return fillText(t.pfz.etaMins, { m: mins, kts: speedKts });
+}
+
+// The backend sends its SST/chlorophyll source note as English text; render
+// it from the structured fields in the user's language when they're present
+// (older servers only send dataNote, which is shown as-is).
+function formatDataNote(t: ScreenT, zone: any): string | null {
+  if (zone.dataSource === 'copernicus') {
+    return fillText(t.pfz.noteCopernicus, { date: zone.dataDate ?? '', km: zone.dataKm ?? '' });
+  }
+  if (zone.dataSource === 'baseline') return t.pfz.noteBaseline;
+  return zone.dataNote || null;
 }
 
 export function PFZScreen({ navigation }: any) {
@@ -42,6 +56,15 @@ export function PFZScreen({ navigation }: any) {
   const langInfo = getLanguageInfo();
   const t = getScreenText(langInfo.code);
   const maxRangeKm = getVesselRangeKm();
+  // Profile's long vessel names carry a "(Mechanised)" style qualifier — keep
+  // just the localized boat type for this compact header.
+  const vesselNames: Record<string, string> = {
+    small: t.profile.vesselSmallName,
+    medium: t.profile.vesselMediumName,
+    large: t.profile.vesselLargeName,
+    union: t.profile.vesselUnionName,
+  };
+  const vesselName = (vesselNames[vesselType] || vesselType).split('(')[0].trim();
 
   const isOnline = useNetworkStore((s) => s.isOnline);
   const [loading, setLoading] = useState(false);
@@ -81,11 +104,16 @@ export function PFZScreen({ navigation }: any) {
           subtitle: `${portInfo.name} ${t.pfz.sectorWord} #${idx + 1}`,
           distance: z.distance != null ? Number(Number(z.distance).toFixed(1)) : null,
           bearing: z.bearing,
-          estArrival: z.distance != null ? formatEstArrival(z.distance) : '—',
+          estArrival: z.distance != null ? formatEstArrival(t, z.distance) : '—',
           sst: z.sst != null ? Number(Number(z.sst).toFixed(1)) : null,
           chl: z.chl != null ? Number(Number(z.chl).toFixed(2)) : null,
           confidence: z.confidence,
+          // Raw fields kept (not the rendered text) so the note re-renders
+          // in the right language if the user switches language.
           dataNote: z.dataNote,
+          dataSource: z.dataSource,
+          dataDate: z.dataDate,
+          dataKm: z.dataKm,
         }));
         setZones(formatted);
         setIsOfflineData(false);
@@ -111,7 +139,7 @@ export function PFZScreen({ navigation }: any) {
               subtitle: `${portInfo.name} ${t.pfz.sectorWord} #${idx + 1} (${t.profile.cachedSuffix})`,
               distance: z.distance_km != null ? Number(Number(z.distance_km).toFixed(1)) : null,
               bearing: '—',
-              estArrival: z.distance_km != null ? formatEstArrival(z.distance_km / 1.852) : '—',
+              estArrival: z.distance_km != null ? formatEstArrival(t, z.distance_km / 1.852) : '—',
               sst: null,
               chl: null,
               confidence: null,
@@ -149,9 +177,9 @@ export function PFZScreen({ navigation }: any) {
             <MaterialCommunityIcons name="sail-boat" size={20} color={colors.white} />
             <View>
               <Text style={styles.vesselBarTitle}>
-                {vesselType.toUpperCase()} {t.pfz.boatWord} • {operatingPort.toUpperCase()} {t.pfz.portWord} ({portInfo.state.toUpperCase()})
+                {vesselName.toUpperCase()} • {operatingPort.toUpperCase()} {t.pfz.portWord} ({portInfo.state.toUpperCase()})
               </Text>
-              <Text style={styles.vesselBarSub}>{t.pfz.operatingRange}: Max {maxRangeKm} km offshore</Text>
+              <Text style={styles.vesselBarSub}>{t.pfz.operatingRange}: {fillText(t.pfz.maxOffshore, { km: maxRangeKm })}</Text>
             </View>
           </View>
           <TouchableOpacity onPress={() => navigation.navigate('Profile')}>
@@ -265,8 +293,8 @@ export function PFZScreen({ navigation }: any) {
                   ]}
                 >
                   {isFeasible
-                    ? `${t.pfz.feasible} (${maxRangeKm}km ${vesselType})`
-                    : `${t.pfz.beyondRange} (> ${maxRangeKm}km)`}
+                    ? `${t.pfz.feasible} (${maxRangeKm} km)`
+                    : `${t.pfz.beyondRange} (> ${maxRangeKm} km)`}
                 </Text>
               </View>
 
@@ -310,7 +338,7 @@ export function PFZScreen({ navigation }: any) {
               {/* Data Source Note — the backend's own honest note on where the
                   SST/chlorophyll reading came from (or that it's unavailable),
                   replacing the previous fabricated "evidence" bullets. */}
-              {zone.dataNote && (
+              {formatDataNote(t, zone) && (
                 <View style={styles.evidenceBox}>
                   <View style={styles.evidenceHeader}>
                     <MaterialIcons name="insights" size={16} color={colors.primary} />
@@ -318,7 +346,7 @@ export function PFZScreen({ navigation }: any) {
                   </View>
                   <View style={styles.bulletRow}>
                     <View style={styles.bulletDot} />
-                    <Text style={styles.bulletText}>{zone.dataNote}</Text>
+                    <Text style={styles.bulletText}>{formatDataNote(t, zone)}</Text>
                   </View>
                 </View>
               )}
@@ -369,7 +397,7 @@ export function PFZScreen({ navigation }: any) {
                     <Text style={styles.modalCatchText}>
                       {t.pfz.catchPotential}:{' '}
                       <Text style={{ color: colors.secondary, fontWeight: '800' }}>
-                        {selectedInspectZone.confidence}% CONF
+                        {fillText(t.pfz.confidenceShort, { n: selectedInspectZone.confidence })}
                       </Text>
                     </Text>
                   )}
@@ -390,10 +418,10 @@ export function PFZScreen({ navigation }: any) {
                   </View>
                 </View>
 
-                {selectedInspectZone.dataNote && (
+                {formatDataNote(t, selectedInspectZone) && (
                   <View style={styles.modalAdvisory}>
                     <Ionicons name="checkmark-done-circle" size={20} color={colors.secondary} />
-                    <Text style={styles.modalAdvisoryText}>{selectedInspectZone.dataNote}</Text>
+                    <Text style={styles.modalAdvisoryText}>{formatDataNote(t, selectedInspectZone)}</Text>
                   </View>
                 )}
               </ScrollView>

@@ -37,6 +37,14 @@ export interface PfzText {
   // Shown when the backend was reached fine but genuinely returned zero
   // zones — distinct from loadFailed, which means we couldn't reach data.
   noZonesFound: string;
+  // ETA / range / confidence strings and the two backend data-source notes
+  // ({placeholders} filled in by PFZScreen).
+  etaHoursMins: string;
+  etaMins: string;
+  maxOffshore: string;
+  confidenceShort: string;
+  noteCopernicus: string;
+  noteBaseline: string;
 }
 
 export const PFZ_TEXT: Record<string, PfzText> = {
@@ -68,6 +76,12 @@ export const PFZ_TEXT: Record<string, PfzText> = {
     loadFailedBody: 'Could not reach the server and no cached data was found. Showing nothing until reconnected.',
     retry: 'Retry',
     noZonesFound: 'No potential fishing zones found for this location.',
+    etaHoursMins: '{h}h {m}m @ {kts} kts',
+    etaMins: '{m}m @ {kts} kts',
+    maxOffshore: 'Max {km} km offshore',
+    confidenceShort: '{n}% confidence',
+    noteCopernicus: 'SST/Chlorophyll from Copernicus grid ({date}), ~{km} km from zone centroid',
+    noteBaseline: 'SST/Chlorophyll estimated from Indian EEZ regional ocean baseline',
   },
   ml: {
       fetching: 'മത്സ്യബന്ധന മേഖലകൾ ലഭ്യമാക്കുന്നു…',
@@ -97,6 +111,12 @@ export const PFZ_TEXT: Record<string, PfzText> = {
     loadFailedBody: 'സെർവറുമായി ബന്ധിപ്പിക്കാനായില്ല, കാഷെ ചെയ്ത ഡാറ്റയും കണ്ടെത്തിയില്ല. വീണ്ടും ബന്ധിപ്പിക്കുന്നത് വരെ ഒന്നും കാണിക്കുന്നില്ല.',
     retry: 'വീണ്ടും ശ്രമിക്കുക',
     noZonesFound: 'ഈ സ്ഥലത്തിന് സമീപം മത്സ്യബന്ധന മേഖലകളൊന്നും കണ്ടെത്തിയില്ല.',
+    etaHoursMins: '{h} മണിക്കൂർ {m} മിനിറ്റ് @ {kts} kts',
+    etaMins: '{m} മിനിറ്റ് @ {kts} kts',
+    maxOffshore: 'പരമാവധി {km} km കടലിലേക്ക്',
+    confidenceShort: '{n}% വിശ്വാസ്യത',
+    noteCopernicus: 'SST/ക്ലോറോഫിൽ Copernicus ഗ്രിഡിൽ നിന്ന് ({date}), മേഖലാ കേന്ദ്രത്തിൽ നിന്ന് ~{km} km അകലെ',
+    noteBaseline: 'SST/ക്ലോറോഫിൽ ഇന്ത്യൻ EEZ പ്രാദേശിക സമുദ്ര അടിസ്ഥാന മൂല്യത്തിൽ നിന്ന് കണക്കാക്കിയത്',
   },
   ta: {
       fetching: 'மீன்பிடி மண்டலங்களை பெறுகிறது…',
@@ -126,6 +146,12 @@ export const PFZ_TEXT: Record<string, PfzText> = {
     loadFailedBody: 'சேவையகத்தை அடைய முடியவில்லை, சேமிக்கப்பட்ட தரவும் இல்லை. மீண்டும் இணைக்கும் வரை எதுவும் காட்டப்படாது.',
     retry: 'மீண்டும் முயற்சிக்கவும்',
     noZonesFound: 'இந்த இடத்திற்கு அருகில் மீன்பிடி மண்டலங்கள் எதுவும் இல்லை.',
+    etaHoursMins: '{h} மணி {m} நிமி @ {kts} kts',
+    etaMins: '{m} நிமி @ {kts} kts',
+    maxOffshore: 'அதிகபட்சம் {km} km கடலுக்குள்',
+    confidenceShort: '{n}% நம்பகத்தன்மை',
+    noteCopernicus: 'SST/பசுமைச் செறிவு Copernicus கட்டத்திலிருந்து ({date}), மண்டல மையத்திலிருந்து ~{km} km தொலைவு',
+    noteBaseline: 'SST/பசுமைச் செறிவு இந்திய EEZ பிராந்திய கடல் அடிப்படை மதிப்பிலிருந்து மதிப்பிடப்பட்டது',
   },
   te: {
       fetching: 'చేపల వేట మండలాలను పొందుతోంది…',
@@ -155,6 +181,12 @@ export const PFZ_TEXT: Record<string, PfzText> = {
     loadFailedBody: 'సర్వర్‌ను చేరుకోలేకపోయాము మరియు కాష్ చేసిన డేటా కూడా కనుగొనబడలేదు. మళ్లీ కనెక్ట్ అయ్యే వరకు ఏమీ చూపబడదు.',
     retry: 'మళ్లీ ప్రయత్నించండి',
     noZonesFound: 'ఈ ప్రదేశానికి సమీపంలో మత్స్య మండలాలు ఏవీ కనుగొనబడలేదు.',
+    etaHoursMins: '{h} గం {m} నిమి @ {kts} kts',
+    etaMins: '{m} నిమి @ {kts} kts',
+    maxOffshore: 'గరిష్టంగా {km} km సముద్రంలోకి',
+    confidenceShort: '{n}% విశ్వసనీయత',
+    noteCopernicus: 'SST/క్లోరోఫిల్ Copernicus గ్రిడ్ నుండి ({date}), జోన్ కేంద్రం నుండి ~{km} km దూరం',
+    noteBaseline: 'SST/క్లోరోఫిల్ భారత EEZ ప్రాంతీయ సముద్ర ప్రామాణిక విలువ నుండి అంచనా వేయబడింది',
   },
   bn: {
       fetching: 'মৎস্য শিকার অঞ্চল আনা হচ্ছে…',
@@ -184,6 +216,12 @@ export const PFZ_TEXT: Record<string, PfzText> = {
     loadFailedBody: 'সার্ভারে পৌঁছানো যায়নি এবং কোনো ক্যাশে করা ডেটাও পাওয়া যায়নি। পুনরায় সংযুক্ত না হওয়া পর্যন্ত কিছু দেখানো হচ্ছে না।',
     retry: 'আবার চেষ্টা করুন',
     noZonesFound: 'এই স্থানের কাছে কোনো সম্ভাব্য মৎস্য অঞ্চল পাওয়া যায়নি।',
+    etaHoursMins: '{h} ঘণ্টা {m} মিনিট @ {kts} kts',
+    etaMins: '{m} মিনিট @ {kts} kts',
+    maxOffshore: 'সর্বোচ্চ {km} km সমুদ্রে',
+    confidenceShort: '{n}% নির্ভরযোগ্যতা',
+    noteCopernicus: 'SST/ক্লোরোফিল Copernicus গ্রিড থেকে ({date}), অঞ্চলের কেন্দ্র থেকে ~{km} km দূরে',
+    noteBaseline: 'SST/ক্লোরোফিল ভারতীয় EEZ আঞ্চলিক সমুদ্র বেসলাইন থেকে অনুমান করা',
   },
   gu: {
       fetching: 'માછીમારી ઝોન મેળવી રહ્યા છીએ…',
@@ -213,6 +251,12 @@ export const PFZ_TEXT: Record<string, PfzText> = {
     loadFailedBody: 'સર્વર સુધી પહોંચી શકાયું નથી અને કોઈ કેશ કરેલો ડેટા મળ્યો નથી. ફરીથી કનેક્ટ ન થાય ત્યાં સુધી કંઈ બતાવવામાં આવતું નથી.',
     retry: 'ફરી પ્રયાસ કરો',
     noZonesFound: 'આ સ્થાન નજીક કોઈ સંભવિત મત્સ્ય ઝોન મળ્યા નથી.',
+    etaHoursMins: '{h} કલાક {m} મિનિટ @ {kts} kts',
+    etaMins: '{m} મિનિટ @ {kts} kts',
+    maxOffshore: 'મહત્તમ {km} km દરિયામાં',
+    confidenceShort: '{n}% વિશ્વસનીયતા',
+    noteCopernicus: 'SST/ક્લોરોફિલ Copernicus ગ્રિડમાંથી ({date}), ઝોનના કેન્દ્રથી ~{km} km દૂર',
+    noteBaseline: 'SST/ક્લોરોફિલ ભારતીય EEZ પ્રાદેશિક દરિયાઈ બેઝલાઇનમાંથી અંદાજિત',
   },
   mr: {
       fetching: 'मासेमारी क्षेत्रे मिळवत आहे…',
@@ -242,6 +286,12 @@ export const PFZ_TEXT: Record<string, PfzText> = {
     loadFailedBody: 'सर्व्हरशी संपर्क होऊ शकला नाही आणि कॅश केलेला डेटाही सापडला नाही. पुन्हा कनेक्ट होईपर्यंत काहीही दाखवले जात नाही.',
     retry: 'पुन्हा प्रयत्न करा',
     noZonesFound: 'या ठिकाणाजवळ कोणतेही संभाव्य मासेमारी क्षेत्र आढळले नाही.',
+    etaHoursMins: '{h} तास {m} मिनिटे @ {kts} kts',
+    etaMins: '{m} मिनिटे @ {kts} kts',
+    maxOffshore: 'कमाल {km} km समुद्रात',
+    confidenceShort: '{n}% विश्वासार्हता',
+    noteCopernicus: 'SST/क्लोरोफिल Copernicus ग्रिडवरून ({date}), क्षेत्राच्या केंद्रापासून ~{km} km दूर',
+    noteBaseline: 'SST/क्लोरोफिल भारतीय EEZ प्रादेशिक सागरी बेसलाइनवरून अंदाजित',
   },
   or: {
       fetching: 'ମାଛ ଧରା ଅଞ୍ଚଳ ଆଣୁଛି…',
@@ -271,6 +321,12 @@ export const PFZ_TEXT: Record<string, PfzText> = {
     loadFailedBody: 'ସର୍ଭରକୁ ପହଞ୍ଚିହେଲା ନାହିଁ ଏବଂ କୌଣସି କ୍ୟାଶ୍ ହୋଇଥିବା ଡାଟା ମିଳିଲା ନାହିଁ। ପୁନଃ ସଂଯୋଗ ନହେବା ପର୍ଯ୍ୟନ୍ତ କିଛି ଦେଖାଯାଉ ନାହିଁ।',
     retry: 'ପୁନः ଚେଷ୍ଟା କରନ୍ତୁ',
     noZonesFound: 'ଏହି ସ୍ଥାନ ନିକଟରେ କୌଣସି ସମ୍ଭାବ୍ୟ ମତ୍ସ୍ୟ ମଣ୍ଡଳ ମିଳିଲା ନାହିଁ।',
+    etaHoursMins: '{h} ଘଣ୍ଟା {m} ମିନିଟ୍ @ {kts} kts',
+    etaMins: '{m} ମିନିଟ୍ @ {kts} kts',
+    maxOffshore: 'ସର୍ବାଧିକ {km} km ସମୁଦ୍ରକୁ',
+    confidenceShort: '{n}% ବିଶ୍ୱସନୀୟତା',
+    noteCopernicus: 'SST/କ୍ଲୋରୋଫିଲ୍ Copernicus ଗ୍ରିଡ୍ ରୁ ({date}), ମଣ୍ଡଳ କେନ୍ଦ୍ରରୁ ~{km} km ଦୂରରେ',
+    noteBaseline: 'SST/କ୍ଲୋରୋଫିଲ୍ ଭାରତୀୟ EEZ ଆଞ୍ଚଳିକ ସମୁଦ୍ର ବେସଲାଇନ୍ ରୁ ଅନୁମାନିତ',
   },
   kn: {
       fetching: 'ಮೀನುಗಾರಿಕೆ ವಲಯಗಳನ್ನು ಪಡೆಯುತ್ತಿದೆ…',
@@ -300,6 +356,12 @@ export const PFZ_TEXT: Record<string, PfzText> = {
     loadFailedBody: 'ಸರ್ವರ್ ಅನ್ನು ತಲುಪಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ ಮತ್ತು ಯಾವುದೇ ಕ್ಯಾಶ್ ಮಾಡಿದ ಡೇಟಾ ಕಂಡುಬಂದಿಲ್ಲ. ಮತ್ತೆ ಸಂಪರ್ಕಗೊಳ್ಳುವವರೆಗೆ ಏನನ್ನೂ ತೋರಿಸಲಾಗುವುದಿಲ್ಲ.',
     retry: 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ',
     noZonesFound: 'ಈ ಸ್ಥಳದ ಬಳಿ ಯಾವುದೇ ಸಂಭಾವ್ಯ ಮೀನುಗಾರಿಕೆ ವಲಯಗಳು ಕಂಡುಬಂದಿಲ್ಲ.',
+    etaHoursMins: '{h} ಗಂಟೆ {m} ನಿಮಿಷ @ {kts} kts',
+    etaMins: '{m} ನಿಮಿಷ @ {kts} kts',
+    maxOffshore: 'ಗರಿಷ್ಠ {km} km ಸಮುದ್ರಕ್ಕೆ',
+    confidenceShort: '{n}% ವಿಶ್ವಾಸಾರ್ಹತೆ',
+    noteCopernicus: 'SST/ಕ್ಲೋರೊಫಿಲ್ Copernicus ಗ್ರಿಡ್‌ನಿಂದ ({date}), ವಲಯ ಕೇಂದ್ರದಿಂದ ~{km} km ದೂರ',
+    noteBaseline: 'SST/ಕ್ಲೋರೊಫಿಲ್ ಭಾರತೀಯ EEZ ಪ್ರಾದೇಶಿಕ ಸಮುದ್ರ ಮೂಲಮಟ್ಟದಿಂದ ಅಂದಾಜಿಸಲಾಗಿದೆ',
   },
   hi: {
       fetching: 'मछली पकड़ने के क्षेत्र प्राप्त हो रहे हैं…',
@@ -329,5 +391,11 @@ export const PFZ_TEXT: Record<string, PfzText> = {
     loadFailedBody: 'सर्वर तक नहीं पहुंच सके और कोई कैश्ड डेटा भी नहीं मिला। दोबारा कनेक्ट होने तक कुछ भी नहीं दिखाया जा रहा है।',
     retry: 'पुनः प्रयास करें',
     noZonesFound: 'इस स्थान के पास कोई संभावित मत्स्य क्षेत्र नहीं मिला।',
+    etaHoursMins: '{h} घंटे {m} मिनट @ {kts} kts',
+    etaMins: '{m} मिनट @ {kts} kts',
+    maxOffshore: 'अधिकतम {km} km समुद्र में',
+    confidenceShort: '{n}% विश्वसनीयता',
+    noteCopernicus: 'SST/क्लोरोफिल Copernicus ग्रिड से ({date}), क्षेत्र के केंद्र से ~{km} km दूर',
+    noteBaseline: 'SST/क्लोरोफिल भारतीय EEZ क्षेत्रीय समुद्री आधार-मान से अनुमानित',
   },
 };

@@ -6,6 +6,7 @@ import { newsAPI, ZoneBulletin } from '../services/api';
 import { useUserStore } from '../store/userStore';
 import { useShallow } from 'zustand/react/shallow';
 import { getScreenText } from '../constants/screenTranslations';
+import { fillText } from '../utils/formatText';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -39,8 +40,13 @@ function severityColor(sev: string): string {
 function formatRelative(iso: string, t: ReturnType<typeof getScreenText>): string {
   const diffMs = Date.now() - new Date(iso).getTime();
   const mins = Math.max(0, Math.round(diffMs / 60000));
-  const time = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
-  return t.alerts.zonalNewsUpdated.replace('{time}', time);
+  const time =
+    mins < 1
+      ? t.alerts.ageJustNow
+      : mins < 60
+      ? fillText(t.alerts.ageMinutes, { n: mins })
+      : fillText(t.alerts.ageHours, { n: Math.round(mins / 60) });
+  return fillText(t.alerts.zonalNewsUpdated, { time });
 }
 
 /**
@@ -69,7 +75,7 @@ export function ZonalNewsFeed({ refreshKey = 0 }: { refreshKey?: number }) {
     setLoading(true);
     setError(false);
     try {
-      const data = await newsAPI.getFeed();
+      const data = await newsAPI.getFeed(langInfo.code);
       setZones(data.zones);
       setActiveZoneId((prev) => {
         if (prev && data.zones.some((z) => z.zone_id === prev)) return prev;
@@ -92,7 +98,7 @@ export function ZonalNewsFeed({ refreshKey = 0 }: { refreshKey?: number }) {
     const id = setInterval(load, 10 * 60 * 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
+  }, [refreshKey, langInfo.code]);
 
   const toggleExpanded = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -154,12 +160,16 @@ export function ZonalNewsFeed({ refreshKey = 0 }: { refreshKey?: number }) {
           {!loading && !error && activeZone && (
             <View style={[styles.bulletin, { borderLeftColor: severityColor(activeZone.severity) }]}>
               <View style={styles.bulletinHeaderRow}>
-                <Text style={styles.bulletinHeadline}>{activeZone.headline}</Text>
+                <Text style={styles.bulletinHeadline}>{activeZone.translated?.headline ?? activeZone.headline}</Text>
                 <View style={[styles.countBadge, { backgroundColor: severityColor(activeZone.severity) }]}>
                   <Text style={styles.countBadgeText}>{activeZone.alert_count}</Text>
                 </View>
               </View>
-              <Text style={styles.bulletinBody}>{activeZone.body}</Text>
+              <Text style={styles.bulletinBody}>{activeZone.translated?.body ?? activeZone.body}</Text>
+              {/* Machine translation — keep the original IMD-derived English visible. */}
+              {!!activeZone.translated && (
+                <Text style={styles.bulletinOriginal}>EN: {activeZone.headline}. {activeZone.body}</Text>
+              )}
               <Text style={styles.bulletinMeta}>
                 {activeZone.alert_count === 0
                   ? t.alerts.zonalNewsNoWarnings
@@ -315,6 +325,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     color: colors.onSurfaceVariant,
+    marginBottom: 8,
+  },
+  bulletinOriginal: {
+    fontSize: 11,
+    lineHeight: 16,
+    color: colors.onSurfaceVariant,
+    opacity: 0.8,
     marginBottom: 8,
   },
   bulletinMeta: {
