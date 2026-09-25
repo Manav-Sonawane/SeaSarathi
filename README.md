@@ -22,7 +22,7 @@ cannot invent advice (see [Alerts pipeline](#the-alerts-pipeline)).
 | Backend API + background data refresh | Built, **deployed 24x7 on AWS** (see [deploy/AWS.md](deploy/AWS.md)) |
 | 10 languages (UI + chat + voice) | Built |
 | Safety assessment, PFZ, alerts, geofencing, offline fallback | Built |
-| Tide info, marine protected areas, route optimization, productivity-trend analysis | **Not built yet** — see [Roadmap](#roadmap-not-built-yet) |
+| Marine protected areas, route optimization, productivity-trend analysis | **Not built yet** — see [Roadmap](#roadmap-not-built-yet) |
 
 ---
 
@@ -37,6 +37,10 @@ cannot invent advice (see [Alerts pipeline](#the-alerts-pipeline)).
   hours" (English plus the main time words of the other 9 languages, in IST) are answered from the
   forecast for that period; a question that names no time uses the next 12 hours. If the 3-day
   forecast doesn't reach the period, the answer says so.
+- **Tide.** Ask "when is the next low tide?" (or in any of the 10 languages) for the current level,
+  whether the water is rising or falling, and the next highs and lows. It comes from the hourly
+  sea-level forecast in the same Open-Meteo marine call used for waves — a model estimate at about
+  8 km and 1-hour resolution, so the answer says it is not an official tide table.
 - **Safety assessment.** Deterministic rules over wind, waves, rain, thunderstorm and cyclone data
   produce a risk score: `>= 70` SAFE, `40-69` CAUTION, `< 40` DO NOT VENTURE (for example wind above
   46 km/h or waves above 3.5 m are high risk).
@@ -125,7 +129,7 @@ Open-Meteo forecasts are deliberately **not** treated as facts in step 3: a mode
 | IMD | Fisherman warnings, sea-area bulletins, cyclone warnings (wind, gusts, thunderstorm, storm) |
 | INCOIS | Potential Fishing Zones; swell-surge / high-wave alerts (published inside IMD bulletins) |
 | Copernicus Marine Service | Sea-surface temperature and chlorophyll grid (~30,400 points). If Copernicus is unavailable, the grid falls back to Open-Meteo SST and a chlorophyll baseline calibrated to INCOIS PFZ zones, and the app says the values are estimates. |
-| Open-Meteo | Weather and marine forecasts (wind, waves, rain, visibility) |
+| Open-Meteo | Weather and marine forecasts (wind, waves, rain, visibility, sea level / tide) |
 | Static GIS (`data/static/`) | India EEZ (2), international boundaries (17), landing centres (1,223), PFZ polygons (52) |
 | Google Maps | Map display |
 
@@ -269,7 +273,6 @@ when nobody uses the app. Full step-by-step guide (AWS Lightsail + Docker Compos
 
 These are **planned, not implemented**:
 
-- Tide information.
 - Marine protected areas and other sensitive-zone geofencing (today: EEZ and international
   boundaries only).
 - Safest-route / fuel-efficient route optimization.

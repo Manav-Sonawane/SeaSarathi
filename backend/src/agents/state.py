@@ -13,6 +13,8 @@ class AgentState(TypedDict):
     # The period the user asked about ("tomorrow morning"), or None for the default
     # next-12-hours forecast: {"label", "start_utc", "end_utc", "covered"} (time_window.py).
     forecast_window: dict | None
+    # Tide summary from the hourly sea-level forecast (tide.py), or None if unavailable.
+    tide: dict | None
 
     # Conditions
     risk_level: str

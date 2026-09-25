@@ -1,5 +1,6 @@
 from src.agents.state import AgentState
 from src.agents.conversation import format_history
+from src.agents.tide import mentions_tide, tide_fallback, tide_prompt_text
 from src.services.sarvam_client import sarvam_generate
 
 # Matches mobile/src/constants/portsAndLanguages.ts's language codes exactly.
@@ -413,6 +414,11 @@ def response_node(state: AgentState) -> AgentState:
     else:
         window_note = ""
 
+    # Tide data only goes into the prompt when the fisherman asked about it, so it
+    # doesn't crowd answers to other questions.
+    asks_tide = mentions_tide(query)
+    tide_line = tide_prompt_text(state.get("tide")) + "\n" if asks_tide else ""
+
     prompt = f"""You are a marine assistant for Indian fishermen.
 
 {window_note}Data:
@@ -420,7 +426,7 @@ Profile: Vessel: {profile.get('vessel_type', 'Unknown')} | Role: {profile.get('r
 Risk Level: {risk_label}
 {conditions_text}
 {fresh_txt}
-{pfz_info}
+{tide_line}{pfz_info}
 {landing_info}
 {geo_info}
 Alerts: {active_alerts_text}
@@ -449,6 +455,9 @@ Ensure recommendations respect the user's {profile.get('risk_tolerance', 'Unknow
         # instead (a border warning still takes priority — it isn't about the time).
         if fw and not geofence.get("alerts"):
             recommendation = forecast_window_fallback(fw, risk, wind, wave, rain)
+        # The localized templates know nothing about tides; add a plain sentence.
+        if asks_tide and not geofence.get("alerts"):
+            recommendation = f"{recommendation} {tide_fallback(state.get('tide'))}"
 
     return {
         **state,

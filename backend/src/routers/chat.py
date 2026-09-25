@@ -58,6 +58,8 @@ class ChatResponse(BaseModel):
     # Set when the question named a time ("tomorrow morning"): which period the
     # conditions above are for, and whether the forecast actually reaches it.
     forecast_window: dict | None = None
+    # Current tide level/trend and the next highs and lows (model estimate) — see agents/tide.py.
+    tide: dict | None = None
 
 
 @router.post("/chat", response_model=ChatResponse, summary="Marine Intelligence Chat")
@@ -75,6 +77,7 @@ async def chat(request: ChatRequest):
             initial_state: AgentState = {
                 "history": clean_history(request.history),
                 "forecast_window": None,
+                "tide": None,
                 "query": request.query,
                 "latitude": request.latitude,
                 "longitude": request.longitude,

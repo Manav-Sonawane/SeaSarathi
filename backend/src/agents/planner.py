@@ -4,6 +4,7 @@ import re
 
 from src.agents.state import AgentState
 from src.agents.conversation import format_history, last_user_query, looks_like_followup
+from src.agents.tide import mentions_tide
 from src.services.sarvam_client import sarvam_generate
 
 
@@ -37,6 +38,10 @@ def _keyword_intent(query: str) -> str | None:
         "ಚಂಡಮಾರುತ", "ಬಿರುಗಾಳಿ", "ಎಚ್ಚರಿಕೆ",
     ]):
         return "ALERT"
+
+    # 3. Tide is a sea-condition question (the answer prompt adds the tide data)
+    if mentions_tide(q):
+        return "WEATHER"
 
     # 3. Wind & Wave / Weather / Sea Conditions
     if any(k in q for k in [

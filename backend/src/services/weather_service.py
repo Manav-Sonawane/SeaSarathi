@@ -55,7 +55,10 @@ MARINE_VARIABLES = [
     "swell_wave_height",
     "swell_wave_direction",
     "swell_wave_period",
-    "sea_surface_temperature"
+    "sea_surface_temperature",
+    # Hourly sea level incl. tide (m vs mean sea level) — read by agents/tide.py. Keep last:
+    # columns are assigned by position.
+    "sea_level_height_msl",
 ]
 
 # Cache responses for 1 hour to avoid redundant API calls

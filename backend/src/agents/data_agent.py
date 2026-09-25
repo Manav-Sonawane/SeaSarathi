@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from src.agents.state import AgentState
 from src.agents.time_window import parse_time_window, select_window
+from src.agents.tide import summarize_tide
 from src.services.weather_service import fetch_combined_forecasts_for_grid_cached as fetch_combined_forecasts_for_grid, generate_grid_point_id
 from src.services.copernicus_service import lookup_nearest as lookup_sst_chl
 from src.services.fishing_zone_estimator import estimate_local_fishing_zones
@@ -159,6 +160,7 @@ async def data_agent(state: AgentState) -> AgentState:
     # query names none, which keeps the usual next-12-hours forecast.
     window = parse_time_window(state.get("query", ""))
     window_covered = True
+    tide = None
 
     try:
         # Build multi-point array: [User Location, Destination PFZ]
@@ -189,6 +191,8 @@ async def data_agent(state: AgentState) -> AgentState:
             max_code = int(code_vals.max()) if not code_vals.empty else 0
             lightning = max_code >= 95
             sources.append("open-meteo-forecast")
+
+        tide = summarize_tide(user_m_df, now_utc)
 
         if user_m_df is not None and not user_m_df.empty:
             m_win, ok = select_window(user_m_df, now_utc, window)
@@ -408,6 +412,7 @@ async def data_agent(state: AgentState) -> AgentState:
     return {
         **state,
         "forecast_window": forecast_window,
+        "tide": tide,
         "wind_speed_10m": wind_speed_10m,
         "wave_height": wave_height,
         "precipitation": precipitation,
