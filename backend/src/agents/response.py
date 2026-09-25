@@ -291,6 +291,15 @@ def get_dynamic_fallback(
         return f"🛡️ VOYAGE SAFETY ASSESSMENT: SAFE TO SAIL! Risk index is LOW. Winds at {wind:.0f} km/h and waves at {wave:.1f} m are optimal for your {vessel_display}."
 
 
+def forecast_window_fallback(fw: dict, risk: str, wind: float, wave: float, rain: float) -> str:
+    """Language-neutral summary for a question about a named period, used only when
+    the LLM is unavailable: figures and the period, no "today" wording."""
+    figures = f"wind up to {wind:.0f} km/h, waves up to {wave:.1f} m, rain {rain:.0f} mm; risk {risk}"
+    if fw.get("covered"):
+        return f"Forecast for {fw['label']}: {figures}."
+    return (f"The forecast does not reach {fw['label']}. For the next 12 hours: {figures}.")
+
+
 def response_node(state: AgentState) -> AgentState:
     """
     Response Agent: uses Sarvam-105B to generate a natural language recommendation
@@ -388,9 +397,25 @@ def response_node(state: AgentState) -> AgentState:
         if convo else ""
     )
 
+    fw = state.get("forecast_window")
+    if fw and fw.get("covered"):
+        window_note = (
+            f"Forecast period asked about: {fw['label']}. The Data below is the forecast (worst values) for THAT "
+            "period, not for right now. Answer the question itself for that period — the verdict and the key "
+            "figures (wind, waves) — and name the period in your answer. Do not reply with only a description "
+            "of the period.\n"
+        )
+    elif fw:
+        window_note = (
+            f"The user asked about {fw['label']}, but the forecast does not reach that period. The Data below is "
+            "for the next 12 hours only — say clearly that you cannot give conditions for the period asked.\n"
+        )
+    else:
+        window_note = ""
+
     prompt = f"""You are a marine assistant for Indian fishermen.
 
-Data:
+{window_note}Data:
 Profile: Vessel: {profile.get('vessel_type', 'Unknown')} | Role: {profile.get('role', 'Unknown')} | Risk Tolerance: {profile.get('risk_tolerance', 'Unknown')}
 Risk Level: {risk_label}
 {conditions_text}
@@ -419,6 +444,11 @@ Ensure recommendations respect the user's {profile.get('risk_tolerance', 'Unknow
         recommendation = get_dynamic_fallback(
             risk, wind, wave, rain, state.get("sst_c"), pfz, pfz_weather, geofence, landing_options, alerts, local_area, query, profile, intent, state.get("data_freshness")
         )
+        # The localized fallback sentences all say "today". For a question about a named
+        # time they'd be wrong, so give a plain, language-neutral summary of that period
+        # instead (a border warning still takes priority — it isn't about the time).
+        if fw and not geofence.get("alerts"):
+            recommendation = forecast_window_fallback(fw, risk, wind, wave, rain)
 
     return {
         **state,

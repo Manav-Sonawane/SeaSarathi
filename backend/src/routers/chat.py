@@ -55,6 +55,9 @@ class ChatResponse(BaseModel):
     confidence: int             # 0-100
     sources: list[str]
     data_freshness: dict | None = None
+    # Set when the question named a time ("tomorrow morning"): which period the
+    # conditions above are for, and whether the forecast actually reaches it.
+    forecast_window: dict | None = None
 
 
 @router.post("/chat", response_model=ChatResponse, summary="Marine Intelligence Chat")
@@ -71,6 +74,7 @@ async def chat(request: ChatRequest):
             from src.agents.conversation import clean_history
             initial_state: AgentState = {
                 "history": clean_history(request.history),
+                "forecast_window": None,
                 "query": request.query,
                 "latitude": request.latitude,
                 "longitude": request.longitude,

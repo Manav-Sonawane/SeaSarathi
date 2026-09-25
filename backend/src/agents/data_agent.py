@@ -3,6 +3,7 @@ import json
 import numpy as np
 import pandas as pd
 from src.agents.state import AgentState
+from src.agents.time_window import parse_time_window, select_window
 from src.services.weather_service import fetch_combined_forecasts_for_grid_cached as fetch_combined_forecasts_for_grid, generate_grid_point_id
 from src.services.copernicus_service import lookup_nearest as lookup_sst_chl
 from src.services.fishing_zone_estimator import estimate_local_fishing_zones
@@ -154,6 +155,11 @@ async def data_agent(state: AgentState) -> AgentState:
     cyclone = MOCK_DATA["cyclone"]
     pfz_weather = None
 
+    # The time the fisherman asked about ("tomorrow morning"); None when the
+    # query names none, which keeps the usual next-12-hours forecast.
+    window = parse_time_window(state.get("query", ""))
+    window_covered = True
+
     try:
         # Build multi-point array: [User Location, Destination PFZ]
         if nearest_pfz and (abs(lat - pfz_lat) > 0.01 or abs(lon - pfz_lon) > 0.01):
@@ -173,9 +179,8 @@ async def data_agent(state: AgentState) -> AgentState:
         user_m_df = user_data.get("marine_forecast")
 
         if user_w_df is not None and not user_w_df.empty:
-            w_win = user_w_df[user_w_df["date"] <= now_utc + pd.Timedelta(hours=12)]
-            if w_win.empty:
-                w_win = user_w_df.head(12)
+            w_win, ok = select_window(user_w_df, now_utc, window)
+            window_covered &= ok
             wind_speed_10m = float(w_win["wind_speed_10m"].max())
             wind_gusts_10m = float(w_win["wind_gusts_10m"].max())
             precipitation = float(w_win["precipitation"].sum())
@@ -186,9 +191,8 @@ async def data_agent(state: AgentState) -> AgentState:
             sources.append("open-meteo-forecast")
 
         if user_m_df is not None and not user_m_df.empty:
-            m_win = user_m_df[user_m_df["date"] <= now_utc + pd.Timedelta(hours=12)]
-            if m_win.empty:
-                m_win = user_m_df.head(12)
+            m_win, ok = select_window(user_m_df, now_utc, window)
+            window_covered &= ok
             wave_height = float(m_win["wave_height"].max())
             sources.append("open-meteo-marine")
 
@@ -206,9 +210,8 @@ async def data_agent(state: AgentState) -> AgentState:
             dest_lightning = lightning
 
             if pfz_w_df is not None and not pfz_w_df.empty:
-                pw_win = pfz_w_df[pfz_w_df["date"] <= now_utc + pd.Timedelta(hours=12)]
-                if pw_win.empty:
-                    pw_win = pfz_w_df.head(12)
+                pw_win, ok = select_window(pfz_w_df, now_utc, window)
+                window_covered &= ok
                 dest_wind = float(pw_win["wind_speed_10m"].max())
                 dest_gusts = float(pw_win["wind_gusts_10m"].max())
                 dest_rain = float(pw_win["precipitation"].sum())
@@ -216,9 +219,8 @@ async def data_agent(state: AgentState) -> AgentState:
                 dest_lightning = p_code >= 95
 
             if pfz_m_df is not None and not pfz_m_df.empty:
-                pm_win = pfz_m_df[pfz_m_df["date"] <= now_utc + pd.Timedelta(hours=12)]
-                if pm_win.empty:
-                    pm_win = pfz_m_df.head(12)
+                pm_win, ok = select_window(pfz_m_df, now_utc, window)
+                window_covered &= ok
                 dest_wave = float(pm_win["wave_height"].max())
 
             pfz_weather = {
@@ -234,6 +236,7 @@ async def data_agent(state: AgentState) -> AgentState:
     except Exception as e:
         print(f"[DataAgent] Weather API multi-point error: {e}. Using fallback.")
         sources.append("mock-data")
+        window_covered = False      # placeholder numbers can't stand in for a named period
 
     # ── 4. Strategic Landing Centers Along Traversal Path ──────────────────────
     landing_options = []
@@ -391,8 +394,20 @@ async def data_agent(state: AgentState) -> AgentState:
         "metadata": get_grid_metadata(),
     }
 
+    forecast_window = None
+    if window is not None:
+        forecast_window = {
+            "label": window.label,
+            "start_utc": window.start.isoformat(),
+            "end_utc": window.end.isoformat(),
+            # False = the forecast doesn't reach that period, so the numbers below are the
+            # usual next-12-hours ones and must not be presented as that period's.
+            "covered": window_covered,
+        }
+
     return {
         **state,
+        "forecast_window": forecast_window,
         "wind_speed_10m": wind_speed_10m,
         "wave_height": wave_height,
         "precipitation": precipitation,

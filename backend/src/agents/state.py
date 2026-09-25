@@ -10,6 +10,10 @@ class AgentState(TypedDict):
     # (see conversation.py) — lets follow-up questions be understood in context.
     history: list[dict]
 
+    # The period the user asked about ("tomorrow morning"), or None for the default
+    # next-12-hours forecast: {"label", "start_utc", "end_utc", "covered"} (time_window.py).
+    forecast_window: dict | None
+
     # Conditions
     risk_level: str
     wind_speed_10m: float

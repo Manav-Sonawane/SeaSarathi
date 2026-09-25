@@ -33,6 +33,10 @@ cannot invent advice (see [Alerts pipeline](#the-alerts-pipeline)).
   speech-to-text, LLM and text-to-speech). Chat is **multi-turn**: the last 3 exchanges are sent
   with each question, so a follow-up like "and how far is it?" is understood in context (history is
   capped and treated as untrusted; safety verdicts always come from current data, never from it).
+- **Time-aware questions.** "Is it safe tomorrow morning?", "tonight", "day after tomorrow", "next 24
+  hours" (English plus the main time words of the other 9 languages, in IST) are answered from the
+  forecast for that period; a question that names no time uses the next 12 hours. If the 3-day
+  forecast doesn't reach the period, the answer says so.
 - **Safety assessment.** Deterministic rules over wind, waves, rain, thunderstorm and cyclone data
   produce a risk score: `>= 70` SAFE, `40-69` CAUTION, `< 40` DO NOT VENTURE (for example wind above
   46 km/h or waves above 3.5 m are high risk).
