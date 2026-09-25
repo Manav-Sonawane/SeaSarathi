@@ -30,7 +30,9 @@ cannot invent advice (see [Alerts pipeline](#the-alerts-pipeline)).
 
 - **Multilingual chat and voice.** English, Hindi, Marathi, Tamil, Telugu, Malayalam, Bengali,
   Gujarati, Odia and Kannada. The query language is auto-detected and answered in kind (Sarvam
-  speech-to-text, LLM and text-to-speech).
+  speech-to-text, LLM and text-to-speech). Chat is **multi-turn**: the last 3 exchanges are sent
+  with each question, so a follow-up like "and how far is it?" is understood in context (history is
+  capped and treated as untrusted; safety verdicts always come from current data, never from it).
 - **Safety assessment.** Deterministic rules over wind, waves, rain, thunderstorm and cyclone data
   produce a risk score: `>= 70` SAFE, `40-69` CAUTION, `< 40` DO NOT VENTURE (for example wind above
   46 km/h or waves above 3.5 m are high risk).

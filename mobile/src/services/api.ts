@@ -116,9 +116,17 @@ export const healthAPI = {
 };
 
 export const chatAPI = {
-  sendMessage: (query: string, latitude: number, longitude: number, profile?: any) =>
+  // `history`: the last few messages, oldest first, so the backend can
+  // understand follow-ups ("and the waves?") — see backend/src/agents/conversation.py.
+  sendMessage: (
+    query: string,
+    latitude: number,
+    longitude: number,
+    profile?: any,
+    history?: { role: 'user' | 'assistant'; text: string }[]
+  ) =>
     api
-      .post('/chat', { query, latitude, longitude, profile })
+      .post('/chat', { query, latitude, longitude, profile, history })
       .then((res) => {
         const raw = res.data || {};
         const rawWind = raw.wind_kmh ?? raw.wind_speed_10m ?? 18;

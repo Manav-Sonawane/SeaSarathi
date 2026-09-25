@@ -27,6 +27,9 @@ class ChatRequest(BaseModel):
     longitude: float = 76.2
     language: str = "en"        # en | hi | ta
     profile: dict | None = None
+    # Recent messages for multi-turn context: [{"role": "user"|"assistant", "text": "..."}],
+    # oldest first. Cleaned and capped server-side (src/agents/conversation.py).
+    history: list[dict] | None = None
 
 
 class ChatResponse(BaseModel):
@@ -65,7 +68,9 @@ async def chat(request: ChatRequest):
     if AGENT_AVAILABLE:
         try:
             from src.agents.graph import AgentState
+            from src.agents.conversation import clean_history
             initial_state: AgentState = {
+                "history": clean_history(request.history),
                 "query": request.query,
                 "latitude": request.latitude,
                 "longitude": request.longitude,

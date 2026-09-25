@@ -6,6 +6,9 @@ class AgentState(TypedDict):
     longitude: float
     intent: str
     profile: dict | None
+    # Recent messages [{"role": "user"|"assistant", "text": str}], oldest first
+    # (see conversation.py) — lets follow-up questions be understood in context.
+    history: list[dict]
 
     # Conditions
     risk_level: str

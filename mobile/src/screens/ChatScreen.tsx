@@ -191,7 +191,17 @@ export function ChatScreen({ navigation }: any) {
       if (!isOnline) throw new Error('No network connection (known offline)');
 
       const profile = { vessel_type: vesselType, risk_tolerance: riskTolerance, role, language: queryLanguage };
-      const res = await chatAPI.sendMessage(textToSend, portInfo.latitude, portInfo.longitude, profile);
+      // Earlier turns of THIS conversation (`messages` is the list from before
+      // the message just sent), so a follow-up like "and the waves?" makes sense.
+      // Offline-cache answers are left out: they're not real assistant replies.
+      const history = messages
+        .map((m) => ({
+          role: (m.sender === 'user' ? 'user' : 'assistant') as 'user' | 'assistant',
+          text: m.sender === 'user' ? m.text : m.data && !m.data.offline ? m.data.recommendation : '',
+        }))
+        .filter((h): h is { role: 'user' | 'assistant'; text: string } => !!h.text)
+        .slice(-6);
+      const res = await chatAPI.sendMessage(textToSend, portInfo.latitude, portInfo.longitude, profile, history);
 
       const sysMsg: Message = {
         id: (Date.now() + 1).toString(),
