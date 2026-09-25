@@ -60,6 +60,12 @@ export interface DashboardText {
   // `dataUnavailable`).
   dataUnavailableTitle: string;
   dataUnavailableBody: string;
+    // Forecast chart (48-hour wind / waves / tide).
+    forecastTitle: string;
+    forecastWind: string;
+    forecastWaves: string;
+    forecastTide: string;
+    forecastMax: string;
 }
 
 export const DASHBOARD_TEXT: Record<string, DashboardText> = {
@@ -114,6 +120,11 @@ export const DASHBOARD_TEXT: Record<string, DashboardText> = {
         noDataChip: 'NO DATA',
     dataUnavailableTitle: 'Live data unavailable',
     dataUnavailableBody: 'Could not reach the server and no cached data was found. Showing nothing until reconnected — do not rely on numbers you see elsewhere.',
+    forecastTitle: 'Next 48 hours',
+    forecastWind: 'Wind (km/h)',
+    forecastWaves: 'Waves (m)',
+    forecastTide: 'Tide (m)',
+    forecastMax: 'max {n}',
   },
   ml: {
       title: 'ദൈനംദിന സമുദ്ര ഡാഷ്ബോർഡ്',
@@ -160,6 +171,11 @@ export const DASHBOARD_TEXT: Record<string, DashboardText> = {
         noDataChip: 'ഡാറ്റയില്ല',
     dataUnavailableTitle: 'തത്സമയ ഡാറ്റ ലഭ്യമല്ല',
     dataUnavailableBody: 'സെർവറുമായി ബന്ധിപ്പിക്കാനായില്ല, കാഷെ ചെയ്ത ഡാറ്റയും കണ്ടെത്തിയില്ല. വീണ്ടും ബന്ധിപ്പിക്കുന്നത് വരെ ഒന്നും കാണിക്കുന്നില്ല.',
+    forecastTitle: 'അടുത്ത 48 മണിക്കൂർ',
+    forecastWind: 'കാറ്റ് (km/h)',
+    forecastWaves: 'തിരമാല (m)',
+    forecastTide: 'വേലിയേറ്റം (m)',
+    forecastMax: 'പരമാവധി {n}',
   },
   ta: {
       title: 'தினசரி கடல் டாஷ்போர்டு',
@@ -206,6 +222,11 @@ export const DASHBOARD_TEXT: Record<string, DashboardText> = {
         noDataChip: 'தரவு இல்லை',
     dataUnavailableTitle: 'நேரடி தரவு கிடைக்கவில்லை',
     dataUnavailableBody: 'சேவையகத்தை அடைய முடியவில்லை, சேமிக்கப்பட்ட தரவும் இல்லை. மீண்டும் இணைக்கும் வரை எதுவும் காட்டப்படாது.',
+    forecastTitle: 'அடுத்த 48 மணி நேரம்',
+    forecastWind: 'காற்று (km/h)',
+    forecastWaves: 'அலைகள் (m)',
+    forecastTide: 'கடல் மட்டம் (m)',
+    forecastMax: 'அதிகபட்சம் {n}',
   },
   te: {
       title: 'రోజువారీ సముద్ర డాష్‌బోర్డ్',
@@ -252,6 +273,11 @@ export const DASHBOARD_TEXT: Record<string, DashboardText> = {
         noDataChip: 'డేటా లేదు',
     dataUnavailableTitle: 'ప్రత్యక్ష డేటా అందుబాటులో లేదు',
     dataUnavailableBody: 'సర్వర్‌ను చేరుకోలేకపోయాము మరియు కాష్ చేసిన డేటా కూడా కనుగొనబడలేదు. మళ్లీ కనెక్ట్ అయ్యే వరకు ఏమీ చూపబడదు.',
+    forecastTitle: 'తదుపరి 48 గంటలు',
+    forecastWind: 'గాలి (km/h)',
+    forecastWaves: 'అలలు (m)',
+    forecastTide: 'ఆటుపోట్లు (m)',
+    forecastMax: 'గరిష్టం {n}',
   },
   bn: {
       title: 'দৈনিক সামুদ্রিক ড্যাশবোর্ড',
@@ -298,6 +324,11 @@ export const DASHBOARD_TEXT: Record<string, DashboardText> = {
         noDataChip: 'ডেটা নেই',
     dataUnavailableTitle: 'লাইভ ডেটা উপলব্ধ নেই',
     dataUnavailableBody: 'সার্ভারে পৌঁছানো যায়নি এবং কোনো ক্যাশে করা ডেটাও পাওয়া যায়নি। পুনরায় সংযুক্ত না হওয়া পর্যন্ত কিছু দেখানো হচ্ছে না।',
+    forecastTitle: 'পরবর্তী 48 ঘণ্টা',
+    forecastWind: 'বাতাস (km/h)',
+    forecastWaves: 'ঢেউ (m)',
+    forecastTide: 'জোয়ার-ভাটা (m)',
+    forecastMax: 'সর্বোচ্চ {n}',
   },
   gu: {
       title: 'દૈનિક દરિયાઈ ડેશબોર્ડ',
@@ -344,6 +375,11 @@ export const DASHBOARD_TEXT: Record<string, DashboardText> = {
         noDataChip: 'ડેટા નથી',
     dataUnavailableTitle: 'લાઇવ ડેટા ઉપલબ્ધ નથી',
     dataUnavailableBody: 'સર્વર સુધી પહોંચી શકાયું નથી અને કોઈ કેશ કરેલો ડેટા મળ્યો નથી. ફરીથી કનેક્ટ ન થાય ત્યાં સુધી કંઈ બતાવવામાં આવતું નથી.',
+    forecastTitle: 'આગામી 48 કલાક',
+    forecastWind: 'પવન (km/h)',
+    forecastWaves: 'મોજા (m)',
+    forecastTide: 'ભરતી-ઓટ (m)',
+    forecastMax: 'મહત્તમ {n}',
   },
   mr: {
       title: 'दैनिक सागरी डॅशबोर्ड',
@@ -390,6 +426,11 @@ export const DASHBOARD_TEXT: Record<string, DashboardText> = {
         noDataChip: 'डेटा नाही',
     dataUnavailableTitle: 'थेट डेटा उपलब्ध नाही',
     dataUnavailableBody: 'सर्व्हरशी संपर्क होऊ शकला नाही आणि कॅश केलेला डेटाही सापडला नाही. पुन्हा कनेक्ट होईपर्यंत काहीही दाखवले जात नाही.',
+    forecastTitle: 'पुढील 48 तास',
+    forecastWind: 'वारा (km/h)',
+    forecastWaves: 'लाटा (m)',
+    forecastTide: 'भरती-ओहोटी (m)',
+    forecastMax: 'कमाल {n}',
   },
   or: {
       title: 'ଦୈନିକ ସାମୁଦ୍ରିକ ଡ୍ୟାସବୋର୍ଡ',
@@ -436,6 +477,11 @@ export const DASHBOARD_TEXT: Record<string, DashboardText> = {
         noDataChip: 'ତଥ୍ୟ ନାହିଁ',
     dataUnavailableTitle: 'ଲାଇଭ୍ ଡାଟା ଉପଲବ୍ଧ ନାହିଁ',
     dataUnavailableBody: 'ସର୍ଭରକୁ ପହଞ୍ଚିହେଲା ନାହିଁ ଏବଂ କୌଣସି କ୍ୟାଶ୍ ହୋଇଥିବା ଡାଟା ମିଳିଲା ନାହିଁ। ପୁନଃ ସଂଯୋଗ ନହେବା ପର୍ଯ୍ୟନ୍ତ କିଛି ଦେଖାଯାଉ ନାହିଁ।',
+    forecastTitle: 'ପରବର୍ତ୍ତୀ 48 ଘଣ୍ଟା',
+    forecastWind: 'ପବନ (km/h)',
+    forecastWaves: 'ଲହଡ଼ି (m)',
+    forecastTide: 'ଜୁଆର-ଭଟା (m)',
+    forecastMax: 'ସର୍ବାଧିକ {n}',
   },
   kn: {
       title: 'ದೈನಂದಿನ ಸಮುದ್ರ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್',
@@ -482,6 +528,11 @@ export const DASHBOARD_TEXT: Record<string, DashboardText> = {
         noDataChip: 'ಡೇಟಾ ಇಲ್ಲ',
     dataUnavailableTitle: 'ಲೈವ್ ಡೇಟಾ ಲಭ್ಯವಿಲ್ಲ',
     dataUnavailableBody: 'ಸರ್ವರ್ ಅನ್ನು ತಲುಪಲು ಸಾಧ್ಯವಾಗಲಿಲ್ಲ ಮತ್ತು ಯಾವುದೇ ಕ್ಯಾಶ್ ಮಾಡಿದ ಡೇಟಾ ಕಂಡುಬಂದಿಲ್ಲ. ಮತ್ತೆ ಸಂಪರ್ಕಗೊಳ್ಳುವವರೆಗೆ ಏನನ್ನೂ ತೋರಿಸಲಾಗುವುದಿಲ್ಲ.',
+    forecastTitle: 'ಮುಂದಿನ 48 ಗಂಟೆಗಳು',
+    forecastWind: 'ಗಾಳಿ (km/h)',
+    forecastWaves: 'ಅಲೆಗಳು (m)',
+    forecastTide: 'ಉಬ್ಬರ-ಇಳಿತ (m)',
+    forecastMax: 'ಗರಿಷ್ಠ {n}',
   },
   hi: {
       title: 'दैनिक समुद्री डैशबोर्ड',
@@ -528,5 +579,10 @@ export const DASHBOARD_TEXT: Record<string, DashboardText> = {
         noDataChip: 'डेटा नहीं',
     dataUnavailableTitle: 'लाइव डेटा उपलब्ध नहीं है',
     dataUnavailableBody: 'सर्वर तक नहीं पहुंच सके और कोई कैश्ड डेटा भी नहीं मिला। दोबारा कनेक्ट होने तक कुछ भी नहीं दिखाया जा रहा है।',
+    forecastTitle: 'अगले 48 घंटे',
+    forecastWind: 'हवा (km/h)',
+    forecastWaves: 'लहरें (m)',
+    forecastTide: 'ज्वार-भाटा (m)',
+    forecastMax: 'अधिकतम {n}',
   },
 };

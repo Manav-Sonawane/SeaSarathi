@@ -18,6 +18,7 @@ import { getCachedBundleForOffline, buildOfflineChatAnswer, formatRelativeTime }
 import { useNetworkStore } from '../store/networkStore';
 import { getScreenText } from '../constants/screenTranslations';
 import { LocationSourceBadge } from '../components/LocationSourceBadge';
+import { ForecastChart } from '../components/ForecastChart';
 import {
   getNearbyFisheryCentres,
   LandingCentre,
@@ -497,6 +498,9 @@ export function DashboardScreen({ navigation }: any) {
             </View>
           </View>
         </View>
+
+        {/* 48-hour wind / waves / tide chart (renders nothing offline or if unavailable) */}
+        <ForecastChart />
 
         {/* Active Warnings — real backend/cached alerts, not decorative */}
         <View style={styles.warningsSection}>

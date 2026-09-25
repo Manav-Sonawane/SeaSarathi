@@ -61,6 +61,11 @@ cannot invent advice (see [Alerts pipeline](#the-alerts-pipeline)).
   and used when the network fails, with a clear "offline" banner.
 - **Explainable.** Recommendations show their source and issue time.
 
+- **48-hour forecast chart.** The Dashboard plots the next 48 hours of wind (with gusts), waves and
+  tide for the fisherman's location. Bars turn amber and red at the same cut-offs as the safety
+  alerts (wind 28 / 46 km/h, waves 2.0 / 3.5 m). Served by `GET /forecast/timeline` from the same
+  Open-Meteo data the chat uses; hidden while offline.
+
 ### Screens
 
 Dashboard · Compass · Chat · Map · PFZ · Alerts · Profile (vessel type, home port, language, risk
@@ -277,7 +282,8 @@ These are **planned, not implemented**:
   boundaries only).
 - Safest-route / fuel-efficient route optimization.
 - Explaining productivity trends (why a region's catch is changing) from SST and chlorophyll history.
-- Charts and trend visualisations.
+- Historical trend charts (SST / chlorophyll over time) and SST / chlorophyll map overlays. Today the
+  only chart is the 48-hour forecast on the Dashboard.
 - WhatsApp or IVR channel for basic phones and poor coverage.
 - Real per-device authentication and a scalable database for growth beyond a pilot.
 

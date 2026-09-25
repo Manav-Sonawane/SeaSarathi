@@ -289,6 +289,29 @@ export const alertsAPI = {
       })),
 };
 
+// Hourly wind / gusts / waves / tide for the next hours at a point
+// (backend GET /forecast/timeline) — drives the Dashboard's forecast chart.
+export interface ForecastPoint {
+  t: string; // ISO time, UTC
+  wind_kmh: number | null;
+  gust_kmh: number | null;
+  wave_m: number | null;
+  tide_m: number | null;
+}
+export interface ForecastTimeline {
+  points: ForecastPoint[];
+  hours: number;
+  tide_available: boolean;
+  thresholds: { wind_high_kmh: number; wind_moderate_kmh: number; wave_high_m: number; wave_moderate_m: number };
+}
+
+export const forecastAPI = {
+  getTimeline: (latitude: number, longitude: number, hours = 48) =>
+    api
+      .get<ForecastTimeline>('/forecast/timeline', { params: { latitude, longitude, hours } })
+      .then((res) => res.data),
+};
+
 // Zonal news feed (backend/src/services/imd_news_feed.py) — the same IMD
 // live-feed data behind /alerts, grouped into coastal zones and rewritten
 // as short news-style bulletins for the Alerts screen's zonal feed.
