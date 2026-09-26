@@ -20,6 +20,7 @@ import { useNetworkStore } from '../store/networkStore';
 import { getScreenText } from '../constants/screenTranslations';
 import { LocationSourceBadge } from '../components/LocationSourceBadge';
 import { ZonalNewsFeed } from '../components/ZonalNewsFeed';
+import { AlertDetailRows } from '../components/AlertDetailRows';
 import { fillText } from '../utils/formatText';
 
 // Static example card shown only until the first /alerts response (live or
@@ -535,17 +536,7 @@ export function AlertsScreen({ navigation }: any) {
                     {!!item.bodyOriginal && <Text style={styles.alertBodyOriginal}>EN: {item.bodyOriginal}</Text>}
 
                     {/* IMD detail: per-day wind/gust for open-sea areas, per-district swell */}
-                    {item.detailRows && item.detailRows.length > 0 && (
-                      <View style={styles.detailBox}>
-                        {!!item.detailTitle && <Text style={styles.detailTitle}>{item.detailTitle}</Text>}
-                        {item.detailRows.map((row: { label: string; text: string }, i: number) => (
-                          <View key={i} style={styles.detailRow}>
-                            <Text style={styles.detailLabel}>{row.label}</Text>
-                            <Text style={styles.detailText}>{row.text}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    )}
+                    <AlertDetailRows rows={item.detailRows || []} title={item.detailTitle} />
 
                     <View style={styles.posFooter}>
                       <View style={styles.posLeft}>
@@ -900,36 +891,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.onSurfaceVariant,
     marginTop: 2,
-  },
-  detailBox: {
-    backgroundColor: colors.surfaceContainerLow,
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 10,
-    gap: 6,
-  },
-  detailTitle: {
-    fontSize: 10,
-    fontWeight: '700',
-    color: colors.onSurfaceVariant,
-    textTransform: 'uppercase',
-    marginBottom: 2,
-  },
-  detailRow: {
-    borderTopWidth: 1,
-    borderTopColor: colors.outlineVariant,
-    paddingTop: 6,
-  },
-  detailLabel: {
-    fontSize: 11,
-    fontWeight: '800',
-    color: colors.primary,
-    marginBottom: 2,
-  },
-  detailText: {
-    fontSize: 12,
-    color: colors.onSurfaceVariant,
-    lineHeight: 17,
   },
   posTime: {
     fontSize: 10,

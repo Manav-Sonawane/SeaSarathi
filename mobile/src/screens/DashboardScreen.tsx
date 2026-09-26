@@ -19,6 +19,7 @@ import { useNetworkStore } from '../store/networkStore';
 import { getScreenText } from '../constants/screenTranslations';
 import { LocationSourceBadge } from '../components/LocationSourceBadge';
 import { ForecastChart } from '../components/ForecastChart';
+import { AlertDetailRows, detailRowsOf } from '../components/AlertDetailRows';
 import {
   getNearbyFisheryCentres,
   LandingCentre,
@@ -63,6 +64,8 @@ export function DashboardScreen({ navigation }: any) {
 
   // State to manage collapsible accordion for fish species cards
   const [expandedMap, setExpandedMap] = useState<Record<string, boolean>>({});
+  // Which safety-warning cards are expanded (index in the warnings list).
+  const [expandedWarnings, setExpandedWarnings] = useState<Record<number, boolean>>({});
 
   // Expand the first fish card whenever the active landing centre changes
   useEffect(() => {
@@ -516,10 +519,29 @@ export function DashboardScreen({ navigation }: any) {
           ) : (
             warnings.map((w, idx) => {
               const sevColor = w.severity === 'HIGH' ? colors.error : w.severity === 'MODERATE' ? colors.riskModerate : colors.primaryContainer;
+              // Short by default: a translated title and three lines. Anything longer, and the
+              // bullet rows (per-port signals, per-day winds, per-district swell), sit behind a toggle.
+              const rows = detailRowsOf(w.metadata);
+              const canExpand = rows.length > 0 || w.message.length > 140;
+              const open = !!expandedWarnings[idx];
               return (
                 <View key={idx} style={[styles.warningCard, { borderLeftColor: sevColor }]}>
-                  <Text style={[styles.warningType, { color: sevColor }]}>{w.type.replace(/_/g, ' ')}</Text>
-                  <Text style={styles.warningMessage}>{w.message}</Text>
+                  <Text style={[styles.warningType, { color: sevColor }]}>
+                    {t.alerts.alertTypes[w.type] || t.alerts.imdAlertTypes[w.type] || w.type.replace(/_/g, ' ')}
+                  </Text>
+                  <Text style={styles.warningMessage} numberOfLines={open ? undefined : 3}>
+                    {w.message}
+                  </Text>
+                  {open && <AlertDetailRows rows={rows} />}
+                  {canExpand && (
+                    <TouchableOpacity
+                      style={styles.warningToggle}
+                      onPress={() => setExpandedWarnings((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+                    >
+                      <Text style={styles.warningToggleText}>{open ? t.alerts.lessDetails : t.alerts.moreDetails}</Text>
+                      <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color={colors.primary} />
+                    </TouchableOpacity>
+                  )}
                 </View>
               );
             })
@@ -901,6 +923,18 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: colors.onSurfaceVariant,
     lineHeight: 17,
+  },
+  warningToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: 4,
+    paddingTop: 6,
+  },
+  warningToggleText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
   },
   fishSectionNote: {
     fontSize: 11,

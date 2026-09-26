@@ -191,6 +191,7 @@ export const ALERTS_TEXT: Record<string, AlertsText> = {
       IMD_BULLETIN_UNVERIFIED: 'IMD BULLETIN UNVERIFIED',
       IMD_FISHERMEN_ARCHIVE_ADVISORY: 'IMD ARCHIVE ADVISORY',
       IMD_CYCLONE_WARNING: 'IMD CYCLONE WARNING',
+      IMD_PORT_WARNING: 'PORT WARNING',
     },
   },
   ml: {
@@ -294,6 +295,7 @@ export const ALERTS_TEXT: Record<string, AlertsText> = {
       IMD_BULLETIN_UNVERIFIED: 'IMD ബുള്ളറ്റിൻ സ്ഥിരീകരിച്ചിട്ടില്ല',
       IMD_FISHERMEN_ARCHIVE_ADVISORY: 'IMD ആർക്കൈവ് നിർദ്ദേശം',
       IMD_CYCLONE_WARNING: 'IMD ചുഴലിക്കാറ്റ് മുന്നറിയിപ്പ്',
+      IMD_PORT_WARNING: 'തുറമുഖ മുന്നറിയിപ്പ്',
     },
   },
   ta: {
@@ -397,6 +399,7 @@ export const ALERTS_TEXT: Record<string, AlertsText> = {
       IMD_BULLETIN_UNVERIFIED: 'IMD அறிக்கை உறுதிசெய்யப்படவில்லை',
       IMD_FISHERMEN_ARCHIVE_ADVISORY: 'IMD காப்பக ஆலோசனை',
       IMD_CYCLONE_WARNING: 'IMD புயல் எச்சரிக்கை',
+      IMD_PORT_WARNING: 'துறைமுக எச்சரிக்கை',
     },
   },
   te: {
@@ -500,6 +503,7 @@ export const ALERTS_TEXT: Record<string, AlertsText> = {
       IMD_BULLETIN_UNVERIFIED: 'IMD బులెటిన్ ధృవీకరించబడలేదు',
       IMD_FISHERMEN_ARCHIVE_ADVISORY: 'IMD ఆర్కైవ్ సూచన',
       IMD_CYCLONE_WARNING: 'IMD తుఫాను హెచ్చరిక',
+      IMD_PORT_WARNING: 'నౌకాశ్రయ హెచ్చరిక',
     },
   },
   bn: {
@@ -603,6 +607,7 @@ export const ALERTS_TEXT: Record<string, AlertsText> = {
       IMD_BULLETIN_UNVERIFIED: 'IMD বুলেটিন যাচাই হয়নি',
       IMD_FISHERMEN_ARCHIVE_ADVISORY: 'IMD আর্কাইভ পরামর্শ',
       IMD_CYCLONE_WARNING: 'IMD ঘূর্ণিঝড় সতর্কতা',
+      IMD_PORT_WARNING: 'বন্দর সতর্কতা',
     },
   },
   gu: {
@@ -706,6 +711,7 @@ export const ALERTS_TEXT: Record<string, AlertsText> = {
       IMD_BULLETIN_UNVERIFIED: 'IMD બુલેટિન ચકાસાયું નથી',
       IMD_FISHERMEN_ARCHIVE_ADVISORY: 'IMD આર્કાઇવ સલાહ',
       IMD_CYCLONE_WARNING: 'IMD ચક્રવાત ચેતવણી',
+      IMD_PORT_WARNING: 'બંદર ચેતવણી',
     },
   },
   mr: {
@@ -809,6 +815,7 @@ export const ALERTS_TEXT: Record<string, AlertsText> = {
       IMD_BULLETIN_UNVERIFIED: 'IMD बुलेटिन पडताळलेले नाही',
       IMD_FISHERMEN_ARCHIVE_ADVISORY: 'IMD संग्रह सल्ला',
       IMD_CYCLONE_WARNING: 'IMD चक्रीवादळ इशारा',
+      IMD_PORT_WARNING: 'बंदर इशारा',
     },
   },
   or: {
@@ -912,6 +919,7 @@ export const ALERTS_TEXT: Record<string, AlertsText> = {
       IMD_BULLETIN_UNVERIFIED: 'IMD ବୁଲେଟିନ୍ ଯାଞ୍ଚ ହୋଇନାହିଁ',
       IMD_FISHERMEN_ARCHIVE_ADVISORY: 'IMD ଆର୍କାଇଭ୍ ପରାମର୍ଶ',
       IMD_CYCLONE_WARNING: 'IMD ଘୂର୍ଣ୍ଣିବାତ୍ୟା ସତର୍କତା',
+      IMD_PORT_WARNING: 'ବନ୍ଦର ସତର୍କତା',
     },
   },
   kn: {
@@ -1015,6 +1023,7 @@ export const ALERTS_TEXT: Record<string, AlertsText> = {
       IMD_BULLETIN_UNVERIFIED: 'IMD ಬುಲೆಟಿನ್ ಪರಿಶೀಲಿಸಲಾಗಿಲ್ಲ',
       IMD_FISHERMEN_ARCHIVE_ADVISORY: 'IMD ಆರ್ಕೈವ್ ಸಲಹೆ',
       IMD_CYCLONE_WARNING: 'IMD ಚಂಡಮಾರುತ ಎಚ್ಚರಿಕೆ',
+      IMD_PORT_WARNING: 'ಬಂದರು ಎಚ್ಚರಿಕೆ',
     },
   },
   hi: {
@@ -1118,6 +1127,7 @@ export const ALERTS_TEXT: Record<string, AlertsText> = {
       IMD_BULLETIN_UNVERIFIED: 'IMD बुलेटिन सत्यापित नहीं',
       IMD_FISHERMEN_ARCHIVE_ADVISORY: 'IMD अभिलेख सलाह',
       IMD_CYCLONE_WARNING: 'IMD चक्रवात चेतावनी',
+      IMD_PORT_WARNING: 'बंदरगाह चेतावनी',
     },
   },
 };
