@@ -348,7 +348,9 @@ async def data_agent(state: AgentState) -> AgentState:
         # The response prompt only sees the first few alerts — put the serious
         # ones first so informational IMD notices can't push them out.
         imd_alerts.sort(key=lambda a: {"HIGH": 0, "MODERATE": 1}.get(a["severity"], 2))
-        alerts.extend(imd_alerts)
+        # `evidence` is internal input for the /alerts key-facts summary — not for the client.
+        alerts.extend({**a, "metadata": {k: v for k, v in (a.get("metadata") or {}).items() if k != "evidence"}}
+                      for a in imd_alerts)
         sources.extend(a["source"] for a in imd_alerts)
         # `cyclone` (below) was previously hardcoded to MOCK_DATA's False and
         # never set by anything real — harmless while nothing else ever

@@ -349,11 +349,60 @@ def extract_caution_advisory(text: str) -> str | None:
 
 def extract_thunderstorm(text: str) -> dict | None:
     flat = _flatten(text)
-    m = re.search(r"THUNDERSTORM WARNING\s*:?\s*(.+?)(?=OCEAN CURRENT|SWELL SURGE|FOR SWELL|DUTY OFFICER|$)", flat, re.I)
+    m = re.search(r"THUNDERSTORM WARNING\s*:?\s*(.+?)(?=PORT WARNING|OCEAN CURRENT|SWELL SURGE|FOR SWELL|DUTY OFFICER|$)", flat, re.I)
     if not m:
         return None
     body = m.group(1).strip()
     return {"text": body, "covers": states_named_in(body)} if body else None
+
+
+# ── Port warning (cautionary signals per port) ──────────────────────────────
+
+# "Kerala Ports S.No Name of the Port Advice 1 KASARGOD Keep hoisted Local Cautionary signal number
+# III 2 CANNANORE ..." — one such table per region. Region names are Title Case (IMD prints
+# "Kerala", "Lakshadweep", "Tamil Nadu"), which keeps the header apart from the previous
+# table's ALL-CAPS port names and lower-case advice words.
+_PORT_TABLE_HEAD = re.compile(
+    r"((?:[A-Z][a-z]+)(?:\s+[A-Z][a-z]+){0,2})\s+Ports?\s+S\.?\s*No\.?\s+Name of the Port\s+Advice")
+_PORT_ENTRY = re.compile(r"(\d+)\.?\s+([A-Z][A-Z .'()/-]*?)\s+(Keep\s.*?)(?=\s+\d+\.?\s+[A-Z]{2,}|\s*$)")
+_PORT_NUMBERED = re.compile(r"(?:(?<=\s)|^)\d+\.?\s+[A-Z]{3,}")
+
+
+def extract_port_warning(text: str) -> dict | None:
+    """The bulletin's PORT WARNING section, or None when it says Nil / is absent.
+
+    {"text": the section verbatim, "parsed": bool,
+     "groups": [{"region": "Kerala", "ports": [{"name": "KASARGOD", "advice": "Keep hoisted ..."}]}]}
+
+    `parsed` is True only if EVERY numbered port in the section was read into a group; otherwise
+    `groups` is empty and callers must show `text` as-is — a port must never silently vanish
+    from a safety warning."""
+    flat = _flatten(text)
+    m = re.search(r"PORT WARNING\s*:?\s*(.+?)(?=HIGH WAVE ALERT|OCEAN CURRENT|SWELL SURGE|FOR SWELL|DUTY OFFICER|$)", flat, re.I)
+    if not m:
+        return None
+    body = m.group(1).strip()
+    if not body or re.fullmatch(r"nil\.?", body, re.I):
+        return None
+
+    heads = list(_PORT_TABLE_HEAD.finditer(body))
+    groups: list[dict] = []
+    for i, h in enumerate(heads):
+        chunk = body[h.end(): heads[i + 1].start() if i + 1 < len(heads) else len(body)].strip()
+        ports = []
+        for e in _PORT_ENTRY.finditer(chunk):
+            name, advice = e.group(2).strip(), e.group(3).strip()
+            tail = re.search(r"\s*(\([A-Z .'-]+\))$", advice)     # "... III (COONDAPUR)": part of the port's name
+            if tail:
+                name, advice = f"{name} {tail.group(1)}", advice[: tail.start()].strip()
+            ports.append({"name": name, "advice": advice})
+        if ports:
+            groups.append({"region": h.group(1).strip(), "ports": ports})
+
+    table_text = " ".join(body[h.end(): heads[i + 1].start() if i + 1 < len(heads) else len(body)]
+                          for i, h in enumerate(heads))
+    parsed = bool(groups) and sum(len(g["ports"]) for g in groups) == len(_PORT_NUMBERED.findall(table_text))
+    return {"text": body, "groups": groups if parsed else [], "parsed": parsed}
 
 
 # ── INCOIS swell surge / high wave alerts ────────────────────────────────────
@@ -443,6 +492,7 @@ def extract_facts(text: str, now: datetime | None = None, drop_expired: bool = T
         "venture_advisory_text": extract_venture_advisory(text),
         "caution_advisory_text": extract_caution_advisory(text),
         "thunderstorm": extract_thunderstorm(text),
+        "port_warning": extract_port_warning(text),
         "swell_alerts": swell,
         "unparsed_swell_alerts": unparsed,
     }

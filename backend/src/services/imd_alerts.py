@@ -273,6 +273,12 @@ def _fisherman_alerts(fisherman: dict, state: str, district: str | None, now: da
                                                                meta["valid_until_utc"], text=ts["text"])]},
         })
 
+    # ── 3b. Port warning: cautionary signals for this state's ports ─────────
+    if facts.get("port_warning"):
+        port_alert = _port_alert(facts["port_warning"], state, src, meta, validity)
+        if port_alert:
+            alerts.append(port_alert)
+
     # ── 4. Open-sea warnings for THIS coast's sea (not the user's coast) ────
     nil = state in facts["nil_coasts"]
     coast_line = ("" if coast_stmts else
@@ -295,6 +301,69 @@ def _fisherman_alerts(fisherman: dict, state: str, district: str | None, now: da
             "source": src, "metadata": {**meta, "detail_title": validity, "detail_rows": []},
         })
     return alerts
+
+
+def _plural(n: int, word: str) -> str:
+    return f"{n} {word}{'' if n == 1 else 's'}"
+
+
+def _port_alert(pw: dict, state: str, src: str, meta: dict, validity: str) -> dict | None:
+    """IMD's PORT WARNING section as ONE short alert for this state's ports, with the
+    ports as detail rows. The section is a table (port / signal to hoist); shown as
+    running text it read as a wall of "Keep hoisted Local Cautionary signal number III"
+    repeated per port."""
+    base = {"type": "IMD_PORT_WARNING", "severity": "MODERATE", "source": src}
+    if not pw["parsed"]:
+        # Not every port row could be read — show IMD's own text rather than lose a port.
+        return {**base, "message": f"IMD port warning: {pw['text']}",
+                "metadata": {**meta, "detail_title": validity, "detail_rows": []}}
+    mine = next((g for g in pw["groups"] if state in states_named_in(g["region"])), None)
+    if mine is None:
+        return None     # none of this state's ports is in the warning
+    by_advice: dict[str, list[str]] = {}
+    for port in mine["ports"]:
+        by_advice.setdefault(port["advice"], []).append(port["name"].title())
+    region, n = mine["region"], len(mine["ports"])
+    if len(by_advice) == 1:
+        advice = next(iter(by_advice))
+        message = f"{advice} — all {n} {region} ports." if n > 1 else f"{advice} — {region} port {mine['ports'][0]['name'].title()}."
+    else:
+        message = f"Port advice for {region}: " + "; ".join(
+            f"{a} ({_plural(len(names), 'port')})" for a, names in by_advice.items()) + "."
+    rows = [{"label": a, "text": " · ".join(names)} for a, names in by_advice.items()]
+    others = [g for g in pw["groups"] if g is not mine]
+    if others:
+        rows.append({"label": "Also in this bulletin",
+                     "text": "; ".join(f"{g['region']}: {_plural(len(g['ports']), 'port')}" for g in others)})
+    return {**base, "message": message,
+            "metadata": {**meta, "detail_title": "Ports · " + validity, "detail_rows": rows}}
+
+
+def _iso(s: str | None) -> datetime | None:
+    try:
+        return datetime.fromisoformat(s) if s else None
+    except ValueError:
+        return None
+
+
+def drop_superseded_archive_advisories(alerts: list[dict]) -> list[dict]:
+    """Newest source wins. The RSMC archive's one-line "advised not to venture into the sea"
+    doesn't say where it applies. If a regional bulletin issued AFTER it lists this coast as
+    NIL (IMD_COAST_CLEAR), that older line is out of date for this coast and is dropped —
+    otherwise the app shows "advised not to venture" beside "coast clear". Archive warnings
+    with cyclone/storm wording (a different alert type) are never dropped."""
+    clear = next((a for a in alerts if a["type"] == "IMD_COAST_CLEAR"), None)
+    clear_at = _iso(((clear or {}).get("metadata") or {}).get("issued_at_utc"))
+    if clear_at is None:
+        return alerts
+
+    def stale(a: dict) -> bool:
+        if a["type"] != "IMD_FISHERMEN_ARCHIVE_ADVISORY":
+            return False
+        issued = _iso((a.get("metadata") or {}).get("issued_at_utc"))
+        return issued is not None and issued < clear_at
+
+    return [a for a in alerts if not stale(a)]
 
 
 def _parse_cyclone_issue(s: str | None) -> datetime | None:
@@ -386,7 +455,7 @@ async def get_location_imd_alerts(state_name: str | None, district: str | None =
                                                     None, until, text=str(ttt))]},
             })
 
-    return alerts
+    return drop_superseded_archive_advisories(alerts)
 
 
 async def get_location_bulletin_summary(state_name: str | None, now: datetime | None = None) -> dict | None:
