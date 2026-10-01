@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { RootNavigator } from './src/navigation/RootNavigator';
+import { NightModeOverlay } from './src/components/NightModeOverlay';
 
 export default function App() {
   // Android draws edge-to-edge (behind the status + gesture bars), so every
@@ -9,6 +10,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <RootNavigator />
+      <NightModeOverlay />
       <StatusBar style="auto" />
     </SafeAreaProvider>
   );

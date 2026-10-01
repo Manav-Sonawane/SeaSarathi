@@ -8,6 +8,7 @@ import {
   StatusBar,
   TextInput,
   ActivityIndicator,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
@@ -55,6 +56,8 @@ export function ProfileScreen() {
     loadFromBackend,
     getLanguageInfo,
     logout,
+    nightMode,
+    toggleNightMode,
   } = useUserStore(
     useShallow((s) => ({
       deviceId: s.deviceId,
@@ -82,6 +85,8 @@ export function ProfileScreen() {
       loadFromBackend: s.loadFromBackend,
       getLanguageInfo: s.getLanguageInfo,
       logout: s.logout,
+      nightMode: s.nightMode,
+      toggleNightMode: s.toggleNightMode,
     }))
   );
   const t = getScreenText(getLanguageInfo().code);
@@ -602,6 +607,20 @@ export function ProfileScreen() {
           </View>
         </View>
 
+        {/* Night Mode — red screen tint for low-light visibility on deck */}
+        <View style={styles.nightModeRow}>
+          <View style={styles.nightModeLabelCol}>
+            <Ionicons name="moon-outline" size={18} color={colors.onSurface} />
+            <Text style={styles.nightModeLabel}>Night Mode</Text>
+          </View>
+          <Switch
+            value={nightMode}
+            onValueChange={toggleNightMode}
+            trackColor={{ false: colors.outlineVariant, true: colors.error }}
+            thumbColor={colors.white}
+          />
+        </View>
+
         {/* Save Preferences Button */}
         <TouchableOpacity
           style={[styles.saveBtn, saving && { opacity: 0.8 }]}
@@ -1007,6 +1026,26 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
     color: colors.white,
+  },
+  nightModeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surfaceContainerLow,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    marginTop: 14,
+  },
+  nightModeLabelCol: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  nightModeLabel: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.onSurface,
   },
   resetBtn: {
     flexDirection: 'row',

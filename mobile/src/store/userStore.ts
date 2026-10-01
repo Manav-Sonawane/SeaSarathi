@@ -113,6 +113,10 @@ export interface UserProfileState {
   language: string;
   isLoggedIn: boolean;
   isBackendSynced: boolean;
+  // Red-tinted screen overlay that preserves night vision on deck — a
+  // standard maritime/aviation convention. Local-only preference, never
+  // synced to the backend profile.
+  nightMode: boolean;
 
   setUserId: (userId: string) => void;
   setUserName: (userName: string) => void;
@@ -129,6 +133,7 @@ export interface UserProfileState {
   clearCurrentLocation: () => void;
   setRole: (role: UserRole) => void;
   setLanguage: (langCode: string) => void;
+  toggleNightMode: () => void;
   getVesselRangeKm: () => number;
   getLanguageInfo: () => LanguageInfo;
   loginWithProfile: (profile: any) => void;
@@ -223,11 +228,13 @@ export const useUserStore = create<UserProfileState>()(
       language: 'en',
       isLoggedIn: true,
       isBackendSynced: false,
+      nightMode: false,
 
       setUserId: (userId) => set({ userId }),
       setUserName: (userName) => set({ userName }),
       setVesselType: (vesselType) => set({ vesselType }),
       setRiskTolerance: (riskTolerance) => set({ riskTolerance }),
+      toggleNightMode: () => set((s) => ({ nightMode: !s.nightMode })),
       setOperatingPort: (portName) => {
         const found = resolveHomePort(portName);
         // Picking a home port is a deliberate "I'm operating from here now"
@@ -422,6 +429,7 @@ export const useUserStore = create<UserProfileState>()(
         role: state.role,
         language: state.language,
         isLoggedIn: state.isLoggedIn,
+        nightMode: state.nightMode,
       }),
     }
   )
