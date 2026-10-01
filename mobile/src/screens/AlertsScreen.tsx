@@ -21,6 +21,7 @@ import { getScreenText } from '../constants/screenTranslations';
 import { LocationSourceBadge } from '../components/LocationSourceBadge';
 import { ZonalNewsFeed } from '../components/ZonalNewsFeed';
 import { AlertDetailRows } from '../components/AlertDetailRows';
+import { FadeInView } from '../components/FadeInView';
 import { fillText } from '../utils/formatText';
 
 // Static example card shown only until the first /alerts response (live or
@@ -475,13 +476,14 @@ export function AlertsScreen({ navigation }: any) {
         )}
 
         {/* Alert cards: title + short text up front, the rest behind "More details" */}
-        {alertsList.map((item) => {
+        {alertsList.map((item, idx) => {
           const topBarColor =
             item.category === 'critical' ? colors.error : item.category === 'advisory' ? colors.riskModerate : colors.primaryContainer;
           const isExpanded = expandedIds.has(item.id);
 
           return (
-            <View key={item.id} style={styles.alertCard}>
+            <FadeInView key={item.id} index={idx}>
+            <View style={styles.alertCard}>
               <View style={[styles.alertTopBar, { backgroundColor: topBarColor }]} />
 
               <View style={styles.alertCardBody}>
@@ -584,6 +586,7 @@ export function AlertsScreen({ navigation }: any) {
                 )}
               </View>
             </View>
+            </FadeInView>
           );
         })}
 

@@ -20,6 +20,7 @@ import { getScreenText } from '../constants/screenTranslations';
 import { LocationSourceBadge } from '../components/LocationSourceBadge';
 import { ForecastChart } from '../components/ForecastChart';
 import { AlertDetailRows, detailRowsOf } from '../components/AlertDetailRows';
+import { FadeInView } from '../components/FadeInView';
 import {
   getNearbyFisheryCentres,
   LandingCentre,
@@ -525,24 +526,26 @@ export function DashboardScreen({ navigation }: any) {
               const canExpand = rows.length > 0 || w.message.length > 140;
               const open = !!expandedWarnings[idx];
               return (
-                <View key={idx} style={[styles.warningCard, { borderLeftColor: sevColor }]}>
-                  <Text style={[styles.warningType, { color: sevColor }]}>
-                    {t.alerts.alertTypes[w.type] || t.alerts.imdAlertTypes[w.type] || w.type.replace(/_/g, ' ')}
-                  </Text>
-                  <Text style={styles.warningMessage} numberOfLines={open ? undefined : 3}>
-                    {w.message}
-                  </Text>
-                  {open && <AlertDetailRows rows={rows} />}
-                  {canExpand && (
-                    <TouchableOpacity
-                      style={styles.warningToggle}
-                      onPress={() => setExpandedWarnings((prev) => ({ ...prev, [idx]: !prev[idx] }))}
-                    >
-                      <Text style={styles.warningToggleText}>{open ? t.alerts.lessDetails : t.alerts.moreDetails}</Text>
-                      <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color={colors.primary} />
-                    </TouchableOpacity>
-                  )}
-                </View>
+                <FadeInView key={idx} index={idx}>
+                  <View style={[styles.warningCard, { borderLeftColor: sevColor }]}>
+                    <Text style={[styles.warningType, { color: sevColor }]}>
+                      {t.alerts.alertTypes[w.type] || t.alerts.imdAlertTypes[w.type] || w.type.replace(/_/g, ' ')}
+                    </Text>
+                    <Text style={styles.warningMessage} numberOfLines={open ? undefined : 3}>
+                      {w.message}
+                    </Text>
+                    {open && <AlertDetailRows rows={rows} />}
+                    {canExpand && (
+                      <TouchableOpacity
+                        style={styles.warningToggle}
+                        onPress={() => setExpandedWarnings((prev) => ({ ...prev, [idx]: !prev[idx] }))}
+                      >
+                        <Text style={styles.warningToggleText}>{open ? t.alerts.lessDetails : t.alerts.moreDetails}</Text>
+                        <Ionicons name={open ? 'chevron-up' : 'chevron-down'} size={14} color={colors.primary} />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </FadeInView>
               );
             })
           )}

@@ -43,6 +43,16 @@ async def data_agent(state: AgentState) -> AgentState:
     profile = state.get("profile") or {}
     vessel_type = profile.get("vessel_type", "medium")
 
+    # ── Autonomous tool selection ───────────────────────────────────────────
+    # The planner already classified intent before this node runs. A PORT /
+    # ALERT / FRESHNESS question has no use for a fishing-zone recommendation,
+    # so skip the PFZ geojson lookup and the Copernicus SST/CHL call entirely
+    # for those intents — fewer calls per request, and it keeps the data this
+    # node returns honest (no half-relevant PFZ box bolted onto a "what's the
+    # cyclone warning" answer). WEATHER/SAFETY/PFZ still need it.
+    intent = state.get("intent", "SAFETY")
+    needs_pfz = intent not in ("PORT", "ALERT", "FRESHNESS")
+
     base_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
     data_static_dir = os.path.join(base_dir, "data", "static")
     if not os.path.exists(data_static_dir):
@@ -78,7 +88,7 @@ async def data_agent(state: AgentState) -> AgentState:
     try:
         from src.utils.geo import find_nearest_zones
         pfz_file = os.path.join(data_static_dir, "PFZ.geojson")
-        if os.path.exists(pfz_file):
+        if needs_pfz and os.path.exists(pfz_file):
             with open(pfz_file, "r", encoding="utf-8") as f:
                 pfz_geojson = json.load(f)
             zones = find_nearest_zones(lat, lon, pfz_geojson, n=1)
@@ -140,11 +150,12 @@ async def data_agent(state: AgentState) -> AgentState:
     # ── 2. SST + Chlorophyll from Copernicus Grid at Exact User Coordinates ───
     sst_c = None
     chlorophyll_mg_m3 = None
-    sst_chl_user = lookup_sst_chl(lat, lon)
-    if sst_chl_user:
-        sst_c = sst_chl_user["sst_c"]
-        chlorophyll_mg_m3 = sst_chl_user["chl_mg_m3"]
-        sources.append("copernicus-marine")
+    if needs_pfz:
+        sst_chl_user = lookup_sst_chl(lat, lon)
+        if sst_chl_user:
+            sst_c = sst_chl_user["sst_c"]
+            chlorophyll_mg_m3 = sst_chl_user["chl_mg_m3"]
+            sources.append("copernicus-marine")
 
     # ── 3. Weather & Marine Forecast at Start AND Destination PFZ ──────────────
     wind_speed_10m = MOCK_DATA["wind_speed_10m"]
@@ -365,6 +376,24 @@ async def data_agent(state: AgentState) -> AgentState:
             cyclone = True
     except Exception as e:
         print(f"[DataAgent] IMD alerts lookup error: {e}")
+
+    # ── 6c. GDACS Global Cyclone Watch (supplementary, never overrides IMD) ───
+    # IMD's own cyclone bulletins above are authoritative for Indian waters.
+    # GDACS adds coverage for a tracked cyclone that IMD hasn't named for this
+    # state/district yet, or one approaching from outside India's bulletin
+    # area — only added when IMD has no cyclone-type alert already, so the
+    # fisherman never sees two different cyclone cards disagreeing.
+    try:
+        has_imd_cyclone = any(a["type"] in ("IMD_CYCLONE_WARNING", "IMD_CYCLONE_TTT_WARNING") for a in alerts)
+        if not has_imd_cyclone:
+            from src.services.gdacs_service import get_regional_cyclone_alerts
+            gdacs_alerts = get_regional_cyclone_alerts(lat, lon)
+            if gdacs_alerts:
+                alerts.extend(gdacs_alerts)
+                sources.append("gdacs")
+                cyclone = True
+    except Exception as e:
+        print(f"[DataAgent] GDACS lookup error: {e}")
 
     route_summary = {
         "start_coordinates": {"latitude": lat, "longitude": lon},
