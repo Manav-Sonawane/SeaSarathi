@@ -135,6 +135,7 @@ Open-Meteo forecasts are deliberately **not** treated as facts in step 3: a mode
 | INCOIS | Potential Fishing Zones; swell-surge / high-wave alerts (published inside IMD bulletins) |
 | Copernicus Marine Service | Sea-surface temperature and chlorophyll grid (~30,400 points). If Copernicus is unavailable, the grid falls back to Open-Meteo SST and a chlorophyll baseline calibrated to INCOIS PFZ zones, and the app says the values are estimates. |
 | Open-Meteo | Weather and marine forecasts (wind, waves, rain, visibility, sea level / tide) |
+| GDACS | Global cyclone tracking (geocoded), supplementary only — never shown if IMD already has a cyclone alert for the area |
 | Static GIS (`data/static/`) | India EEZ (2), international boundaries (17), landing centres (1,223), PFZ polygons (52) |
 | Google Maps | Map display |
 
