@@ -10,6 +10,7 @@ import {
   Linking,
   Modal,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -41,6 +42,13 @@ import {
   formatVhfCoordinates,
   estimateTimeToArrival,
 } from '../utils/navigationMath';
+import { safetyAPI, DriftObjectType, DriftSearchArea } from '../services/api';
+
+const MOB_OBJECT_TYPES: { value: DriftObjectType; label: string; icon: string }[] = [
+  { value: 'person_in_water', label: 'Person in water', icon: 'account-alert' },
+  { value: 'life_raft', label: 'Life raft', icon: 'lifebuoy' },
+  { value: 'small_vessel', label: 'Small vessel', icon: 'ferry' },
+];
 
 const DIAL_SIZE = 340;
 const CX = DIAL_SIZE / 2; // 170
@@ -67,6 +75,12 @@ export function CompassScreen() {
   const [isPortModalOpen, setIsPortModalOpen] = useState(false);
   const [isVhfModalOpen, setIsVhfModalOpen] = useState(false);
   const [isCalibModalOpen, setIsCalibModalOpen] = useState(false);
+  const [isMobModalOpen, setIsMobModalOpen] = useState(false);
+  const [mobObjectType, setMobObjectType] = useState<DriftObjectType>('person_in_water');
+  const [mobMinutesAgo, setMobMinutesAgo] = useState(15);
+  const [mobLoading, setMobLoading] = useState(false);
+  const [mobError, setMobError] = useState('');
+  const [mobResult, setMobResult] = useState<DriftSearchArea | null>(null);
 
   // Current vessel position (default: ~10 NM offshore of port for realistic demonstration)
   const [vesselLat, setVesselLat] = useState(targetPort.latitude - 0.12);
@@ -215,6 +229,26 @@ export function CompassScreen() {
   const currentCardinal = getCardinalDirection(heading);
   const targetCardinal = getCardinalDirection(targetBearing);
   const vhfCoords = formatVhfCoordinates(vesselLat, vesselLon);
+
+  const runMobEstimate = async () => {
+    setMobLoading(true);
+    setMobError('');
+    try {
+      const result = await safetyAPI.getDriftSearchArea(vesselLat, vesselLon, mobMinutesAgo, mobObjectType);
+      setMobResult(result);
+    } catch (e) {
+      setMobError('Could not reach the server for a drift estimate. Call the Coast Guard now — do not wait on this.');
+      setMobResult(null);
+    } finally {
+      setMobLoading(false);
+    }
+  };
+
+  const openMobModal = () => {
+    setMobResult(null);
+    setMobError('');
+    setIsMobModalOpen(true);
+  };
 
   // Dial rotation: To keep vessel prow at 12 o'clock, rotate dial counter-clockwise by heading
   const dialRotation = -heading;
@@ -531,6 +565,15 @@ export function CompassScreen() {
             <MaterialCommunityIcons name="radio-tower" size={18} color="#EF4444" />
             <Text style={[styles.actionPillText, { color: '#EF4444' }]}>VHF 16 / MAYDAY</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.actionPill, styles.actionPillSos]}
+            onPress={openMobModal}
+            activeOpacity={0.8}
+          >
+            <MaterialCommunityIcons name="account-alert" size={18} color="#EF4444" />
+            <Text style={[styles.actionPillText, { color: '#EF4444' }]}>MAN OVERBOARD</Text>
+          </TouchableOpacity>
         </View>
 
         {/* ETA & Cruising Speed Strip */}
@@ -593,6 +636,139 @@ export function CompassScreen() {
                 <Ionicons name="information-circle" size={16} color="#94A3B8" />
                 <Text style={styles.vhfRadioTipText}>
                   VHF Channel 16 (156.8 MHz) does NOT require cellular or data towers. Coastal stations monitor 24/7.
+                </Text>
+              </View>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ─── Man Overboard / Missing Vessel Drift Estimate Modal ────────────── */}
+      <Modal visible={isMobModalOpen} transparent={true} animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <MaterialCommunityIcons name="account-alert" size={22} color="#EF4444" />
+                <Text style={styles.modalTitle}>MAN OVERBOARD</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setIsMobModalOpen(false)}
+                style={styles.closeModalBtn}
+              >
+                <Ionicons name="close" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={{ paddingHorizontal: 16 }}>
+              {/* Call Coast Guard first, always — regardless of what the estimate below says */}
+              <TouchableOpacity
+                style={styles.coastGuardHotlineBtn}
+                onPress={() => Linking.openURL('tel:1554').catch(() => {})}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="call" size={18} color="#FFFFFF" />
+                <Text style={styles.coastGuardHotlineText}>Call Coast Guard SAR: 1554 (Toll-Free)</Text>
+              </TouchableOpacity>
+
+              <Text style={styles.mobSectionLabel}>WHAT WENT OVERBOARD / IS MISSING</Text>
+              <View style={styles.mobTypeRow}>
+                {MOB_OBJECT_TYPES.map((o) => (
+                  <TouchableOpacity
+                    key={o.value}
+                    style={[styles.mobTypeBtn, mobObjectType === o.value && styles.mobTypeBtnActive]}
+                    onPress={() => setMobObjectType(o.value)}
+                    activeOpacity={0.8}
+                  >
+                    <MaterialCommunityIcons
+                      name={o.icon as any}
+                      size={20}
+                      color={mobObjectType === o.value ? '#EF4444' : '#8E8E93'}
+                    />
+                    <Text style={[styles.mobTypeBtnText, mobObjectType === o.value && styles.mobTypeBtnTextActive]}>
+                      {o.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.mobSectionLabel}>MINUTES SINCE LAST SEEN</Text>
+              <View style={styles.mobStepperRow}>
+                <TouchableOpacity
+                  style={styles.mobStepperBtn}
+                  onPress={() => setMobMinutesAgo((m) => Math.max(0, m - 5))}
+                >
+                  <Ionicons name="remove" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+                <Text style={styles.mobStepperValue}>{mobMinutesAgo} min</Text>
+                <TouchableOpacity
+                  style={styles.mobStepperBtn}
+                  onPress={() => setMobMinutesAgo((m) => Math.min(4320, m + 5))}
+                >
+                  <Ionicons name="add" size={20} color="#FFFFFF" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Last-known position — the vessel's current simulated/GPS fix, same as the VHF card above */}
+              <View style={styles.vhfCoordCard}>
+                <Text style={styles.vhfCoordLabel}>LAST KNOWN POSITION (YOUR VESSEL'S CURRENT FIX):</Text>
+                <Text style={styles.vhfCoordValue}>{vhfCoords}</Text>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.mobEstimateBtn, mobLoading && { opacity: 0.6 }]}
+                onPress={runMobEstimate}
+                disabled={mobLoading}
+                activeOpacity={0.85}
+              >
+                {mobLoading ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <MaterialCommunityIcons name="compass-outline" size={18} color="#FFFFFF" />
+                )}
+                <Text style={styles.mobEstimateBtnText}>
+                  {mobLoading ? 'Estimating…' : 'Estimate Drift & Search Area'}
+                </Text>
+              </TouchableOpacity>
+
+              {!!mobError && <Text style={styles.mobErrorText}>{mobError}</Text>}
+
+              {mobResult && (
+                <View style={styles.mobResultCard}>
+                  <View style={styles.mobResultRow}>
+                    <Text style={styles.mobResultLabel}>DRIFT DIRECTION</Text>
+                    <Text style={styles.mobResultValue}>
+                      {getCardinalDirection(mobResult.drift_bearing_deg)} ({mobResult.drift_bearing_deg.toFixed(0)}°)
+                    </Text>
+                  </View>
+                  <View style={styles.mobResultRow}>
+                    <Text style={styles.mobResultLabel}>ESTIMATED DRIFT DISTANCE</Text>
+                    <Text style={styles.mobResultValue}>{mobResult.drift_distance_km.toFixed(2)} km</Text>
+                  </View>
+                  <View style={styles.mobResultRow}>
+                    <Text style={styles.mobResultLabel}>SEARCH RADIUS</Text>
+                    <Text style={styles.mobResultValue}>± {mobResult.search_radius_km.toFixed(1)} km</Text>
+                  </View>
+                  <View style={styles.mobResultRow}>
+                    <Text style={styles.mobResultLabel}>ESTIMATED POSITION</Text>
+                    <Text style={styles.mobResultValue}>
+                      {formatVhfCoordinates(mobResult.estimated_latitude, mobResult.estimated_longitude)}
+                    </Text>
+                  </View>
+                  <View style={styles.mobResultRow}>
+                    <Text style={styles.mobResultLabel}>WIND USED</Text>
+                    <Text style={styles.mobResultValue}>
+                      {mobResult.wind_speed_kmh_used.toFixed(0)} km/h from {getCardinalDirection(mobResult.wind_direction_from_deg_used)}
+                    </Text>
+                  </View>
+                  <Text style={styles.mobDisclaimer}>{mobResult.disclaimer}</Text>
+                </View>
+              )}
+
+              <View style={styles.vhfRadioTip}>
+                <Ionicons name="information-circle" size={16} color="#94A3B8" />
+                <Text style={styles.vhfRadioTipText}>
+                  Wind-leeway estimate only — does not account for sea current. Widen the search as time passes.
                 </Text>
               </View>
             </ScrollView>
@@ -1296,6 +1472,120 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#E5E5EA',
     lineHeight: 20,
+    fontStyle: 'italic',
+  },
+  mobSectionLabel: {
+    fontSize: 10,
+    color: '#8E8E93',
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    marginTop: 18,
+    marginBottom: 10,
+  },
+  mobTypeRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  mobTypeBtn: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#2C2C2E',
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3A3A3C',
+  },
+  mobTypeBtnActive: {
+    backgroundColor: 'rgba(239, 68, 68, 0.12)',
+    borderColor: 'rgba(239, 68, 68, 0.5)',
+  },
+  mobTypeBtnText: {
+    fontSize: 10.5,
+    color: '#8E8E93',
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  mobTypeBtnTextActive: {
+    color: '#EF4444',
+  },
+  mobStepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    backgroundColor: '#000000',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#2C2C2E',
+    paddingVertical: 12,
+  },
+  mobStepperBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#2C2C2E',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mobStepperValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#FFFFFF',
+    minWidth: 80,
+    textAlign: 'center',
+  },
+  mobEstimateBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#38BDF8',
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 16,
+  },
+  mobEstimateBtnText: {
+    fontSize: 14,
+    color: '#041021',
+    fontWeight: '700',
+  },
+  mobErrorText: {
+    color: '#EF4444',
+    fontSize: 12.5,
+    marginTop: 12,
+    lineHeight: 18,
+  },
+  mobResultCard: {
+    backgroundColor: '#000000',
+    padding: 16,
+    borderRadius: 12,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(56, 189, 248, 0.3)',
+  },
+  mobResultRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  mobResultLabel: {
+    fontSize: 10,
+    color: '#8E8E93',
+    fontWeight: '700',
+    letterSpacing: 0.4,
+  },
+  mobResultValue: {
+    fontSize: 13,
+    color: '#FFFFFF',
+    fontWeight: '700',
+  },
+  mobDisclaimer: {
+    fontSize: 11.5,
+    color: '#F59E0B',
+    lineHeight: 16,
+    marginTop: 4,
     fontStyle: 'italic',
   },
   vhfRadioTip: {
