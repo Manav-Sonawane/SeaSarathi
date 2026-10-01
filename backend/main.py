@@ -115,7 +115,8 @@ from src.routers import (
     data,
     voice,
     forecast,
+    safety,
 )
 
-for module in (health, chat, profile, offline, geojson, pfz, landing, ocean, geofence, imd, news, alerts, data, voice, forecast):
+for module in (health, chat, profile, offline, geojson, pfz, landing, ocean, geofence, imd, news, alerts, data, voice, forecast, safety):
     app.include_router(module.router)

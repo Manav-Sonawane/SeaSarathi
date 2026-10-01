@@ -312,6 +312,44 @@ export const forecastAPI = {
       .then((res) => res.data),
 };
 
+// Indicative wind-leeway drift estimate for a man-overboard / missing-vessel
+// report (backend/src/agents/drift.py) — never a substitute for contacting
+// the Indian Coast Guard; see the `disclaimer` field in every response.
+export type DriftObjectType = 'person_in_water' | 'life_raft' | 'small_vessel';
+
+export interface DriftSearchArea {
+  estimated_latitude: number;
+  estimated_longitude: number;
+  drift_bearing_deg: number;
+  drift_distance_km: number;
+  search_radius_km: number;
+  elapsed_hours: number;
+  object_type: DriftObjectType;
+  leeway_factor: number;
+  disclaimer: string;
+  wind_speed_kmh_used: number;
+  wind_direction_from_deg_used: number;
+  last_known_latitude: number;
+  last_known_longitude: number;
+}
+
+export const safetyAPI = {
+  getDriftSearchArea: (
+    latitude: number,
+    longitude: number,
+    lastSeenMinutesAgo: number,
+    objectType: DriftObjectType = 'person_in_water'
+  ) =>
+    api
+      .post<DriftSearchArea>('/safety/drift-search-area', {
+        latitude,
+        longitude,
+        last_seen_minutes_ago: lastSeenMinutesAgo,
+        object_type: objectType,
+      })
+      .then((res) => res.data),
+};
+
 // Zonal news feed (backend/src/services/imd_news_feed.py) — the same IMD
 // live-feed data behind /alerts, grouped into coastal zones and rewritten
 // as short news-style bulletins for the Alerts screen's zonal feed.
