@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { useAudioRecorder, RecordingPresets, requestRecordingPermissionsAsync, setAudioModeAsync } from 'expo-audio';
 import { colors } from '../theme/colors';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { chatAPI, ChatResponse, voiceAPI } from '../services/api';
 import { useUserStore } from '../store/userStore';
 import { useShallow } from 'zustand/react/shallow';
@@ -148,16 +149,27 @@ export function ChatScreen({ navigation }: any) {
     }
   };
 
-  // This screen used to seed a fake completed exchange on first mount — a
-  // "user" bubble the fisherman never typed ("Can I sail safely today?
-  // (Port)"), answered by a hardcoded LOW-risk/89%-confidence/"SAFE TO SAIL
-  // TODAY" card built entirely from made-up numbers (wind 16, wave 1.1) via
-  // getAdvisory(), with zero backend or LLM call involved. It was
-  // indistinguishable from a real answer and could show "safe" on a day
-  // with an active IMD warning — a false inference in a safety app. Now the
-  // chat genuinely starts empty; the preset chips above (Ask about sea
-  // safety...) call handleSend() directly, which always goes through the
-  // real POST /chat backend call.
+  const getStorageKey = () => {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    return `seasarathi_chat_${portInfo.name}_${todayStr}_${language}`;
+  };
+
+  const saveChatToStorage = async (msgList: Message[]) => {
+    try {
+      await AsyncStorage.setItem(getStorageKey(), JSON.stringify(msgList));
+    } catch (err) {
+      console.warn('[ChatScreen] Failed to save chat to storage:', err);
+    }
+  };
+
+  const handleClearChat = async () => {
+    setMessages([]);
+    try {
+      await AsyncStorage.removeItem(getStorageKey());
+    } catch (err) {
+      console.warn('[ChatScreen] Failed to clear stored chat:', err);
+    }
+  };
 
   const handleSend = async (userText?: string, overrideLanguage?: string) => {
     const textToSend = userText || query;
@@ -219,7 +231,11 @@ export function ChatScreen({ navigation }: any) {
             queryLangInfo.getAdvisory(portInfo.name, res.risk_level, res.wind_kmh, res.wave_m, vesselRange),
         },
       };
-      setMessages((prev) => [...prev, sysMsg]);
+      setMessages((prev) => {
+        const next = [...prev, sysMsg];
+        saveChatToStorage(next);
+        return next;
+      });
     } catch (err) {
       console.error('[ChatScreen] Live /chat call failed, trying offline cache:', err);
 
@@ -265,11 +281,50 @@ export function ChatScreen({ navigation }: any) {
         language: queryLanguage,
         data: fallbackData,
       };
-      setMessages((prev) => [...prev, sysMsg]);
+      setMessages((prev) => {
+        const next = [...prev, sysMsg];
+        saveChatToStorage(next);
+        return next;
+      });
     } finally {
       setLoading(false);
     }
   };
+
+  // Load today's chat consultation automatically:
+  // 1. Checks AsyncStorage for today's saved consultation for this port & language.
+  // 2. If no consultation exists yet today, automatically queries LangGraph backend for today's marine advisory.
+  useEffect(() => {
+    let active = true;
+
+    const loadTodaysChat = async () => {
+      const key = getStorageKey();
+      try {
+        const stored = await AsyncStorage.getItem(key);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            if (active) setMessages(parsed);
+            return;
+          }
+        }
+      } catch (err) {
+        console.warn('[ChatScreen] Failed to read stored chat:', err);
+      }
+
+      // Automatically load today's initial marine advisory from backend
+      if (active) {
+        const autoQuery = `${langInfo.presets.safety} (${portInfo.name})`;
+        await handleSend(autoQuery);
+      }
+    };
+
+    loadTodaysChat();
+
+    return () => {
+      active = false;
+    };
+  }, [portInfo.name, language]);
 
   const renderRiskBadge = (riskLevel: string, confidence?: number) => {
     let bgColor = '#16A34A'; // Green for LOW risk
@@ -376,13 +431,34 @@ export function ChatScreen({ navigation }: any) {
                 {t.chat.freshnessButtonLabel}
               </Text>
             </TouchableOpacity>
+
+            {messages.length > 0 && (
+              <TouchableOpacity
+                style={[styles.presetChip, { borderColor: colors.outlineVariant, backgroundColor: 'rgba(0,0,0,0.04)' }]}
+                onPress={handleClearChat}
+              >
+                <Ionicons name="refresh-outline" size={14} color={colors.onSurfaceVariant} style={{ marginRight: 4 }} />
+                <Text style={[styles.presetChipText, { color: colors.onSurfaceVariant }]}>
+                  {t.chat.newConsultation}
+                </Text>
+              </TouchableOpacity>
+            )}
           </ScrollView>
         </View>
 
-        {/* Empty state — no fake/pre-filled exchange, just a neutral prompt
-            with no data claims (see the note above where this used to be
-            seeded). */}
-        {messages.length === 0 && (
+        {/* Loading today's chat state */}
+        {messages.length === 0 && loading && (
+          <View style={styles.emptyChatState}>
+            <ActivityIndicator size="large" color={colors.primaryContainer} style={{ marginBottom: 16 }} />
+            <Text style={styles.emptyChatText}>{t.chat.loadingText}</Text>
+            <Text style={styles.emptyChatSubtext}>
+              {portInfo.name} ({portInfo.latitude.toFixed(2)}°N, {portInfo.longitude.toFixed(2)}°E)
+            </Text>
+          </View>
+        )}
+
+        {/* Empty state fallback */}
+        {messages.length === 0 && !loading && (
           <View style={styles.emptyChatState}>
             <MaterialCommunityIcons name="anchor" size={28} color={colors.secondary} />
             <Text style={styles.emptyChatText}>{langInfo.greeting}</Text>

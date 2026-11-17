@@ -17,6 +17,7 @@ export interface ChatText {
     offlineModePrefix: string;
     freshnessButtonLabel: string;
     freshnessQuery: string;
+    newConsultation: string;
   }
 
 export const CHAT_TEXT: Record<string, ChatText> = {
@@ -32,6 +33,7 @@ export const CHAT_TEXT: Record<string, ChatText> = {
       offlineModePrefix: 'OFFLINE mode (last updated:',
       freshnessButtonLabel: 'Data Freshness (<6h)',
       freshnessQuery: 'How old is the currently fetched data? If it is more than 6 hours old, re-fetch it.',
+      newConsultation: 'New Consultation',
     },
   ml: {
       lowRisk: 'കുറഞ്ഞ അപകടസാധ്യത',
@@ -45,6 +47,7 @@ export const CHAT_TEXT: Record<string, ChatText> = {
       offlineModePrefix: 'ഓഫ്‌ലൈൻ മോഡ് (അവസാനം പുതുക്കിയത്:',
       freshnessButtonLabel: 'ഡാറ്റ പുതുമ (<6മ)',
       freshnessQuery: 'നിലവിലെ ഡാറ്റ എത്ര പഴയതാണ്? 6 മണിക്കൂറിലധികം പഴയതാണെങ്കിൽ വീണ്ടും ലഭ്യമാക്കുക.',
+      newConsultation: 'പുതിയ കൺസൾട്ടേഷൻ',
     },
   ta: {
       lowRisk: 'குறைந்த ஆபத்து',
@@ -58,6 +61,7 @@ export const CHAT_TEXT: Record<string, ChatText> = {
       offlineModePrefix: 'ஆஃப்லைன் பயன்முறை (கடைசியாக புதுப்பிக்கப்பட்டது:',
       freshnessButtonLabel: 'தரவு புதுமை (<6ம)',
       freshnessQuery: 'தற்போதைய தரவு எவ்வளவு பழையது? 6 மணி நேரத்திற்கும் மேலாக பழையதாக இருந்தால் மீண்டும் பெறவும்.',
+      newConsultation: 'புதிய ஆலோசனை',
     },
   te: {
       lowRisk: 'తక్కువ ప్రమాదం',
@@ -71,6 +75,7 @@ export const CHAT_TEXT: Record<string, ChatText> = {
       offlineModePrefix: 'ఆఫ్‌లైన్ మోడ్ (చివరిగా నవీకరించబడింది:',
       freshnessButtonLabel: 'డేటా తాజాదనం (<6గం)',
       freshnessQuery: 'ప్రస్తుత డేటా ఎంత పాతది? 6 గంటలకు మించి పాతదైతే మళ్లీ పొందండి.',
+      newConsultation: 'కొత్త సంప్రదింపు',
     },
   bn: {
       lowRisk: 'কম ঝুঁকি',
@@ -84,6 +89,7 @@ export const CHAT_TEXT: Record<string, ChatText> = {
       offlineModePrefix: 'অফলাইন মোড (সর্বশেষ আপডেট:',
       freshnessButtonLabel: 'ডেটার সতেজতা (<৬ঘ)',
       freshnessQuery: 'বর্তমান তথ্য কত পুরনো? যদি ৬ ঘণ্টার বেশি পুরনো হয় তবে আবার আনুন।',
+      newConsultation: 'নতুন পরামর্শ',
     },
   gu: {
       lowRisk: 'ઓછું જોખમ',
@@ -97,6 +103,7 @@ export const CHAT_TEXT: Record<string, ChatText> = {
       offlineModePrefix: 'ઓફલાઇન મોડ (છેલ્લે અપડેટ થયું:',
       freshnessButtonLabel: 'ડેટા તાજગી (<6ક)',
       freshnessQuery: 'હાલનો ડેટા કેટલો જૂનો છે? જો 6 કલાકથી વધુ જૂનો હોય તો ફરીથી મેળવો.',
+      newConsultation: 'નવી સલાહ',
     },
   mr: {
       lowRisk: 'कमी धोका',
@@ -110,6 +117,7 @@ export const CHAT_TEXT: Record<string, ChatText> = {
       offlineModePrefix: 'ऑफलाइन मोड (शेवटचे अद्यतन:',
       freshnessButtonLabel: 'डेटा ताजेपणा (<6ता)',
       freshnessQuery: 'सध्याचा डेटा किती जुना आहे? 6 तासांपेक्षा जुना असल्यास पुन्हा मिळवा.',
+      newConsultation: 'नवीन सल्ला',
     },
   or: {
       lowRisk: 'କମ ବିପଦ',
@@ -123,6 +131,7 @@ export const CHAT_TEXT: Record<string, ChatText> = {
       offlineModePrefix: 'ଅଫଲାଇନ ମୋଡ୍ (ଶେଷ ଅଦ୍ୟତନ:',
       freshnessButtonLabel: 'ତଥ୍ୟ ସତେଜତା (<6ଘ)',
       freshnessQuery: 'ବର୍ତ୍ତମାନର ତଥ୍ୟ କେତେ ପୁରୁଣା? ଯଦି 6 ଘଣ୍ଟାରୁ ଅଧିକ ପୁରୁଣା ହୋଇଥାଏ, ପୁନଃ ଆଣନ୍ତୁ।',
+      newConsultation: 'ନୂତନ ପରାମର୍ଶ',
     },
   kn: {
       lowRisk: 'ಕಡಿಮೆ ಅಪಾಯ',
@@ -136,6 +145,7 @@ export const CHAT_TEXT: Record<string, ChatText> = {
       offlineModePrefix: 'ಆಫ್‌ಲೈನ್ ಮೋಡ್ (ಕೊನೆಯದಾಗಿ ನವೀಕರಿಸಲಾಗಿದೆ:',
       freshnessButtonLabel: 'ದತ್ತಾಂಶ ತಾಜಾತನ (<6ಗಂ)',
       freshnessQuery: 'ಪ್ರಸ್ತುತ ದತ್ತಾಂಶ ಎಷ್ಟು ಹಳೆಯದು? 6 ಗಂಟೆಗಳಿಗಿಂತ ಹಳೆಯದಾಗಿದ್ದರೆ ಮತ್ತೆ ಪಡೆಯಿರಿ.',
+      newConsultation: 'ಹೊಸ ಸಮಾಲೋಚನೆ',
     },
   hi: {
       lowRisk: 'कम जोखिम',
@@ -149,5 +159,6 @@ export const CHAT_TEXT: Record<string, ChatText> = {
       offlineModePrefix: 'ऑफलाइन मोड (अंतिम अपडेट:',
       freshnessButtonLabel: 'डेटा ताज़गी (<6घं)',
       freshnessQuery: 'वर्तमान डेटा कितना पुराना है? यदि 6 घंटे से अधिक पुराना है तो री-फ़ेच करें।',
+      newConsultation: 'नई सलाह',
     },
 };
